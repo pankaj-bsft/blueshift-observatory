@@ -1,0 +1,79 @@
+/* Blueshift Color Variables (from _colors.scss) */
+:root {
+  /* Gray Scale */
+  --ghost-white: #f8f9fc;
+  --gray-f5: #f5f5f5;
+  --gray-fc: #fcfcfd;
+  --gray-50: #fbfcfd;
+  --gray-100: #f9f9fb;
+  --gray-200: #f3f4f7;
+  --gray-300: #ebedF1;
+  --gray-400: #E3E6EB;
+  --gray-450: #cdd3db;
+  --gray-500: #8096AB;
+  --gray-600: #6A849B;
+  --gray-700: #5d7486;
+  --gray-800: #4c6072;
+  --gray-900: #2b3844;
+
+  /* Ultra (Purple) */
+  --ultra-100: #f8f8fd;
+  --ultra-300: #ebebfe;
+  --ultra-400: #dedeff;
+  --ultra-500: #b8b8ff;
+  --ultra-600: #828cf8;
+  --ultra-700: #4854f1;
+  --ultra-800: #393ed8;
+  --ultra-900: #0006b9;
+
+  /* Blue */
+  --blue-50: #f2f9ff;
+  --blue-100: #e3f1ff;
+  --blue-300: #c2e0ff;
+  --blue-400: #8fc7ff;
+  --blue-500: #61aeff;
+  --blue-550: #51ABF2;
+  --blue-600: #2790ff;
+  --blue-700: #137eee;
+  --blue-800: #006cdc;
+  --blue-900: #0063ca;
+
+  /* Green */
+  --green-100: #e5f9f0;
+  --green-300: #c1f0d8;
+  --green-600: #63dea6;
+  --green-700: #21cd7e;
+  --green-900: #14af68;
+
+  /* Yellow */
+  --yellow-100: #fffdd7;
+  --yellow-300: #fffa85;
+  --yellow-600: #f9ef01;
+  --yellow-900: #f9c201;
+
+  /* Red */
+  --red-50: #ffebee;
+  --red-100: #fed1d8;
+  --red-300: #f4999b;
+  --red-600: #f74d4f;
+  --red-900: #ee2e34;
+
+  /* Brand Colors */
+  --bsft-blue: #012c97;
+  --purple-primary: #8933ff;
+  --brown-primary: #a97700;
+
+  /* Sidebar Gradients */
+  --sidenav-grad-1: #0063ca;
+  --sidenav-grad-2: #393ed8;
+
+  /* Semantic Colors */
+  --success: var(--green-600);
+  --pending: var(--yellow-600);
+  --error: var(--red-600);
+  --complete: var(--blue-600);
+
+  /* Navigation */
+  --nav-width-expanded: 212px;
+  --nav-width-collapsed: 50px;
+}

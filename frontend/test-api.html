@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GPT API Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .badge { padding: 4px 8px; margin: 2px; display: inline-block; border-radius: 4px; font-weight: bold; }
+        .HIGH { background: #d4edda; color: #155724; }
+        .MEDIUM { background: #fff3cd; color: #856404; }
+        .LOW { background: #f8d7da; color: #721c24; }
+        .BAD { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>GPT API Test - IP Reputation Breakdown</h1>
+    <button onclick="loadData()">Load Data</button>
+    <div id="output"></div>
+
+    <script>
+        async function loadData() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:8001/api/gpt/overview-table');
+                const data = await response.json();
+                
+                let html = '<h2>Total Domains: ' + data.total + '</h2>';
+                
+                // Show domains with multiple IP reputation types
+                const multipleReps = data.domains.filter(d => Object.keys(d.ip_reputation).length > 1);
+                html += '<h3>Domains with Multiple IP Reputation Types: ' + multipleReps.length + '</h3>';
+                
+                // Show first 10 domains
+                data.domains.slice(0, 10).forEach(domain => {
+                    html += '<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc;">';
+                    html += '<strong>' + domain.domain + '</strong> - Domain Rep: ' + domain.domain_reputation + '<br>';
+                    html += 'IP Reputation (raw JSON): <pre>' + JSON.stringify(domain.ip_reputation, null, 2) + '</pre>';
+                    html += 'IP Reputation (badges): ';
+                    
+                    if (Object.keys(domain.ip_reputation).length > 0) {
+                        for (const [rep, count] of Object.entries(domain.ip_reputation)) {
+                            html += '<span class="badge ' + rep + '">' + rep + '(' + count + ')</span> ';
+                        }
+                    } else {
+                        html += '<span style="color: gray;">N/A</span>';
+                    }
+                    
+                    html += '</div>';
+                });
+                
+                output.innerHTML = html;
+            } catch (error) {
+                output.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

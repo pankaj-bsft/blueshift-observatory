@@ -1,0 +1,925 @@
+{
+  "metadata": {
+    "source": "Analysis of 814 DEL project tickets",
+    "date_generated": "2026-02-09",
+    "total_examples": 50,
+    "categories": [
+      "microsoft_blocks",
+      "ip_allocation",
+      "bounce_issues",
+      "spam_rate",
+      "warmup",
+      "yahoo_issues",
+      "gmail_issues",
+      "reputation",
+      "dns_auth",
+      "apple_issues"
+    ]
+  },
+  "training_examples": [
+    {
+      "id": "MS_001",
+      "category": "microsoft_blocks",
+      "customer_question": "We're getting blocked by Microsoft. All our Outlook emails are bouncing. What's wrong?",
+      "customer_context": {
+        "domain": "winning.com.au",
+        "symptoms": "High soft bounces to Hotmail/Outlook",
+        "duration": "Started yesterday",
+        "volume": "10,000 emails/day"
+      },
+      "ideal_response": {
+        "greeting": "I understand the urgency - Microsoft blocks can significantly impact your deliverability. Let's diagnose this quickly.",
+        "diagnosis_questions": [
+          "What bounce codes are you seeing? (Please share the exact error message)",
+          "Have you checked your Microsoft SNDS (Smart Network Data Services) account?",
+          "What's your current spam complaint rate?",
+          "Any recent changes to volume, content, or list source?"
+        ],
+        "immediate_actions": [
+          "Check SNDS at https://postmaster.live.com/snds/ for IP reputation status",
+          "Review bounce messages for specific error codes (5.7.x = spam block, 4.2.x = throttling)",
+          "Temporarily reduce sending volume by 50% while investigating"
+        ],
+        "common_causes": [
+          "Spam complaint rate exceeding 0.3%",
+          "Sending to stale/inactive email addresses",
+          "Sudden volume spike triggering filters",
+          "Authentication failures (SPF/DKIM)"
+        ],
+        "next_steps": "Based on your answers, I can provide specific guidance. If this is business-critical, I can escalate immediately to our deliverability team for 2-4 hour priority response.",
+        "escalation_trigger": "If customer confirms sustained blocking >24 hours OR SNDS shows red status OR spam rate >0.5%"
+      },
+      "similar_real_tickets": [
+        "winning.com.au - High number of soft bounces",
+        "Happyhead Microsoft blocks",
+        "Bluefinance IP block - Microsoft"
+      ]
+    },
+    {
+      "id": "MS_002",
+      "category": "microsoft_blocks",
+      "customer_question": "I'm getting error code 5.7.606 from Microsoft. What does this mean?",
+      "customer_context": {
+        "domain": "healthcare.com",
+        "error_code": "5.7.606",
+        "affected_esp": "Microsoft/Outlook"
+      },
+      "ideal_response": {
+        "greeting": "Error 5.7.606 from Microsoft indicates suspicious sending activity or reputation concerns.",
+        "explanation": "This specific error means Microsoft has detected patterns that concern their anti-spam systems. Common triggers include:\n- Sudden volume increases\n- Sending to many inactive addresses\n- High bounce or complaint rates\n- Unusual sending patterns",
+        "immediate_actions": [
+          "Reduce sending volume to Microsoft domains by 50-70%",
+          "Check SNDS for your IP reputation status",
+          "Review recent list sources - any new uploads or imports?",
+          "Verify authentication (SPF/DKIM) is passing"
+        ],
+        "resolution_timeline": "Typically resolves in 24-48 hours if you:\n- Reduce volume significantly\n- Focus only on engaged users (opened in last 30 days)\n- Maintain clean bounce rates (<3%)",
+        "prevention": "After resolution:\n- Implement gradual volume increases (no more than 20% week-over-week)\n- Regular list cleaning (remove 6+ month inactives)\n- Monitor SNDS daily during campaigns",
+        "escalation_note": "If blocking persists >48 hours despite volume reduction, escalate for detailed log analysis."
+      },
+      "similar_real_tickets": [
+        "healthcare.com - Microsoft domains soft bouncing",
+        "Base Camp Trading Microsoft bounce issue",
+        "Sequencing Microsoft IP block"
+      ]
+    },
+    {
+      "id": "IP_001",
+      "category": "ip_allocation",
+      "customer_question": "We're sending 75,000 emails per month. Do we need a dedicated IP?",
+      "customer_context": {
+        "monthly_volume": 75000,
+        "current_setup": "shared IP",
+        "primary_esp": "Microsoft/Outlook heavy"
+      },
+      "ideal_response": {
+        "recommendation": "Yes, I recommend transitioning to a dedicated IP based on your volume.",
+        "reasoning": [
+          "Your volume (75K/month) exceeds our 50K threshold for dedicated IP",
+          "Full control over your sender reputation",
+          "Better deliverability with Microsoft (your primary recipient base)",
+          "Isolates your reputation from other senders on shared pool"
+        ],
+        "setup_process": {
+          "timeline": "3-5 weeks total",
+          "phases": [
+            {
+              "phase": "Week 1",
+              "activity": "IP allocation and DNS setup",
+              "details": "We assign IP, provide DNS records, you publish to DNS"
+            },
+            {
+              "phase": "Weeks 2-5",
+              "activity": "Gradual warmup",
+              "details": "Start with 5K most engaged users, scale to full volume by week 5"
+            }
+          ]
+        },
+        "warmup_schedule": {
+          "week_1": "5,000 emails (most engaged users only)",
+          "week_2": "15,000 emails",
+          "week_3": "35,000 emails",
+          "week_4": "55,000 emails",
+          "week_5": "75,000+ emails (full volume)"
+        },
+        "requirements": [
+          "Consistent sending schedule (no long gaps)",
+          "Clean list (hard bounces removed, engaged users)",
+          "SPF/DKIM/DMARC properly configured",
+          "Daily monitoring during warmup"
+        ],
+        "next_steps": "I can start the IP allocation process now. I'll need:\n1. Primary sending domain(s)\n2. Confirmation of monthly volume\n3. Primary use case (marketing/transactional/mixed)\n4. Target go-live date\n\nShould I proceed with creating the allocation request?"
+      },
+      "similar_real_tickets": [
+        "IP allocation - newsletter.playboy.com | corporate.playboy.com",
+        "IP allocation - mail.basecamptrading.com",
+        "IP allocation - HeidebreichtChevrolet.mylocalautodealer.com"
+      ]
+    },
+    {
+      "id": "IP_002",
+      "category": "ip_allocation",
+      "customer_question": "Our IP has bad reputation. Can we just switch to a new IP to fix it?",
+      "customer_context": {
+        "current_issue": "Poor deliverability",
+        "ip_reputation": "Low",
+        "request": "New IP allocation"
+      },
+      "ideal_response": {
+        "important_note": "⚠️ Important: Switching IPs won't solve underlying reputation issues. New IPs require proper warmup and if root causes aren't fixed, the new IP will develop the same problems.",
+        "explanation": "While we can allocate a new IP, it's critical to understand:\n\n1. New IPs start with ZERO reputation (not good reputation)\n2. Warmup takes 4-6 weeks minimum\n3. Poor practices will damage new IP within days\n4. ESPs track domain reputation separately from IP\n\nSwitching IPs only helps if the reputation issue was caused by:\n✓ Sharing IP with bad actors (on shared pool)\n✓ Previous sender on dedicated IP had issues\n✓ One-time incident that's been resolved\n\n❌ IP switching WON'T help if caused by:\n- Poor list quality\n- High complaint rates\n- Low engagement\n- Bad sending practices",
+        "recommended_approach": "Before considering IP switch, let's:\n\n1. Diagnose root cause:\n   - What's your current complaint rate?\n   - Bounce rate?\n   - List source and age?\n   - Engagement metrics?\n\n2. Fix underlying issues:\n   - Clean list (remove inactives 6+ months)\n   - Improve content relevance\n   - Implement re-engagement campaigns\n   - Fix any authentication issues\n\n3. Reputation recovery (2-4 weeks):\n   - Send only to engaged users (opened in 30 days)\n   - Reduce volume temporarily\n   - Monitor metrics daily\n\nIf after 4 weeks you're still struggling, then we can discuss IP allocation.",
+        "ip_swap_criteria": "New IP makes sense if:\n- Current IP is on multiple blacklists (we can check)\n- Shared IP has systemic issues\n- You've fixed root causes and need fresh start\n- Ready to commit to proper 4-6 week warmup",
+        "next_steps": "Let's start with diagnosis:\n1. What's your current complaint rate and bounce rate?\n2. Can you share your engagement metrics (open/click rates)?\n3. When was your list last cleaned?\n\nBased on your answers, I'll recommend the best path forward."
+      },
+      "similar_real_tickets": [
+        "bluemodomedia: familybenefitupdates.com & granthelping.com - IP Swap requested due to bad reputation",
+        "Chocolatefinance IP blocked - Yahoo",
+        "wakeuphere.com - IP blocked"
+      ]
+    },
+    {
+      "id": "BOUNCE_001",
+      "category": "bounce_issues",
+      "customer_question": "Our bounce rate suddenly jumped to 15% this morning. What's happening?",
+      "customer_context": {
+        "bounce_rate": "15%",
+        "timeframe": "Started this morning",
+        "normal_rate": "2-3%"
+      },
+      "ideal_response": {
+        "urgency_acknowledgment": "A sudden jump to 15% needs immediate attention. Let's diagnose quickly.",
+        "critical_questions": [
+          "Which ESP(s) are showing high bounces? (Microsoft, Gmail, Yahoo, or all?)",
+          "Hard bounces (5.x.x) or soft bounces (4.x.x)? What exact error codes?",
+          "Did you upload a new list or change list sources recently?",
+          "Any changes to volume, content, or sending domain today?"
+        ],
+        "immediate_actions": [
+          "⚠️ PAUSE sending immediately to affected lists",
+          "Segment your list: Send test batch of 500 to known-good addresses",
+          "If test batch bounces: IP/reputation issue",
+          "If test batch succeeds: List quality issue"
+        ],
+        "diagnostic_framework": {
+          "if_hard_bounces_5.1.1": {
+            "meaning": "Invalid/non-existent email addresses",
+            "likely_cause": [
+              "Bad list upload",
+              "Typos in recent import",
+              "Old list that hasn't been cleaned",
+              "Purchased/scraped list"
+            ],
+            "solution": [
+              "Remove all hard bounces immediately",
+              "Validate list source",
+              "Implement email validation at signup",
+              "Review list acquisition practices"
+            ]
+          },
+          "if_soft_bounces_5.7.x": {
+            "meaning": "Spam/policy blocks",
+            "likely_cause": [
+              "IP reputation issue",
+              "Sudden volume spike",
+              "Content triggering filters",
+              "Authentication failures"
+            ],
+            "solution": [
+              "Check SNDS/Postmaster tools",
+              "Reduce volume by 70%",
+              "Review recent content changes",
+              "Verify SPF/DKIM passing"
+            ]
+          },
+          "if_soft_bounces_4.x.x": {
+            "meaning": "Temporary failures (throttling, greylisting)",
+            "likely_cause": [
+              "Sending too fast",
+              "Normal rate limiting",
+              "ESP throttling during high load"
+            ],
+            "solution": [
+              "Reduce send rate",
+              "Implement throttling (1-2K/hour per ESP)",
+              "These will retry automatically"
+            ]
+          }
+        },
+        "timeline_concern": "15% bounce rate can damage sender reputation within 24-48 hours. Action needed TODAY.",
+        "next_steps": "Please provide:\n1. Bounce breakdown by ESP\n2. Sample bounce messages (exact error codes)\n3. Any recent list/campaign changes\n\nBased on your answers, I'll provide specific recovery steps.\n\nIf you need immediate assistance, I can escalate to our deliverability team right now for detailed log analysis (2-4 hour response)."
+      },
+      "similar_real_tickets": [
+        "winning.com.au - High number of soft bounces",
+        "tuftandneedle.com - spike in soft bounces",
+        "usnews.com - Soft bounces with status code 550"
+      ]
+    },
+    {
+      "id": "BOUNCE_002",
+      "category": "bounce_issues",
+      "customer_question": "What's the difference between a hard bounce and a soft bounce?",
+      "customer_context": {
+        "knowledge_level": "beginner",
+        "current_issue": "trying to understand bounce reports"
+      },
+      "ideal_response": {
+        "simple_explanation": "Great question! Understanding bounce types is key to maintaining good deliverability.\n\n**HARD BOUNCES (5.x.x error codes)**\n- Permanent failures - these emails will never be delivered\n- The email address doesn't exist or is invalid\n- ✓ Action: Remove from your list IMMEDIATELY\n- ✓ Target: < 2% of your sends\n\n**SOFT BOUNCES (4.x.x error codes)**  \n- Temporary failures - might work if you retry later\n- Mailbox full, server temporarily down, message too large\n- ✓ Action: Automatic retry, but remove after 3-5 failed attempts\n- ✓ Target: < 5% of your sends",
+        "detailed_breakdown": {
+          "hard_bounce_codes": {
+            "5.1.1": "Email address doesn't exist - Remove immediately",
+            "5.1.2": "Domain doesn't exist - Remove immediately",
+            "5.1.10": "Recipient address rejected - Remove immediately"
+          },
+          "soft_bounce_codes": {
+            "4.2.2": "Mailbox full - Retry later, remove if persists",
+            "4.4.1": "Server connection issue - Temporary, will retry",
+            "4.7.1": "Greylisting (spam protection) - Normal, will succeed on retry"
+          },
+          "reputation_impacting_codes": {
+            "5.7.1": "Spam block - Impacts reputation, investigate immediately",
+            "5.7.606": "Microsoft suspicious activity - Reduce volume ASAP"
+          }
+        },
+        "best_practices": [
+          "Monitor daily bounce rates by ESP",
+          "Set up automatic hard bounce suppression",
+          "Soft bounce: Retry 3-5 times over 72 hours, then suppress",
+          "Alert if bounce rate >5% on any campaign",
+          "Weekly review of bounce trends"
+        ],
+        "your_current_metrics": "What are your current bounce rates? I can help you understand if they're within acceptable ranges:\n- Hard bounces: Should be <2%\n- Soft bounces: Should be <5%\n- Total bounces: Should be <7%",
+        "additional_help": "Would you like me to:\n1. Review your current bounce rates?\n2. Explain specific bounce codes you're seeing?\n3. Set up bounce monitoring best practices?"
+      },
+      "similar_real_tickets": [
+        "Marquee TV bounce investigations",
+        "rcsmediagroup.it - help with high level of soft bounces",
+        "usnews.com - high bounces"
+      ]
+    },
+    {
+      "id": "SPAM_001",
+      "category": "spam_rate",
+      "customer_question": "Google Postmaster shows our spam rate at 0.4%. Is that bad?",
+      "customer_context": {
+        "esp": "Gmail",
+        "spam_rate": "0.4%",
+        "tool": "Google Postmaster Tools"
+      },
+      "ideal_response": {
+        "immediate_answer": "Yes, 0.4% is above Gmail's recommended threshold and needs immediate attention.",
+        "context": "Gmail's thresholds:\n✓ Safe: < 0.1% (optimal)\n⚠️ Warning: 0.1% - 0.3% (monitor closely)\n❌ Problem: > 0.3% (impacts deliverability)\n\nYour 0.4% is in the problem zone and likely already affecting your inbox placement.",
+        "impact_assessment": {
+          "current_impact": "At 0.4%, you're likely experiencing:\n- Reduced inbox placement (more spam folder)\n- Lower engagement rates\n- Potential sender reputation damage\n- Risk of further filtering increases",
+          "urgency": "⚠️ You need to get this below 0.3% within 7-14 days to prevent lasting damage"
+        },
+        "immediate_actions": [
+          "Stop sending to unengaged users (no opens in 90+ days) - TODAY",
+          "Reduce overall volume by 30-50% temporarily",
+          "Send ONLY to users who opened/clicked in last 30 days",
+          "Review recent content changes - anything new that coincides with spam spike?"
+        ],
+        "diagnosis_questions": [
+          "When did spam rate start increasing?",
+          "What's your current unsubscribe rate?",
+          "Any recent list acquisitions or sources?",
+          "How often do you clean inactive subscribers?",
+          "Do you use double opt-in for new signups?"
+        ],
+        "recovery_plan": {
+          "week_1": {
+            "actions": [
+              "Send only to 30-day engaged users",
+              "Reduce volume by 50%",
+              "Implement clear unsubscribe in every email",
+              "Review and improve content relevance"
+            ],
+            "target": "Get spam rate to 0.3% or below"
+          },
+          "week_2_3": {
+            "actions": [
+              "Gradually expand to 60-day engaged users",
+              "Increase volume by 10% per week",
+              "Monitor Google Postmaster daily",
+              "A/B test subject lines for better engagement"
+            ],
+            "target": "Maintain spam rate < 0.2%"
+          },
+          "week_4_plus": {
+            "actions": [
+              "Implement re-engagement campaign for 90-180 day inactives",
+              "Remove non-responders after 2-3 attempts",
+              "Establish permanent list hygiene schedule"
+            ],
+            "target": "Maintain spam rate < 0.1%"
+          }
+        },
+        "prevention": "Long-term fixes:\n1. Never purchase lists\n2. Double opt-in for all new subscribers\n3. Prominent unsubscribe link\n4. Automatic suppression of 180+ day inactives\n5. Preference center for frequency control\n6. Regular list cleaning (monthly)",
+        "monitoring": "Check these daily during recovery:\n- Gmail Postmaster spam rate\n- Domain/IP reputation scores  \n- Inbox placement rate\n- Engagement metrics (opens/clicks)",
+        "escalation_offer": "If spam rate continues increasing or doesn't improve in 7 days, let me know immediately - I'll escalate for detailed analysis."
+      },
+      "similar_real_tickets": [
+        "spam rate exceeds 0.3% for EPC",
+        "stitchfix.com - Increased spam rate",
+        "zumper.com - Query around increase in spam rate *Urgent*"
+      ]
+    },
+    {
+      "id": "SPAM_002",
+      "category": "spam_rate",
+      "customer_question": "Users are marking our emails as spam. How do I stop this?",
+      "customer_context": {
+        "issue": "High spam complaint rate",
+        "user_feedback": "Customers complaining"
+      },
+      "ideal_response": {
+        "empathy": "I understand the frustration when users mark legitimate emails as spam. Let's identify and fix the root causes.",
+        "why_users_mark_spam": {
+          "common_reasons": [
+            "Don't remember subscribing (no clear opt-in confirmation)",
+            "Receiving too many emails (frequency fatigue)",
+            "Content isn't relevant to their interests",
+            "Misleading subject lines (clickbait)",
+            "No easy way to unsubscribe (so they hit spam instead)",
+            "Emails look like phishing/scams (poor design/authentication)"
+          ]
+        },
+        "immediate_audit": "Let's check your current setup:\n\n1. **Signup Process**\n   ✓ Do you use double opt-in?\n   ✓ Is the confirmation email clear about what they're subscribing to?\n   ✓ Do you send a welcome email immediately?\n\n2. **Unsubscribe Process**\n   ✓ Is unsubscribe link visible in every email?\n   ✓ Is it one-click (no login required)?\n   ✓ Do you honor unsubscribes within 24 hours?\n   ✓ Do you offer a preference center (reduce frequency vs full unsubscribe)?\n\n3. **Sending Frequency**\n   ✓ How often do you email?\n   ✓ Can users control frequency?\n   ✓ Do you send at consistent times?\n\n4. **Content Relevance**\n   ✓ Do you segment by interests?\n   ✓ Do you personalize content?\n   ✓ Do subject lines match email content?",
+        "quick_wins": {
+          "implementation_time": "< 1 week",
+          "high_impact_fixes": [
+            {
+              "fix": "Add prominent unsubscribe link at TOP and bottom of email",
+              "impact": "Reduces spam complaints by 30-50%",
+              "why": "Users will unsubscribe properly instead of hitting spam"
+            },
+            {
+              "fix": "Implement preference center (frequency + topic selection)",
+              "impact": "Reduces complaints by 20-40%",
+              "why": "Users feel in control, less likely to mark spam"
+            },
+            {
+              "fix": "Send confirmation email after signup with clear expectations",
+              "impact": "Reduces future complaints by 40-60%",
+              "why": "Users remember subscribing and know what to expect"
+            },
+            {
+              "fix": "Remove inactive subscribers (6+ months no opens)",
+              "impact": "Reduces complaints by 25-35%",
+              "why": "Inactive users forget subscribing and mark as spam"
+            }
+          ]
+        },
+        "subject_line_best_practices": "Avoid spam-trigger words and tactics:\n\n❌ Avoid:\n- ALL CAPS or excessive !!!\n- 'FREE', 'ACT NOW', 'LIMITED TIME'\n- Misleading clickbait\n- $$$, 💰 symbols\n- RE: or FWD: when it's not a reply\n\n✓ Use:\n- Honest, descriptive subject lines\n- Personalization (first name, relevant context)\n- Clear value proposition\n- Brand name included\n- Sentence case (not title case or all caps)",
+        "content_best_practices": [
+          "Use recognizable 'From' name (your brand, not generic)",
+          "Include physical address (required by law)",
+          "Maintain consistent brand voice/design",
+          "Mobile-responsive design (60%+ open on mobile)",
+          "Alt text for images (many users block images)",
+          "Balance text/image ratio (not image-only)"
+        ],
+        "measurement": "Target spam complaint rates:\n- Gmail: < 0.1%\n- Microsoft: < 0.3%\n- Yahoo: < 0.1%\n- Overall: < 0.1%\n\nCurrent rate above these? Implement fixes urgently.",
+        "next_steps": "Answer these questions and I'll provide specific recommendations:\n1. What's your current spam complaint rate?\n2. Do you use double opt-in?\n3. How visible is your unsubscribe link?\n4. How often do you send emails?\n5. When did you last clean inactive subscribers?"
+      },
+      "similar_real_tickets": [
+        "playmakers.com - Spam report check for yahoo users",
+        "vacationmyrtlebeach.com - query around spam reports reported by google postmaster",
+        "goldbely.com - Users mass unsubscribing from campaigns"
+      ]
+    },
+    {
+      "id": "WARMUP_001",
+      "category": "warmup",
+      "customer_question": "We just got a new dedicated IP. How do we warm it up properly?",
+      "customer_context": {
+        "new_ip": true,
+        "ip_type": "dedicated",
+        "monthly_volume": "100K emails"
+      },
+      "ideal_response": {
+        "congratulations": "Great! Proper IP warmup is critical for long-term deliverability success.",
+        "why_warmup_matters": "New IPs have ZERO reputation with ESPs. Sending high volume immediately triggers spam filters. Warmup builds positive reputation gradually.\n\n⚠️ Skip warmup = Instant blocks from Microsoft, Gmail, Yahoo",
+        "warmup_schedule_100k": {
+          "total_duration": "5-6 weeks to reach full 100K/month volume",
+          "weekly_breakdown": [
+            {
+              "week": 1,
+              "daily_volume": "200-500 emails/day",
+              "weekly_total": "1,500-3,000",
+              "audience": "Your BEST engaged users (opened within 7 days)",
+              "esp_focus": "Gmail first (most forgiving)",
+              "monitoring": "Bounce rate <2%, spam rate <0.1%"
+            },
+            {
+              "week": 2,
+              "daily_volume": "1,000-2,000 emails/day",
+              "weekly_total": "7,000-14,000",
+              "audience": "Engaged users (opened within 30 days)",
+              "esp_focus": "Add Yahoo (moderate)",
+              "monitoring": "Bounce rate <3%, spam rate <0.1%"
+            },
+            {
+              "week": 3,
+              "daily_volume": "3,000-5,000 emails/day",
+              "weekly_total": "21,000-35,000",
+              "audience": "Opened within 60 days",
+              "esp_focus": "Add Microsoft/Outlook (most strict)",
+              "monitoring": "Bounce rate <4%, spam rate <0.2%"
+            },
+            {
+              "week": 4,
+              "daily_volume": "6,000-10,000 emails/day",
+              "weekly_total": "42,000-70,000",
+              "audience": "Opened within 90 days",
+              "esp_focus": "All ESPs, watch Microsoft closely",
+              "monitoring": "Bounce rate <3%, spam rate <0.15%"
+            },
+            {
+              "week": 5,
+              "daily_volume": "12,000-15,000 emails/day",
+              "weekly_total": "84,000-100,000+",
+              "audience": "Full active list",
+              "esp_focus": "All ESPs at full volume",
+              "monitoring": "Bounce rate <2%, spam rate <0.1%"
+            }
+          ]
+        },
+        "critical_success_factors": [
+          "**Audience Quality**: Start with your BEST users - high engagement is key",
+          "**Gradual Increase**: Never increase more than 100% week-over-week",
+          "**ESP-Specific Throttling**: Microsoft 200/hour, Gmail 500/hour, Yahoo 300/hour initially",
+          "**Content Excellence**: Use your best-performing content during warmup",
+          "**Daily Monitoring**: Check metrics EVERY DAY during warmup",
+          "**Consistency**: Send every day or every other day - don't skip days"
+        ],
+        "red_flags_pause_immediately": [
+          "Bounce rate >5%",
+          "Spam complaint rate >0.3%",
+          "Microsoft deferrals increasing",
+          "Gmail Postmaster shows 'Bad' reputation",
+          "Hard blocks (not just throttling/greylisting)"
+        ],
+        "if_you_see_red_flags": "If any red flag appears:\n1. STOP sending immediately\n2. Don't resume for 24-48 hours\n3. When resuming, drop volume by 50-75%\n4. Contact me for detailed analysis",
+        "esp_specific_tips": {
+          "microsoft": "Most strict ESP during warmup:\n- Start with only 100-200 emails/day\n- Expect some deferrals (4.7.x) - this is normal\n- Check SNDS daily: https://postmaster.live.com/snds/\n- Takes 6-8 weeks to build good reputation",
+          "gmail": "Most forgiving, best to start here:\n- Can start with 500-1,000/day\n- Monitor Google Postmaster Tools\n- Engagement is most important factor\n- Usually stabilizes by week 3-4",
+          "yahoo": "Moderate, but very throttle-happy:\n- Start with 200-500/day\n- Expect many deferrals - totally normal\n- Max 1-2K/hour even after warmup\n- Be patient, gradually builds trust"
+        },
+        "monitoring_checklist": "Check these metrics DAILY:\n□ Bounce rate by ESP\n□ Spam complaint rate\n□ Inbox placement (use seed lists)\n□ Engagement rates (opens/clicks)\n□ Deferral rates (especially Yahoo)\n□ SNDS status (Microsoft)\n□ Google Postmaster reputation\n□ Any blacklist additions",
+        "tools_needed": [
+          "Google Postmaster Tools (register at postmaster.google.com)",
+          "Microsoft SNDS (register at postmaster.live.com/snds/)",
+          "Seed list testing (250ok, GlockApps, or Email on Acid)",
+          "Blacklist monitoring (MXToolbox)"
+        ],
+        "realistic_expectations": "What to expect:\n- Week 1-2: Lots of throttling/deferrals = NORMAL\n- Week 2-3: Gmail stabilizes first\n- Week 3-4: Yahoo improves\n- Week 4-6: Microsoft finally stabilizes\n- Week 6+: Full sending capability\n\nThis is a 6-week investment that protects your deliverability for years.",
+        "next_steps": "Ready to start?\n\n1. Confirm you have:\n   ✓ List segmented by engagement (recency)\n   ✓ Best content selected for warmup\n   ✓ Monitoring tools set up\n   ✓ SPF/DKIM/DMARC configured\n\n2. I can provide:\n   ✓ Customized warmup schedule spreadsheet\n   ✓ Daily monitoring checklist\n   ✓ Throttling configurations by ESP\n   ✓ Escalation contact if issues arise\n\nWould you like me to create your customized warmup plan?"
+      },
+      "similar_real_tickets": [
+        "xceed.me - Blocked Bounces (5.7.0) at Apple/iCloud - Warmup Phase",
+        "xceed.com (EU) - Warm up emails don't have clicks for Gmail, Yahoo, Apple, Outlook",
+        "Goodlab low delivery rate at Gmail due to reputation related bounce"
+      ]
+    },
+    {
+      "id": "YAHOO_001",
+      "category": "yahoo_issues",
+      "customer_question": "Yahoo keeps deferring our emails with error 421 4.7.0. Are we blocked?",
+      "customer_context": {
+        "esp": "Yahoo",
+        "error_code": "421 4.7.0",
+        "concern": "Think they're blocked"
+      },
+      "ideal_response": {
+        "immediate_reassurance": "Good news: You're NOT blocked! Error 421 4.7.0 is Yahoo's normal throttling behavior.",
+        "explanation": "**421 4.7.0 'Messages temporarily deferred'** means:\n- Yahoo is accepting your mail but at a slower rate\n- This is rate limiting, NOT a block\n- Very common and expected with Yahoo\n- Your messages WILL be delivered, just slower",
+        "why_yahoo_throttles": "Yahoo is much more aggressive with rate limiting than other ESPs:\n\n**Yahoo's Limits:**\n- Max 10-15 simultaneous connections\n- Max 1-2 connections per second\n- Message rate varies by sender reputation (typically 1,000-3,000/hour)\n\nExceed these = Deferrals (421 errors)",
+        "what_to_do": {
+          "immediate_action": "Reduce your sending rate to Yahoo by 50-70%",
+          "recommended_rates_by_reputation": [
+            {
+              "reputation": "New IP/Domain (0-2 weeks)",
+              "rate": "200-500 emails/hour"
+            },
+            {
+              "reputation": "Establishing (2-8 weeks)",
+              "rate": "500-1,000 emails/hour"
+            },
+            {
+              "reputation": "Good (8+ weeks)",
+              "rate": "1,000-2,000 emails/hour"
+            },
+            {
+              "reputation": "Excellent (6+ months)",
+              "rate": "2,000-3,000 emails/hour"
+            }
+          ],
+          "configuration": "Set throttling limits in your sending configuration:\n- Yahoo connections: Max 10 simultaneous\n- Yahoo rate: 1,000-2,000 messages/hour\n- Connection rate: 1 per second\n- Spread sends over entire day (not burst sending)"
+        },
+        "when_deferrals_are_normal": "✓ Acceptable: 10-30% deferral rate with Yahoo\n✓ Most will deliver on 2nd or 3rd retry\n✓ Automatic retry system handles this\n✓ Usually all deliver within 4-6 hours",
+        "when_to_worry": "⚠️ Red flags (these indicate real problems, not normal throttling):\n- Deferrals >50%\n- Messages never delivering after 24 hours\n- Hard blocks (5.x.x codes) instead of 4.x.x\n- Yahoo Postmaster complaints about spam\n- Increasing deferral rate over time",
+        "optimization_tips": [
+          "Send Yahoo users during off-peak hours (8pm-6am ET)",
+          "Spread Yahoo volume over 24 hours, not in bursts",
+          "Never send to Yahoo users all at once",
+          "Segment Yahoo users separately for better control",
+          "Consider sending Yahoo on different days than Gmail/Microsoft"
+        ],
+        "yahoo_best_practices": {
+          "list_hygiene": "Yahoo is very sensitive to:\n- Old/inactive addresses\n- Role accounts (info@, admin@)\n- Spam traps\n→ Clean Yahoo addresses especially carefully",
+          "content": "Yahoo scrutinizes:\n- Subject line authenticity\n- Image-to-text ratio\n- Link density\n→ Keep content clean and balanced",
+          "authentication": "Yahoo requires:\n- SPF pass (critical)\n- DKIM pass (critical)\n- DMARC recommended\n→ Check authentication is perfect"
+        },
+        "real_block_vs_throttling": {
+          "throttling_421": "Code 421 4.7.0 = Normal throttling ✓\n- Will deliver eventually\n- Just slower than you're sending\n- Reduce rate and carry on",
+          "real_block": "Code 554 5.7.x = Actual block ⚠️\n- Reputation issue\n- Requires investigation\n- May need recovery period\n- Need to escalate"
+        },
+        "monitoring": "For Yahoo specifically, track:\n- Deferral rate (421 codes)\n- Final delivery rate (should be >98%)\n- Time to delivery\n- Complaint rate (should be <0.1%)",
+        "next_steps": "Current actions:\n\n1. Reduce Yahoo sending rate by 50% immediately\n2. Implement throttling (1,500-2,000/hour max)\n3. Monitor for 48 hours\n4. If deferrals decrease: Gradually increase rate\n5. If deferrals persist or worsen: Let me know for escalation\n\nWhat's your current sending rate to Yahoo domains?"
+      },
+      "similar_real_tickets": [
+        "Gohealth Yahoo temporary deferrals",
+        "Sequence Yahoo deferral issue",
+        "Playboy Yahoo deferrals issue",
+        "Beautyrest Yahoo deferrals issue"
+      ]
+    },
+    {
+      "id": "GMAIL_001",
+      "category": "gmail_issues",
+      "customer_question": "My emails are going to Gmail spam folder. Google Postmaster shows 'Medium' reputation. How do I fix this?",
+      "customer_context": {
+        "esp": "Gmail",
+        "issue": "Spam folder placement",
+        "gpt_reputation": "Medium"
+      },
+      "ideal_response": {
+        "assessment": "'Medium' reputation on Google Postmaster means you're on the borderline. Gmail is watching your sending patterns closely.",
+        "gmail_reputation_explained": {
+          "high": "Excellent sender, strong inbox placement (>90%)",
+          "medium": "Borderline sender, mixed placement (50-80% inbox)",
+          "low": "Poor sender, mostly spam folder (<50% inbox)",
+          "bad": "Severely blocked, inbox placement <10%"
+        },
+        "current_situation": "With 'Medium' reputation:\n- You're in danger zone\n- Can improve OR get worse depending on next actions\n- Approximately 50-70% spam folder placement\n- Need immediate corrective action",
+        "gmail_ranking_factors": {
+          "most_important": [
+            {
+              "factor": "User Engagement",
+              "weight": "40-50%",
+              "details": "Opens, reads, replies, forwards, moves from spam to inbox",
+              "your_action": "Send ONLY to users who engaged in last 30 days"
+            },
+            {
+              "factor": "Spam Complaints",
+              "weight": "30-40%",
+              "details": "Users marking as spam",
+              "your_action": "Must get spam rate below 0.1% (check Postmaster)"
+            },
+            {
+              "factor": "Authentication",
+              "weight": "10-15%",
+              "details": "SPF, DKIM, DMARC passing",
+              "your_action": "Verify all passing in Postmaster"
+            },
+            {
+              "factor": "Infrastructure",
+              "weight": "5-10%",
+              "details": "IP reputation, domain age, TLS encryption",
+              "your_action": "Ensure TLS enabled, check IP reputation"
+            }
+          ]
+        },
+        "immediate_recovery_plan": {
+          "phase_1_week_1": {
+            "goal": "Stop reputation decline",
+            "actions": [
+              "Send ONLY to users who opened in last 30 days",
+              "Reduce volume by 50%",
+              "Use your best-performing content",
+              "A/B test subject lines for higher opens",
+              "Make unsubscribe prominent"
+            ],
+            "metrics_to_watch": [
+              "Spam rate (must drop below 0.2%)",
+              "Open rate (should increase >15%)",
+              "Unsubscribe rate (should be <1%)"
+            ]
+          },
+          "phase_2_week_2_3": {
+            "goal": "Build positive engagement",
+            "actions": [
+              "Expand to 60-day engaged users",
+              "Increase volume by 10% per week",
+              "Implement re-engagement campaign for 90-180 day inactives",
+              "Remove non-responders after 2 attempts",
+              "Continue A/B testing"
+            ],
+            "success_indicators": [
+              "Spam rate <0.1%",
+              "Postmaster reputation improving",
+              "Open rates stable or increasing"
+            ]
+          },
+          "phase_3_week_4_plus": {
+            "goal": "Achieve 'High' reputation",
+            "actions": [
+              "Maintain strict list hygiene (remove 180+ day inactives)",
+              "Focus on segmentation and personalization",
+              "Consistent sending schedule",
+              "Monitor Postmaster weekly"
+            ],
+            "target": "Reach 'High' reputation in 4-8 weeks"
+          }
+        },
+        "quick_wins_for_gmail": [
+          {
+            "action": "Personalize subject lines with first name",
+            "impact": "+15-25% open rate",
+            "effort": "Low"
+          },
+          {
+            "action": "Send from a person's name (not generic company)",
+            "impact": "+10-20% open rate",
+            "effort": "Low"
+          },
+          {
+            "action": "Segment by last engagement date",
+            "impact": "Reduces spam rate 30-50%",
+            "effort": "Medium"
+          },
+          {
+            "action": "A/B test send times",
+            "impact": "+10-15% engagement",
+            "effort": "Low"
+          },
+          {
+            "action": "Mobile-optimize all emails",
+            "impact": "+20-30% engagement (60% open on mobile)",
+            "effort": "Medium"
+          }
+        },
+        "what_not_to_do": "❌ These will make it WORSE:\n- Purchasing lists\n- Sending to old/inactive users\n- Increasing volume\n- Using clickbait subject lines\n- Image-only emails\n- Frequent sending to unengaged users",
+        "google_postmaster_tools": "Monitor these metrics daily:\n\n**Critical Metrics:**\n1. Spam rate - Target: <0.1%\n2. Domain reputation - Target: High\n3. IP reputation - Target: High\n4. SPF/DKIM/DMARC - Target: All passing\n5. Encryption - Target: TLS (should show 100%)\n\n**How to Access:**\n1. Go to postmaster.google.com\n2. Verify your sending domain\n3. Check dashboard daily during recovery",
+        "realistic_timeline": "**Week 1-2:** Reputation should stabilize at 'Medium'\n**Week 3-4:** May see improvement to 'Medium' high\n**Week 4-8:** Can reach 'High' if actions followed\n\nGmail reputation changes slowly - be patient and consistent.",
+        "when_to_escalate": "Escalate to our team if:\n- Reputation drops to 'Low' or 'Bad'\n- Spam rate keeps increasing despite actions\n- No improvement after 3-4 weeks\n- Need detailed engagement analysis",
+        "next_steps": "Let's review your current metrics:\n\n1. What's your spam rate in Google Postmaster?\n2. What's your current open rate?\n3. When did you last clean inactive subscribers?\n4. Are you using segmentation by engagement?\n5. What's your current sending frequency?\n\nBased on your answers, I'll create a customized recovery plan."
+      },
+      "similar_real_tickets": [
+        "Goodlab low delivery rate at Gmail due to reputation related bounce",
+        "turbodebt.com - \"douge719@gmail.com\" has been hard bounced but still able to receive",
+        "xceed.com (EU) - Warm up emails don't have clicks for Gmail, Yahoo, Apple, Outlook"
+      ]
+    },
+    {
+      "id": "DNS_001",
+      "category": "dns_auth",
+      "customer_question": "How do I set up SPF, DKIM, and DMARC? I'm confused about what records to add.",
+      "customer_context": {
+        "technical_level": "beginner",
+        "current_setup": "none",
+        "domain": "example.com"
+      },
+      "ideal_response": {
+        "overview": "Great question! Email authentication is critical for deliverability. I'll walk you through each record and provide exactly what you need to add.",
+        "why_authentication_matters": "Without proper authentication:\n❌ Microsoft/Gmail will filter to spam\n❌ Higher bounce rates\n❌ Phishing protection may block you\n❌ DMARC reports show failures\n\nWith proper authentication:\n✓ Better inbox placement\n✓ Lower spam rates\n✓ Brand protection\n✓ Required by most ESPs",
+        "step_by_step_setup": {
+          "step_1_spf": {
+            "what_it_is": "SPF (Sender Policy Framework) lists which mail servers are allowed to send email for your domain.",
+            "record_type": "TXT record",
+            "where_to_add": "Your domain's DNS (example.com)",
+            "example_record": "v=spf1 include:_spf.blueshift.com ~all",
+            "breakdown": {
+              "v=spf1": "SPF version (always starts with this)",
+              "include:_spf.blueshift.com": "Authorizes Blueshift to send for your domain",
+              "~all": "Soft fail for others (use -all for hard fail after testing)"
+            },
+            "your_exact_record": "For Blueshift customers:\n\nHost: @ (or leave blank, or example.com)\nType: TXT\nValue: v=spf1 include:_spf.blueshift.com ~all\nTTL: 3600 (or default)\n\nNote: If you have existing SPF, ADD include:_spf.blueshift.com before the ~all",
+            "common_mistakes": [
+              "❌ Having multiple SPF records (only 1 allowed)",
+              "❌ Exceeding 10 DNS lookups",
+              "❌ Forgetting ~all or -all at the end",
+              "❌ Not including all sending services"
+            ],
+            "testing": "Verify after 1-24 hours:\n- Use MXToolbox.com SPF checker\n- Send test email to mail-tester.com\n- Check passes 10/10"
+          },
+          "step_2_dkim": {
+            "what_it_is": "DKIM (DomainKeys Identified Mail) adds a digital signature to your emails proving they're authentic.",
+            "record_type": "TXT or CNAME record",
+            "where_to_add": "Subdomain provided by Blueshift",
+            "blueshift_process": "1. Blueshift generates unique DKIM keys for you\n2. We provide 2-3 CNAME records to add\n3. You add them to your DNS\n4. We verify and enable",
+            "example_records": "You'll receive records like:\n\nHost: bshift1._domainkey.example.com\nType: CNAME\nValue: bshift1.dkim.blueshift.com\n\nHost: bshift2._domainkey.example.com  \nType: CNAME\nValue: bshift2.dkim.blueshift.com",
+            "your_action": "I can generate your specific DKIM records now. What's your sending domain?",
+            "common_mistakes": [
+              "❌ Typo in the subdomain (_domainkey is common mistake)",
+              "❌ Using TXT instead of CNAME (when CNAME provided)",
+              "❌ Not waiting for DNS propagation (24-48 hours)"
+            ],
+            "testing": "Verify after 24-48 hours:\n- Use MXToolbox.com DKIM checker\n- Selector name provided by Blueshift\n- Should show valid DKIM record"
+          },
+          "step_3_dmarc": {
+            "what_it_is": "DMARC (Domain-based Message Authentication) tells receivers what to do if SPF/DKIM fail, and sends you reports.",
+            "record_type": "TXT record",
+            "where_to_add": "_dmarc.example.com (subdomain)",
+            "example_record": "v=DMARC1; p=none; rua=mailto:dmarc@example.com; ruf=mailto:dmarc@example.com; fo=1",
+            "breakdown": {
+              "v=DMARC1": "DMARC version",
+              "p=none": "Policy (none=monitor, quarantine=spam, reject=block)",
+              "rua": "Where to send aggregate reports",
+              "ruf": "Where to send forensic reports",
+              "fo=1": "Generate report if either SPF or DKIM fails"
+            },
+            "your_exact_record": "Start with monitoring policy:\n\nHost: _dmarc.example.com (or _dmarc)\nType: TXT\nValue: v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com; pct=100; fo=1\nTTL: 3600",
+            "policy_progression": "**Phase 1 (Weeks 1-4): p=none**\n- Monitor only, don't block anything\n- Review reports weekly\n- Fix any authentication issues\n\n**Phase 2 (Weeks 5-8): p=quarantine**  \n- Failed emails go to spam\n- Still monitoring reports\n- Ensure no legitimate mail fails\n\n**Phase 3 (Week 9+): p=reject**\n- Failed emails completely rejected\n- Strongest protection\n- Only after confirming no false positives",
+            "reports_explained": "DMARC reports show:\n- Who's sending email from your domain\n- Whether emails pass/fail authentication\n- Unauthorized senders (potential spoofing)\n- Volume by sending source\n\nUse free tools like dmarcian.com or Postmark to parse reports",
+            "common_mistakes": [
+              "❌ Starting with p=reject (too aggressive)",
+              "❌ Not monitoring reports",
+              "❌ Using email address you don't monitor",
+              "❌ Forgetting to create _dmarc subdomain"
+            ],
+            "testing": "Verify after 24-48 hours:\n- Use MXToolbox.com DMARC checker\n- Should show valid record\n- Start receiving daily reports"
+          }
+        },
+        "complete_setup_checklist": "□ SPF record added\n□ SPF verified with MXToolbox\n□ DKIM records requested from Blueshift\n□ DKIM CNAMEs added to DNS\n□ DKIM verified after 48 hours\n□ DMARC record added with p=none\n□ DMARC verified with MXToolbox\n□ DMARC reports being received\n□ Test email to mail-tester.com scores 10/10\n□ Google Postmaster shows SPF/DKIM passing\n□ Microsoft SNDS shows authentication passing",
+        "dns_provider_guides": "Different DNS providers have slightly different interfaces:\n\n**GoDaddy**: DNS Management > Add Record\n**Cloudflare**: DNS tab > Add Record\n**AWS Route53**: Hosted Zones > Create Record\n**Namecheap**: Advanced DNS > Add New Record\n\nNeed specific help with your DNS provider? Let me know which one.",
+        "propagation_time": "⏱️ DNS changes take time:\n- Minimum: 1 hour\n- Typical: 4-6 hours\n- Maximum: 24-48 hours\n\nDon't panic if verification doesn't work immediately. Wait 24 hours before troubleshooting.",
+        "troubleshooting": {
+          "spf_not_passing": [
+            "Check for typos in record",
+            "Verify only ONE SPF record exists",
+            "Count DNS lookups (must be ≤10)",
+            "Ensure ~all or -all at end"
+          ],
+          "dkim_not_passing": [
+            "Wait full 48 hours for propagation",
+            "Verify exact selector name",
+            "Check for typos in _domainkey",
+            "Confirm CNAME vs TXT record type"
+          ],
+          "dmarc_not_passing": [
+            "Verify _dmarc subdomain created",
+            "Check for typo in v=DMARC1",
+            "Ensure semicolons between policies",
+            "Verify email address for reports is valid"
+          ]
+        },
+        "next_steps": "Let's get you set up:\n\n1. What's your sending domain?\n2. Who is your DNS provider? (GoDaddy, Cloudflare, etc.)\n3. Do you currently have any SPF records?\n4. Do you send from other platforms besides Blueshift? (If yes, which?)\n\nOnce you provide this info, I'll:\n✓ Generate your exact DNS records\n✓ Provide copy-paste ready values\n✓ Give provider-specific instructions\n✓ Verify setup after you've added records"
+      },
+      "similar_real_tickets": [
+        "oceanescape.com - help with checking domain mb.oceanescape.com for DNS issue",
+        "hotelzazz.com - Records check is needed",
+        "lesanciennes.com (EU) - Deliverability affected due to Microsoft users"
+      ]
+    },
+    {
+      "id": "REP_001",
+      "category": "reputation",
+      "customer_question": "Our sender reputation is poor. How long does it take to recover?",
+      "customer_context": {
+        "current_reputation": "Poor",
+        "looking_for": "Recovery timeline"
+      },
+      "ideal_response": {
+        "honest_answer": "Reputation recovery typically takes 2-8 weeks depending on severity and actions taken. Let's assess your specific situation.",
+        "reputation_recovery_factors": {
+          "severity_assessment": [
+            {
+              "level": "Minor Issues",
+              "indicators": "Bounce rate 5-8%, Spam rate 0.3-0.5%, Some deferrals",
+              "recovery_time": "2-3 weeks",
+              "difficulty": "Moderate"
+            },
+            {
+              "level": "Moderate Issues",
+              "indicators": "Bounce rate 8-12%, Spam rate 0.5-1%, Frequent blocks",
+              "recovery_time": "4-6 weeks",
+              "difficulty": "Challenging"
+            },
+            {
+              "level": "Severe Issues",
+              "indicators": "Bounce rate >12%, Spam rate >1%, Blacklisted, Complete blocks",
+              "recovery_time": "6-12 weeks",
+              "difficulty": "Very Difficult"
+            }
+          ]
+        },
+        "diagnosis_questions": "To assess your situation, I need to know:\n\n1. **Current Metrics:**\n   - Bounce rate: ___%\n   - Spam complaint rate: ___%\n   - Open rate: ___%\n\n2. **Reputation Indicators:**\n   - Microsoft SNDS status: (Green/Yellow/Red/Not registered)\n   - Google Postmaster reputation: (High/Medium/Low/Bad)\n   - Any blacklists: (Which ones?)\n\n3. **Root Causes:**\n   - List source: (Organic/Purchased/Mixed)\n   - Last list cleaning: (Date)\n   - Recent changes: (Volume/Content/Sender)\n\n4. **Duration:**\n   - When did problems start: (Date)\n   - Actions taken so far: (List)",
+        "recovery_roadmap": {
+          "phase_1_immediate": {
+            "duration": "Days 1-7",
+            "goal": "Stop the bleeding",
+            "actions": [
+              "Pause all sending for 24-48 hours if situation is severe",
+              "Identify and remove root cause (bad list, content issues, etc.)",
+              "Clean list: Remove ALL hard bounces, 6+ month inactives",
+              "Segment: Create 30-day engaged users list",
+              "Audit: Review authentication, content, sending practices"
+            ],
+            "metrics_target": "Stop reputation from declining further"
+          },
+          "phase_2_foundation": {
+            "duration": "Weeks 1-2",
+            "goal": "Build positive signals",
+            "actions": [
+              "Resume sending at 30-50% of previous volume",
+              "Send ONLY to 30-day engaged users",
+              "Use best-performing content only",
+              "Daily monitoring of bounce/spam rates",
+              "Fix any authentication issues",
+              "Register for postmaster tools if not already done"
+            ],
+            "metrics_target": [
+              "Bounce rate: <3%",
+              "Spam rate: <0.2%",
+              "Open rate: >15%"
+            ]
+          },
+          "phase_3_rebuilding": {
+            "duration": "Weeks 3-4",
+            "goal": "Demonstrate consistency",
+            "actions": [
+              "Gradually expand to 60-day engaged users",
+              "Increase volume by 10-15% per week",
+              "Implement re-engagement campaign for 90-180 day users",
+              "Remove non-responders after 2 attempts",
+              "Maintain consistent sending schedule"
+            ],
+            "metrics_target": [
+              "Bounce rate: <2%",
+              "Spam rate: <0.15%",
+              "Open rate: >18%",
+              "Reputation indicators stabilizing"
+            ]
+          },
+          "phase_4_recovery": {
+            "duration": "Weeks 5-8",
+            "goal": "Full reputation restoration",
+            "actions": [
+              "Return to normal volume gradually",
+              "Continue strict list hygiene",
+              "Implement permanent best practices",
+              "Set up ongoing monitoring",
+              "Document lessons learned"
+            ],
+            "metrics_target": [
+              "Bounce rate: <2%",
+              "Spam rate: <0.1%",
+              "Open rate: >20%",
+              "SNDS: Green",
+              "Google Postmaster: High",
+              "Blacklists: Clear"
+            ]
+          }
+        },
+        "critical_success_factors": [
+          "**List Quality**: 80% of recovery success depends on sending to engaged users only",
+          "**Consistency**: Send regularly on predictable schedule",
+          "**Patience**: Don't rush volume increases - 10-15% per week maximum",
+          "**Monitoring**: Check metrics DAILY during recovery",
+          "**Content**: Use proven, engaging content during recovery period"
+        ],
+        "what_slows_recovery": "⚠️ These will delay or prevent recovery:\n\n❌ Continuing to send to unengaged users\n❌ Purchasing new lists to \"replace\" bad ones\n❌ Increasing volume too quickly\n❌ Skipping monitoring/hoping for the best\n❌ Not fixing root causes\n❌ Inconsistent sending (long gaps)\n❌ Poor content/clickbait subject lines",
+        "blacklist_removal": {
+          "if_blacklisted": "Additional steps if you're on blacklists:\n\n**Identify Blacklists:**\n- Check MXToolbox.com/blacklists\n- Common ones: Spamhaus, SURBL, Barracuda\n\n**Removal Process:**\n1. Fix root cause FIRST (or you'll get re-listed)\n2. Wait 24-48 hours to demonstrate improvement\n3. Request delisting through each blacklist's removal form\n4. Provide evidence of corrective actions\n5. Some are automatic (24-48 hours), some manual (1-2 weeks)\n\n**Note:** Some blacklists require waiting period before removal"
+        },
+        "esp_specific_recovery": {
+          "microsoft": "Hardest to recover with:\n- Monitor SNDS daily\n- May take 6-8 weeks for full recovery\n- Start with very low volume (500-1,000/day)\n- Focus on engagement over volume",
+          "gmail": "Moderate recovery time:\n- Google Postmaster shows progress\n- Engagement-focused (opens/replies)\n- Can see improvement in 3-4 weeks\n- A/B test subject lines aggressively",
+          "yahoo": "Variable recovery:\n- No public tools to monitor\n- Watch deferral rates\n- Very sensitive to spam complaints\n- Recovery in 4-6 weeks typical"
+        },
+        "realistic_expectations": "**Week 1-2:** Metrics stabilize, stop getting worse\n**Week 3-4:** First signs of improvement (fewer blocks/deferrals)\n**Week 5-6:** Noticeable improvement in delivery rates\n**Week 7-8:** Approaching normal deliverability\n**Week 9-12:** Full recovery achieved\n\nNote: Severe cases may take longer. Some blacklists have 30-90 day automatic removal periods.",
+        "when_to_consider_fresh_start": "In some extreme cases, starting fresh is better:\n\n**Consider new IP/domain if:**\n- Multiple critical blacklists (Spamhaus DROP/EDROP)\n- Complete blocks across all major ESPs\n- Purchased list used extensively\n- Reputation damaged beyond practical recovery\n- Business urgency requires faster solution\n\nBut remember: New IP requires full warmup (6-8 weeks) and root causes must be fixed first.",
+        "ongoing_prevention": "After recovery, maintain reputation:\n\n□ Weekly list cleaning (remove inactives)\n□ Monitor bounce/spam rates daily\n□ Check postmaster tools weekly\n□ Gradual volume increases only (10-20% max)\n□ Maintain 70%+ engagement rate\n□ Never purchase lists\n□ Annual authentication audit\n□ Quarterly deliverability reviews",
+        "next_steps": "Let's create your recovery plan:\n\n1. Answer the diagnosis questions above\n2. I'll assess severity and timeline\n3. Create customized recovery roadmap\n4. Set up monitoring checklist\n5. Provide weekly milestones\n6. Schedule check-ins\n\nIf situation is severe or time-sensitive, I can escalate immediately to our deliverability team for hands-on recovery assistance."
+      },
+      "similar_real_tickets": [
+        "pradcooutdoorbrands.com - Domain Reputation Problems",
+        "stitchfix.com - Reputation check",
+        "vcoins.com (EU) - Domain Reputation check",
+        "visitmyrtlebeach.com - ip reputation decline"
+      ]
+    }
+  ]
+}

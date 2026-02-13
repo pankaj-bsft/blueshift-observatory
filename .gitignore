@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+*.log.*
+logs/
+nohup.out
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+tmp/
+
+# Environment variables
+.env
+.env.local
+
+# Node modules (if any)
+node_modules/
+
+# Specific to this project
+backend.log
+backend/*.log
+gpt_cron.log
+snds_collection.log
+gpt_collection.log
+
+# Backups (contain old code with secrets)
+backups/
+pre-*/
