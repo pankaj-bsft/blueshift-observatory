@@ -1,6 +1,6 @@
 # Blueshift Observatory
 
-A web-based dashboard for viewing Monthly Business Review (MBR) deliverability metrics by ESP (SparkPost, SendGrid, Mailgun). Built with **FastAPI** (backend) and **Vue 3** (frontend), styled to match Blueshift's design system.
+A web-based dashboard for viewing deliverability metrics by ESP (SparkPost, SendGrid, Mailgun) and Monthly Business Review (MBR). Built with **FastAPI** (backend) and **Vue 3** (frontend), styled to match Blueshift's design system.
 
 ## Features
 
