@@ -88,6 +88,26 @@
                 <span class="nav-text">GPT</span>
               </a>
             </li>
+            <li class="nav-item">
+              <a
+                class="nav-item-link"
+                :class="{ active: activeView === 'bounces' }"
+                @click="setActiveView('bounces')"
+              >
+                <i class="nav-icon fas fa-exclamation-triangle"></i>
+                <span class="nav-text">Bounce Analytics</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-item-link"
+                :class="{ active: activeView === 'industryUpdates' }"
+                @click="setActiveView('industryUpdates')"
+              >
+                <i class="nav-icon fas fa-newspaper"></i>
+                <span class="nav-text">Industry Updates</span>
+              </a>
+            </li>
           </ul>
         </nav>
       </div>
@@ -1196,6 +1216,405 @@
         </div>
         <!-- END GPT VIEW -->
 
+        <!-- BOUNCE ANALYTICS VIEW -->
+        <div v-if="activeView === 'bounces'">
+
+          <!-- Header -->
+          <div class="pulsation-header" style="margin-bottom: 24px;">
+            <h1 class="page-title">
+              <i class="fas fa-exclamation-triangle"></i> Bounce Analytics
+            </h1>
+            <p class="page-subtitle">
+              Email bounce tracking across Mailgun, SparkPost, and SendGrid
+            </p>
+          </div>
+
+          <!-- ESP Tabs (Horizontal) -->
+          <div style="background: white; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); margin-bottom: 24px;">
+            <div style="display: flex; border-bottom: 2px solid var(--gray-200); padding: 0 24px;">
+              <button
+                v-for="esp in ['Mailgun', 'Sparkpost', 'Sendgrid']"
+                :key="esp"
+                @click="activeBounceESP = esp; loadBounceData()"
+                :style="{
+                  padding: '16px 32px',
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  color: activeBounceESP === esp ? 'var(--blue-600)' : 'var(--gray-600)',
+                  borderBottom: activeBounceESP === esp ? '3px solid var(--blue-600)' : '3px solid transparent',
+                  marginBottom: '-2px',
+                  transition: 'all 0.2s'
+                }"
+              >
+                {{ esp }}
+              </button>
+            </div>
+
+            <!-- Filters -->
+            <div style="padding: 24px; background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">
+              <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+
+                <!-- Date Range -->
+                <div style="flex: 1; min-width: 200px;">
+                  <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px;">
+                    📅 Date Range
+                  </label>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <input
+                      type="date"
+                      v-model="bounceStartDate"
+                      style="flex: 1; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                    />
+                    <span style="color: var(--gray-500);">to</span>
+                    <input
+                      type="date"
+                      v-model="bounceEndDate"
+                      style="flex: 1; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                    />
+                  </div>
+                </div>
+
+                <!-- Sending Domain Filter -->
+                <div style="flex: 1; min-width: 200px;">
+                  <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px;">
+                    🔍 Sending Domain
+                  </label>
+                  <select
+                    v-model="bounceSelectedDomain"
+                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                  >
+                    <option value="all">All Domains</option>
+                    <option v-for="domain in bounceSendingDomains" :key="domain" :value="domain">
+                      {{ domain }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Search & Export Buttons -->
+                <div style="display: flex; gap: 8px;">
+                  <button
+                    @click="loadBounceData"
+                    :disabled="bounceLoading"
+                    style="padding: 8px 24px; background: var(--blue-600); color: white; border: none; border-radius: var(--radius-xs); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+                    onmouseover="this.style.background='var(--blue-700)'"
+                    onmouseout="this.style.background='var(--blue-600)'"
+                  >
+                    <i class="fas fa-search"></i> Search
+                  </button>
+                  <button
+                    @click="exportBounceCSV"
+                    :disabled="bounceLoading || !bounceData.length"
+                    style="padding: 8px 24px; background: var(--green-600); color: white; border: none; border-radius: var(--radius-xs); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+                    onmouseover="this.style.background='var(--green-700)'"
+                    onmouseout="this.style.background='var(--green-600)'"
+                  >
+                    <i class="fas fa-download"></i> Export CSV
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="bounceLoading" style="padding: 60px 20px; text-align: center;">
+              <div class="spinner" style="margin: 0 auto 16px;"></div>
+              <p style="color: var(--gray-600); font-size: 14px;">Loading bounce data...</p>
+            </div>
+
+            <!-- Bounce Data Table -->
+            <div v-else-if="bounceData.length > 0" style="padding: 24px; overflow-x: auto;">
+              <p style="font-size: 13px; color: var(--gray-600); margin-bottom: 16px;">
+                Showing <strong>{{ bounceData.length }}</strong> bounce events
+              </p>
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                  <tr style="background: var(--gray-100); border-bottom: 2px solid var(--gray-300);">
+                    <th @click="sortBounceTable('event_date')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Date
+                      <i class="fas" :class="bounceSortColumn === 'event_date' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('sending_domain')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Sending Domain
+                      <i class="fas" :class="bounceSortColumn === 'sending_domain' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('sending_ip')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Sending IP
+                      <i class="fas" :class="bounceSortColumn === 'sending_ip' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('recipient_domain')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Recipient Domain
+                      <i class="fas" :class="bounceSortColumn === 'recipient_domain' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('isp')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      ISP
+                      <i class="fas" :class="bounceSortColumn === 'isp' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('bounce_type')" style="text-align: center; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Bounce Type
+                      <i class="fas" :class="bounceSortColumn === 'bounce_type' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('bounce_reason')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Bounce Reason
+                      <i class="fas" :class="bounceSortColumn === 'bounce_reason' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('bounce_code')" style="text-align: center; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Code
+                      <i class="fas" :class="bounceSortColumn === 'bounce_code' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('count')" style="text-align: center; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Count
+                      <i class="fas" :class="bounceSortColumn === 'count' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(bounce, index) in sortedBounceData"
+                    :key="index"
+                    style="border-bottom: 1px solid var(--gray-200);"
+                    onmouseover="this.style.background='var(--gray-50)'"
+                    onmouseout="this.style.background='white'"
+                  >
+                    <td style="padding: 12px; color: var(--gray-700);">{{ bounce.event_date }}</td>
+                    <td style="padding: 12px; color: var(--gray-700); font-weight: 500;">{{ bounce.sending_domain }}</td>
+                    <td style="padding: 12px; color: var(--gray-600); font-family: monospace; font-size: 12px;">{{ bounce.sending_ip }}</td>
+                    <td style="padding: 12px; color: var(--gray-700);">{{ bounce.recipient_domain }}</td>
+                    <td style="padding: 12px;">
+                      <span :style="{
+                        padding: '4px 8px',
+                        borderRadius: 'var(--radius-xs)',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        background: bounce.isp === 'Other' ? 'var(--gray-100)' : 'var(--blue-100)',
+                        color: bounce.isp === 'Other' ? 'var(--gray-600)' : 'var(--blue-700)'
+                      }">
+                        {{ bounce.isp }}
+                      </span>
+                    </td>
+                    <td style="padding: 12px; text-align: center;">
+                      <span :style="{
+                        padding: '4px 12px',
+                        borderRadius: 'var(--radius-xs)',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        background: getBounceTypeColor(bounce.bounce_type, 0.1),
+                        color: getBounceTypeColor(bounce.bounce_type, 1)
+                      }">
+                        {{ bounce.bounce_type.toUpperCase() }}
+                      </span>
+                    </td>
+                    <td style="padding: 12px; color: var(--gray-600); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="bounce.bounce_reason">
+                      {{ bounce.bounce_reason }}
+                    </td>
+                    <td style="padding: 12px; text-align: center; color: var(--gray-600); font-family: monospace; font-size: 12px;">{{ bounce.bounce_code }}</td>
+                    <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--gray-800);">{{ bounce.count }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else style="padding: 60px 20px; text-align: center;">
+              <i class="fas fa-inbox" style="font-size: 48px; color: var(--gray-400); margin-bottom: 16px;"></i>
+              <p style="color: var(--gray-600); font-size: 16px; font-weight: 500;">No bounce data found</p>
+              <p style="color: var(--gray-500); font-size: 14px; margin-top: 8px;">Try selecting a different date range or domain</p>
+            </div>
+
+          </div>
+
+        </div>
+        <!-- END BOUNCE ANALYTICS VIEW -->
+
+        <!-- INDUSTRY UPDATES VIEW -->
+        <div v-if="activeView === 'industryUpdates'">
+
+          <!-- Header -->
+          <div class="pulsation-header" style="margin-bottom: 24px;">
+            <h1 class="page-title">
+              <i class="fas fa-newspaper"></i> Industry Updates
+            </h1>
+            <p class="page-subtitle">
+              Critical news and updates from email deliverability ecosystem (Gmail, Outlook, Spamhaus, Barracuda, Proofpoint)
+            </p>
+          </div>
+
+          <!-- Control Panel -->
+          <div style="background: white; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); margin-bottom: 24px;">
+
+            <!-- Filters -->
+            <div style="padding: 24px; background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: flex-end;">
+
+                <!-- Source Type Filter -->
+                <div>
+                  <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px;">
+                    <i class="fas fa-filter"></i> Source Type
+                  </label>
+                  <select
+                    v-model="industrySourceType"
+                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                  >
+                    <option value="">All Sources</option>
+                    <option v-for="source in industrySources" :key="source" :value="source">
+                      {{ source }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Severity Filter -->
+                <div>
+                  <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px;">
+                    <i class="fas fa-exclamation-circle"></i> Severity
+                  </label>
+                  <select
+                    v-model="industrySeverity"
+                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                  >
+                    <option value="">All Severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="info">Info</option>
+                  </select>
+                </div>
+
+                <!-- Days Filter -->
+                <div>
+                  <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px;">
+                    <i class="fas fa-calendar"></i> Time Range
+                  </label>
+                  <select
+                    v-model="industryDays"
+                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                  >
+                    <option :value="7">Last 7 Days</option>
+                    <option :value="14">Last 14 Days</option>
+                    <option :value="30">Last 30 Days</option>
+                    <option :value="60">Last 60 Days</option>
+                    <option :value="90">Last 90 Days</option>
+                  </select>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 8px;">
+                  <button
+                    @click="loadIndustryUpdates"
+                    :disabled="industryLoading"
+                    style="flex: 1; padding: 8px 24px; background: var(--blue-600); color: white; border: none; border-radius: var(--radius-xs); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+                    onmouseover="this.style.background='var(--blue-700)'"
+                    onmouseout="this.style.background='var(--blue-600)'"
+                  >
+                    <i class="fas fa-sync-alt"></i> Refresh
+                  </button>
+                  <button
+                    @click="refreshIndustryFeeds"
+                    :disabled="industryLoading"
+                    style="padding: 8px 16px; background: var(--green-600); color: white; border: none; border-radius: var(--radius-xs); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+                    onmouseover="this.style.background='var(--green-700)'"
+                    onmouseout="this.style.background='var(--green-600)'"
+                    title="Fetch latest updates from RSS feeds"
+                  >
+                    <i class="fas fa-rss"></i>
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="industryLoading" style="padding: 60px 20px; text-align: center;">
+              <div class="spinner" style="margin: 0 auto 16px;"></div>
+              <p style="color: var(--gray-600); font-size: 14px;">Loading industry updates...</p>
+            </div>
+
+            <!-- Updates List -->
+            <div v-else-if="industryUpdates.length > 0" style="padding: 24px;">
+              <p style="font-size: 13px; color: var(--gray-600); margin-bottom: 20px;">
+                Showing <strong>{{ industryUpdates.length }}</strong> updates
+              </p>
+
+              <!-- Updates Cards -->
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div
+                  v-for="update in industryUpdates"
+                  :key="update.id"
+                  style="background: white; border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 20px; transition: all 0.2s;"
+                  onmouseover="this.style.boxShadow='var(--shadow-md)'; this.style.borderColor='var(--gray-300)'"
+                  onmouseout="this.style.boxShadow='none'; this.style.borderColor='var(--gray-200)'"
+                >
+                  <!-- Header Row -->
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                    <div style="flex: 1;">
+                      <h3 style="font-size: 16px; font-weight: 600; color: var(--gray-900); margin: 0 0 8px 0; line-height: 1.4;">
+                        <a :href="update.url" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;"
+                           onmouseover="this.style.color='var(--blue-600)'"
+                           onmouseout="this.style.color='inherit'">
+                          {{ update.title }}
+                          <i class="fas fa-external-link-alt" style="font-size: 12px; margin-left: 6px; opacity: 0.6;"></i>
+                        </a>
+                      </h3>
+                      <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <!-- Source Badge -->
+                        <span :style="{
+                          padding: '3px 10px',
+                          borderRadius: 'var(--radius-xs)',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          background: update.source_type === 'Gmail' ? 'var(--blue-100)' :
+                                     update.source_type === 'Outlook' ? 'var(--purple-100)' :
+                                     'var(--gray-100)',
+                          color: update.source_type === 'Gmail' ? 'var(--blue-700)' :
+                                update.source_type === 'Outlook' ? 'var(--purple-700)' :
+                                'var(--gray-700)'
+                        }">
+                          {{ update.source }}
+                        </span>
+                        <!-- Date -->
+                        <span style="font-size: 12px; color: var(--gray-600);">
+                          <i class="fas fa-calendar"></i> {{ formatDate(update.published_date) }}
+                        </span>
+                      </div>
+                    </div>
+                    <!-- Severity Badge -->
+                    <span :style="{
+                      padding: '6px 14px',
+                      borderRadius: 'var(--radius-xs)',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      background: getSeverityColor(update.severity, 0.15),
+                      color: getSeverityColor(update.severity, 1),
+                      border: '1px solid ' + getSeverityColor(update.severity, 0.3),
+                      whiteSpace: 'nowrap'
+                    }">
+                      {{ update.severity }}
+                    </span>
+                  </div>
+
+                  <!-- Description -->
+                  <p style="font-size: 14px; color: var(--gray-700); line-height: 1.6; margin: 0;">
+                    {{ truncateText(update.description, 200) }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else style="padding: 60px 20px; text-align: center;">
+              <i class="fas fa-newspaper" style="font-size: 48px; color: var(--gray-400); margin-bottom: 16px;"></i>
+              <p style="color: var(--gray-600); font-size: 16px; font-weight: 500;">No updates found</p>
+              <p style="color: var(--gray-500); font-size: 14px; margin-top: 8px;">Try changing your filters or click Refresh to fetch the latest updates</p>
+            </div>
+
+          </div>
+
+        </div>
+        <!-- END INDUSTRY UPDATES VIEW -->
+
         <!-- Page Header (MBR only) -->
         <div class="page-header" v-if="activeView === 'mbr'">
           <h1 class="page-title">
@@ -1313,6 +1732,25 @@
                 <i class="fas fa-database"></i>
                 Collect Yesterday
               </button>
+
+              <div class="form-group" style="margin-left: 20px;">
+                <label class="form-label"><i class="fas fa-calendar"></i> Custom Date</label>
+                <input
+                  type="date"
+                  class="form-input"
+                  v-model="pulsationCustomCollectDate"
+                  :disabled="pulsationLoading"
+                />
+              </div>
+
+              <button
+                class="btn btn-secondary"
+                @click="collectCustomDate"
+                :disabled="pulsationLoading"
+              >
+                <i class="fas fa-database"></i>
+                Collect Custom Date
+              </button>
             </div>
           </div>
 
@@ -1403,7 +1841,7 @@
                 Top 20 Risk
               </div>
               <div class="tab" :class="{ active: pulsationTab === 'charts' }" @click="pulsationTab = 'charts'">
-                Charts (30-Day Trends)
+                Trend
               </div>
             </div>
 
@@ -1759,15 +2197,28 @@
             </div>
 
             <div class="tab-content" :class="{ active: pulsationTab === 'charts' }">
-              <h3>30-Day Trends by Domain</h3>
-              <div class="date-range-card">
-                <label class="form-label">Select Domain:</label>
-                <select class="form-input" v-model="selectedDomain" @change="loadDomainCharts">
-                  <option value="">-- Select a domain --</option>
-                  <option v-for="domain in pulsationData.all_domains" :key="domain" :value="domain">
-                    {{ domain }}
-                  </option>
-                </select>
+              <h3>Trends by Domain</h3>
+              <div class="date-range-card" style="display: grid; grid-template-columns: 1fr 200px; gap: 16px; align-items: end;">
+                <div>
+                  <label class="form-label">Select Domain:</label>
+                  <select class="form-input" v-model="selectedDomain" @change="loadDomainCharts">
+                    <option value="">-- Select a domain --</option>
+                    <option v-for="domain in pulsationData.all_domains" :key="domain" :value="domain">
+                      {{ domain }}
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Time Period:</label>
+                  <select class="form-input" v-model="chartDays" @change="loadDomainCharts" :disabled="!selectedDomain">
+                    <option :value="7">Last 7 Days</option>
+                    <option :value="30">Last 30 Days</option>
+                    <option :value="60">Last 60 Days</option>
+                    <option :value="90">Last 90 Days</option>
+                    <option :value="180">Last 180 Days</option>
+                    <option :value="365">Last 365 Days</option>
+                  </select>
+                </div>
               </div>
 
               <div v-if="!selectedDomain" class="empty-state">
@@ -3057,7 +3508,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <!-- App Scripts -->
-  <script src="js/api.js?v=20260213-6"></script>
-  <script src="js/app.js?v=20260213-6"></script>
+  <script src="js/api.js?v=RESTORED"></script>
+  <script src="js/app.js?v=RESTORED"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -27,6 +27,7 @@ from pulsation_service import (
 )
 from datetime import timedelta
 import pandas as pd
+import csv
 from account_mapping_service import (
     get_all_mappings,
     get_mapping_by_id,
@@ -81,6 +82,19 @@ from gpt_analytics_service import (
     get_all_domains_latest,
     get_enhanced_reputation_changes,
     get_domain_detailed_metrics
+)
+from bounce_analytics_service import (
+    collect_all_esps,
+    get_bounces,
+    get_sending_domains,
+    cleanup_old_data as cleanup_bounce_data
+)
+from industry_updates_service import (
+    init_database as init_industry_database,
+    refresh_all_updates,
+    get_updates as get_industry_updates,
+    get_sources as get_industry_sources,
+    cleanup_old_updates
 )
 from mbr_storage_service import (
     check_report_exists,
@@ -323,6 +337,50 @@ async def collect_yesterday_data():
             'rows_inserted': len(df_yesterday)
         }
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error collecting data: {str(e)}')
+
+
+@app.post('/api/pulsation/collect-date')
+async def collect_custom_date(date: str = Query(...)):
+    """Collect data for a custom date from Druid and store in database"""
+    try:
+        # Parse the date
+        target_date = datetime.strptime(date, '%Y-%m-%d').date()
+        target_date_str = target_date.strftime('%Y-%m-%d')
+        next_date = target_date + timedelta(days=1)
+        next_date_str = next_date.strftime('%Y-%m-%d')
+
+        # Check if data already exists
+        if data_exists_for_date(target_date_str):
+            return {
+                'status': 'skipped',
+                'message': f'Data for {target_date_str} already exists',
+                'date': target_date_str
+            }
+
+        # Fetch from both regions
+        df_us = fetch_pulsation_data('US', DRUID_US_BROKER, target_date_str, next_date_str)
+        df_eu = fetch_pulsation_data('EU', DRUID_EU_BROKER, target_date_str, next_date_str)
+
+        df_target = pd.concat([df_us, df_eu], ignore_index=True)
+        df_target = process_pulsation_dataframe(df_target)
+
+        # Insert into database
+        insert_daily_data(df_target, target_date_str)
+
+        # Cleanup old data
+        cleanup_old_data()
+
+        return {
+            'status': 'success',
+            'message': f'Collected and stored data for {target_date_str}',
+            'date': target_date_str,
+            'rows_inserted': len(df_target)
+        }
+
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=f'Invalid date format. Use YYYY-MM-DD: {str(ve)}')
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error collecting data: {str(e)}')
 
@@ -1467,6 +1525,236 @@ async def collect_gpt_data_endpoint(days_back: int = 120, background_tasks: Back
             return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error collecting GPT data: {str(e)}')
+
+
+# Bounce Analytics Endpoints
+@app.post('/api/bounces/collect')
+async def collect_bounces_endpoint(date: Optional[str] = None):
+    """
+    Collect bounce events from all ESPs for a specific date
+
+    Query params:
+        date: Date in YYYY-MM-DD format (defaults to yesterday)
+    """
+    try:
+        result = collect_all_esps(date)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error collecting bounces: {str(e)}')
+
+
+@app.get('/api/bounces/{esp}')
+async def get_bounces_endpoint(
+    esp: str,
+    start_date: str,
+    end_date: str,
+    sending_domain: Optional[str] = None
+):
+    """
+    Get bounce events for a specific ESP
+
+    Path params:
+        esp: 'Mailgun', 'Sparkpost', or 'Sendgrid'
+
+    Query params:
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        sending_domain: Filter by sending domain (optional)
+    """
+    try:
+        # Validate ESP
+        valid_esps = ['Mailgun', 'Sparkpost', 'Sendgrid']
+        if esp not in valid_esps:
+            raise HTTPException(status_code=400, detail=f'Invalid ESP. Must be one of: {valid_esps}')
+
+        bounces = get_bounces(esp, start_date, end_date, sending_domain)
+        return {'bounces': bounces, 'total': len(bounces)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching bounces: {str(e)}')
+
+
+@app.get('/api/bounces/{esp}/domains')
+async def get_sending_domains_endpoint(esp: str):
+    """
+    Get list of unique sending domains for an ESP
+
+    Path params:
+        esp: 'Mailgun', 'Sparkpost', or 'Sendgrid'
+    """
+    try:
+        # Validate ESP
+        valid_esps = ['Mailgun', 'Sparkpost', 'Sendgrid']
+        if esp not in valid_esps:
+            raise HTTPException(status_code=400, detail=f'Invalid ESP. Must be one of: {valid_esps}')
+
+        domains = get_sending_domains(esp)
+        return {'domains': domains}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching domains: {str(e)}')
+
+
+@app.get('/api/bounces/export-csv')
+async def export_bounces_csv_endpoint(
+    esp: str,
+    start_date: str,
+    end_date: str,
+    sending_domain: Optional[str] = None
+):
+    """
+    Export bounce events to CSV
+
+    Query params:
+        esp: 'Mailgun', 'Sparkpost', or 'Sendgrid'
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        sending_domain: Filter by sending domain (optional)
+    """
+    try:
+        # Validate ESP
+        valid_esps = ['Mailgun', 'Sparkpost', 'Sendgrid']
+        if esp not in valid_esps:
+            raise HTTPException(status_code=400, detail=f'Invalid ESP. Must be one of: {valid_esps}')
+
+        # Get bounce data
+        bounces = get_bounces(esp, start_date, end_date, sending_domain)
+
+        # Create CSV in memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Write header
+        writer.writerow([
+            'Date', 'Sending Domain', 'Sending IP', 'Recipient Domain',
+            'ISP', 'Bounce Type', 'Bounce Reason', 'Bounce Code', 'Count'
+        ])
+
+        # Write data rows
+        for bounce in bounces:
+            writer.writerow([
+                bounce['event_date'],
+                bounce['sending_domain'],
+                bounce['sending_ip'],
+                bounce['recipient_domain'],
+                bounce['isp'],
+                bounce['bounce_type'],
+                bounce['bounce_reason'],
+                bounce['bounce_code'],
+                bounce['count']
+            ])
+
+        # Create filename
+        domain_suffix = f"_{sending_domain}" if sending_domain and sending_domain != 'all' else ''
+        filename = f"bounces_{esp.lower()}_{start_date}_{end_date}{domain_suffix}.csv"
+
+        # Return as streaming response
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type='text/csv',
+            headers={'Content-Disposition': f'attachment; filename={filename}'}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error exporting bounces: {str(e)}')
+
+
+# -------------------------
+# Industry Updates Endpoints
+# -------------------------
+
+@app.get('/api/industry-updates/init')
+async def initialize_industry_updates():
+    """Initialize Industry Updates database"""
+    try:
+        init_industry_database()
+        return {'status': 'success', 'message': 'Industry Updates database initialized'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error initializing database: {str(e)}')
+
+
+@app.post('/api/industry-updates/refresh')
+async def refresh_industry_updates():
+    """Refresh industry updates from all RSS sources"""
+    try:
+        result = refresh_all_updates()
+        return {
+            'status': 'success',
+            'message': f"Refreshed updates from {result['sources_checked']} sources",
+            **result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error refreshing updates: {str(e)}')
+
+
+@app.get('/api/industry-updates')
+async def get_updates(
+    limit: int = 50,
+    source_type: Optional[str] = None,
+    severity: Optional[str] = None,
+    days: int = 30
+):
+    """
+    Get industry updates with optional filters
+
+    Query params:
+        limit: Number of updates to return (default: 50)
+        source_type: Filter by source type (Gmail, Outlook, Security)
+        severity: Filter by severity (critical, high, medium, info)
+        days: Number of days to look back (default: 30)
+    """
+    try:
+        updates = get_industry_updates(limit, source_type, severity, days)
+        return {
+            'status': 'success',
+            'updates': updates,
+            'count': len(updates),
+            'filters': {
+                'limit': limit,
+                'source_type': source_type,
+                'severity': severity,
+                'days': days
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching updates: {str(e)}')
+
+
+@app.get('/api/industry-updates/sources')
+async def get_sources():
+    """Get list of unique source types"""
+    try:
+        sources = get_industry_sources()
+        return {
+            'status': 'success',
+            'sources': sources,
+            'count': len(sources)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching sources: {str(e)}')
+
+
+@app.post('/api/industry-updates/cleanup')
+async def cleanup_updates(days: int = 90):
+    """
+    Cleanup old industry updates
+
+    Query params:
+        days: Remove updates older than this many days (default: 90)
+    """
+    try:
+        deleted = cleanup_old_updates(days)
+        return {
+            'status': 'success',
+            'message': f'Cleaned up {deleted} old updates',
+            'deleted_count': deleted
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error cleaning up updates: {str(e)}')
 
 
 if __name__ == '__main__':

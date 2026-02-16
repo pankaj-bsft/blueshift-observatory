@@ -1,9 +1,11 @@
 # Configuration settings for MBR Dashboard
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file in parent directory
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(env_path)
 
 DRUID_US_BROKER = 'http://druid.blueshift.vpc/druid/v2/sql/'
 DRUID_EU_BROKER = 'http://druid-1.prodeu.vpc/druid/v2/sql/'

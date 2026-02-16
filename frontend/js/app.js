@@ -26,11 +26,13 @@ createApp({
       deletingReportId: null,
       // Pulsation data
       pulsationViewType: 'yesterday',
+      pulsationCustomCollectDate: '',
       pulsationLoading: false,
       pulsationData: null,
       pulsationTab: 'overall',
       selectedDomain: '',
       chartData: null,
+      chartDays: 30,
       activeCharts: {},
       // Sorting and filtering
       sortColumn: '',
@@ -137,7 +139,24 @@ createApp({
       gptAuthChart: null,
       gptSpamChart: null,
       showIPModal: false,
-      showGPTNotifications: false
+      showGPTNotifications: false,
+      // Bounce Analytics
+      activeBounceESP: 'Mailgun',
+      bounceStartDate: '',
+      bounceEndDate: '',
+      bounceSelectedDomain: 'all',
+      bounceLoading: false,
+      bounceData: [],
+      bounceSendingDomains: [],
+      bounceSortColumn: 'event_date',
+      bounceSortOrder: 'desc',
+      // Industry Updates
+      industryUpdates: [],
+      industrySources: [],
+      industrySourceType: '',
+      industrySeverity: '',
+      industryDays: 30,
+      industryLoading: false
     };
   },
 
@@ -348,6 +367,38 @@ createApp({
       });
 
       return sorted;
+    },
+
+    // Sorted Bounce Data
+    sortedBounceData() {
+      if (!this.bounceData || this.bounceData.length === 0) {
+        return [];
+      }
+
+      const sorted = [...this.bounceData];
+      const column = this.bounceSortColumn;
+      const order = this.bounceSortOrder;
+
+      sorted.sort((a, b) => {
+        let aVal = a[column];
+        let bVal = b[column];
+
+        // Handle numeric values (count)
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+          return order === 'asc' ? aVal - bVal : bVal - aVal;
+        }
+
+        // Handle string values
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          return order === 'asc'
+            ? aVal.localeCompare(bVal)
+            : bVal.localeCompare(aVal);
+        }
+
+        return 0;
+      });
+
+      return sorted;
     }
   },
 
@@ -366,6 +417,11 @@ createApp({
       // Load data when switching to account info view
       if (view === 'accountInfo') {
         this.fetchAccountInfo();
+      }
+
+      // Load data when switching to industry updates view
+      if (view === 'industryUpdates') {
+        this.loadIndustryUpdates();
       }
     },
 
@@ -877,6 +933,44 @@ createApp({
       }
     },
 
+    async collectCustomDate() {
+      console.log('collectCustomDate called, date:', this.pulsationCustomCollectDate);
+
+      if (!this.pulsationCustomCollectDate) {
+        this.error = 'Please select a date';
+        console.log('No date selected');
+        return;
+      }
+
+      this.pulsationLoading = true;
+      this.error = null;
+
+      try {
+        const url = `http://localhost:8001/api/pulsation/collect-date?date=${this.pulsationCustomCollectDate}`;
+        console.log('Fetching:', url);
+
+        const response = await fetch(url, {
+          method: 'POST',
+        });
+
+        console.log('Response status:', response.status);
+        const result = await response.json();
+        console.log('Result:', result);
+
+        if (result.status === 'success' || result.status === 'skipped') {
+          this.successMessage = result.message;
+          setTimeout(() => { this.successMessage = null; }, 5000);
+        } else {
+          this.error = result.message || 'Failed to collect data';
+        }
+      } catch (err) {
+        console.error('Error collecting data:', err);
+        this.error = 'Error collecting data: ' + err.message;
+      } finally {
+        this.pulsationLoading = false;
+      }
+    },
+
     async fetchPulsationData() {
       this.pulsationLoading = true;
       this.error = null;
@@ -921,7 +1015,7 @@ createApp({
 
       try {
         const response = await fetch(
-          `http://localhost:8001/api/pulsation/domain-timeseries/${encodeURIComponent(this.selectedDomain)}?days=30`
+          `http://localhost:8001/api/pulsation/domain-timeseries/${encodeURIComponent(this.selectedDomain)}?days=${this.chartDays}`
         );
         const result = await response.json();
 
@@ -947,6 +1041,7 @@ createApp({
 
     viewDomainCharts(domain) {
       this.selectedDomain = domain;
+      this.chartDays = 30; // Reset to default 30 days
       this.pulsationTab = 'charts';
       this.$nextTick(() => {
         this.loadDomainCharts();
@@ -2885,6 +2980,212 @@ createApp({
         }
       });
     },
+
+    // Bounce Analytics Methods
+    async loadBounceData() {
+      this.bounceLoading = true;
+
+      try {
+        // Load sending domains for the selected ESP
+        const domainsResponse = await fetch(`${API_BASE_URL}/api/bounces/${this.activeBounceESP}/domains`);
+        if (domainsResponse.ok) {
+          const domainsData = await domainsResponse.json();
+          this.bounceSendingDomains = domainsData.domains || [];
+        }
+
+        // Load bounce data
+        const params = new URLSearchParams({
+          start_date: this.bounceStartDate,
+          end_date: this.bounceEndDate
+        });
+
+        if (this.bounceSelectedDomain && this.bounceSelectedDomain !== 'all') {
+          params.append('sending_domain', this.bounceSelectedDomain);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/bounces/${this.activeBounceESP}?${params}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          this.bounceData = data.bounces || [];
+        } else {
+          throw new Error('Failed to load bounce data');
+        }
+      } catch (error) {
+        console.error('Error loading bounce data:', error);
+        this.error = 'Failed to load bounce data: ' + error.message;
+      } finally {
+        this.bounceLoading = false;
+      }
+    },
+
+    sortBounceTable(column) {
+      if (this.bounceSortColumn === column) {
+        this.bounceSortOrder = this.bounceSortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.bounceSortColumn = column;
+        this.bounceSortOrder = 'asc';
+      }
+    },
+
+    async exportBounceCSV() {
+      try {
+        const params = new URLSearchParams({
+          esp: this.activeBounceESP,
+          start_date: this.bounceStartDate,
+          end_date: this.bounceEndDate
+        });
+
+        if (this.bounceSelectedDomain && this.bounceSelectedDomain !== 'all') {
+          params.append('sending_domain', this.bounceSelectedDomain);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/bounces/export-csv?${params}`);
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const domain_suffix = (this.bounceSelectedDomain && this.bounceSelectedDomain !== 'all')
+            ? `_${this.bounceSelectedDomain}`
+            : '';
+          a.download = `bounces_${this.activeBounceESP.toLowerCase()}_${this.bounceStartDate}_${this.bounceEndDate}${domain_suffix}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } else {
+          throw new Error('Failed to export CSV');
+        }
+      } catch (error) {
+        console.error('Error exporting CSV:', error);
+        this.error = 'Failed to export CSV: ' + error.message;
+      }
+    },
+
+    getBounceTypeColor(type, opacity) {
+      const colors = {
+        'hard': opacity === 1 ? 'rgb(239, 68, 68)' : 'rgba(239, 68, 68, 0.1)',
+        'soft': opacity === 1 ? 'rgb(249, 115, 22)' : 'rgba(249, 115, 22, 0.1)',
+        'block': opacity === 1 ? 'rgb(234, 179, 8)' : 'rgba(234, 179, 8, 0.1)',
+        'unknown': opacity === 1 ? 'rgb(107, 114, 128)' : 'rgba(107, 114, 128, 0.1)'
+      };
+      return colors[type.toLowerCase()] || colors['unknown'];
+    },
+
+    initBounceDates() {
+      // Set default dates to yesterday
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      this.bounceStartDate = yesterdayStr;
+      this.bounceEndDate = yesterdayStr;
+    },
+
+    // Industry Updates Methods
+    async loadIndustryUpdates() {
+      this.industryLoading = true;
+      this.error = null;
+
+      try {
+        // Build query parameters
+        const params = new URLSearchParams({
+          limit: '50',
+          days: this.industryDays.toString()
+        });
+
+        if (this.industrySourceType) {
+          params.append('source_type', this.industrySourceType);
+        }
+
+        if (this.industrySeverity) {
+          params.append('severity', this.industrySeverity);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/industry-updates?${params}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          this.industryUpdates = data.updates || [];
+
+          // Load sources list if empty
+          if (this.industrySources.length === 0) {
+            await this.loadIndustrySources();
+          }
+        } else {
+          throw new Error('Failed to load industry updates');
+        }
+      } catch (error) {
+        console.error('Error loading industry updates:', error);
+        this.error = 'Failed to load industry updates: ' + error.message;
+      } finally {
+        this.industryLoading = false;
+      }
+    },
+
+    async loadIndustrySources() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/industry-updates/sources`);
+        if (response.ok) {
+          const data = await response.json();
+          this.industrySources = data.sources || [];
+        }
+      } catch (error) {
+        console.error('Error loading industry sources:', error);
+      }
+    },
+
+    async refreshIndustryFeeds() {
+      this.industryLoading = true;
+      this.error = null;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/industry-updates/refresh`, {
+          method: 'POST'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          this.successMessage = data.message;
+          setTimeout(() => { this.successMessage = null; }, 5000);
+
+          // Reload updates after refresh
+          await this.loadIndustryUpdates();
+        } else {
+          throw new Error('Failed to refresh industry updates');
+        }
+      } catch (error) {
+        console.error('Error refreshing industry updates:', error);
+        this.error = 'Failed to refresh industry updates: ' + error.message;
+      } finally {
+        this.industryLoading = false;
+      }
+    },
+
+    getSeverityColor(severity, opacity) {
+      const colors = {
+        'critical': opacity === 1 ? 'rgb(220, 38, 38)' : 'rgba(220, 38, 38, ' + opacity + ')',
+        'high': opacity === 1 ? 'rgb(249, 115, 22)' : 'rgba(249, 115, 22, ' + opacity + ')',
+        'medium': opacity === 1 ? 'rgb(234, 179, 8)' : 'rgba(234, 179, 8, ' + opacity + ')',
+        'info': opacity === 1 ? 'rgb(59, 130, 246)' : 'rgba(59, 130, 246, ' + opacity + ')'
+      };
+      return colors[severity.toLowerCase()] || colors['info'];
+    },
+
+    truncateText(text, maxLength) {
+      if (!text) return '';
+      if (text.length <= maxLength) return text;
+      return text.substring(0, maxLength) + '...';
+    },
+
+    formatDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      const options = { year: 'numeric', month: 'short', day: 'numeric' };
+      return date.toLocaleDateString('en-US', options);
+    },
+
     handleKeyboardShortcut(event) {
       // Only handle shortcuts when SNDS view is active and no input is focused
       if (this.activeView !== 'snds') return;
@@ -2939,6 +3240,7 @@ createApp({
     this.fetchSavedReports();
     this.loadEmailRecipients();
     this.checkGPTAuthStatus();
+    this.initBounceDates();
 
     // Add keyboard shortcuts
     window.addEventListener('keydown', this.handleKeyboardShortcut);
