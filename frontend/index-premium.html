@@ -745,36 +745,28 @@
             <div class="stat-card stat-card-healthy" v-if="pulsationData.classification_counts['Green (Healthy)']">
               <div class="stat-card-icon-badge">✓</div>
               <p class="stat-card-label">HEALTHY DOMAINS</p>
-              <p class="stat-card-value">
-                <AnimNum :target="pulsationData.classification_counts['Green (Healthy)'] || 0" />
-              </p>
+              <p class="stat-card-value">{{ pulsationData.classification_counts['Green (Healthy)'] || 0 }}</p>
               <p class="stat-card-subtitle">Excellent Performance</p>
             </div>
 
             <div class="stat-card stat-card-monitor" v-if="pulsationData.classification_counts['Yellow (Monitor)']">
               <div class="stat-card-icon-badge">⚠</div>
               <p class="stat-card-label">MONITOR REQUIRED</p>
-              <p class="stat-card-value">
-                <AnimNum :target="pulsationData.classification_counts['Yellow (Monitor)'] || 0" />
-              </p>
+              <p class="stat-card-value">{{ pulsationData.classification_counts['Yellow (Monitor)'] || 0 }}</p>
               <p class="stat-card-subtitle">Needs Attention</p>
             </div>
 
             <div class="stat-card stat-card-low" v-if="pulsationData.classification_counts['Orange (Low Delivery)']">
               <div class="stat-card-icon-badge">!</div>
               <p class="stat-card-label">LOW DELIVERY</p>
-              <p class="stat-card-value">
-                <AnimNum :target="pulsationData.classification_counts['Orange (Low Delivery)'] || 0" />
-              </p>
+              <p class="stat-card-value">{{ pulsationData.classification_counts['Orange (Low Delivery)'] || 0 }}</p>
               <p class="stat-card-subtitle">Action Required</p>
             </div>
 
             <div class="stat-card stat-card-critical" v-if="pulsationData.classification_counts['Red (High Spam Complaints)']">
               <div class="stat-card-icon-badge">✕</div>
               <p class="stat-card-label">HIGH SPAM RISK</p>
-              <p class="stat-card-value">
-                <AnimNum :target="pulsationData.classification_counts['Red (High Spam Complaints)'] || 0" />
-              </p>
+              <p class="stat-card-value">{{ pulsationData.classification_counts['Red (High Spam Complaints)'] || 0 }}</p>
               <p class="stat-card-subtitle">Critical Issue</p>
             </div>
           </div>
@@ -904,64 +896,6 @@
     const { createApp } = Vue;
 
     createApp({
-      components: {
-        // Animated Number Counter Component
-        AnimNum: {
-          props: {
-            target: {
-              type: Number,
-              required: true,
-              default: 0
-            },
-            duration: {
-              type: Number,
-              default: 1000
-            }
-          },
-          data() {
-            return {
-              displayValue: '0'
-            };
-          },
-          watch: {
-            target: {
-              immediate: true,
-              handler(newTarget) {
-                this.animateValue(newTarget);
-              }
-            }
-          },
-          methods: {
-            animateValue(target) {
-              if (this.animationFrame) {
-                cancelAnimationFrame(this.animationFrame);
-              }
-
-              let startTime = null;
-              const startValue = 0;
-
-              const step = (timestamp) => {
-                if (!startTime) startTime = timestamp;
-                const progress = Math.min((timestamp - startTime) / this.duration, 1);
-                const currentValue = Math.floor(progress * target);
-                this.displayValue = currentValue.toLocaleString();
-
-                if (progress < 1) {
-                  this.animationFrame = requestAnimationFrame(step);
-                }
-              };
-
-              this.animationFrame = requestAnimationFrame(step);
-            }
-          },
-          beforeUnmount() {
-            if (this.animationFrame) {
-              cancelAnimationFrame(this.animationFrame);
-            }
-          },
-          template: '<span>{{ displayValue }}</span>'
-        }
-      },
       data() {
         return {
           // API Configuration - always use port 8001 for backend
