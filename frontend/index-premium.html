@@ -955,12 +955,30 @@
         async fetchPulsationData() {
           this.pulsationLoading = true;
           try {
-            const response = await fetch(`${this.API_BASE}/api/pulsation/${this.pulsationViewType}`);
+            // Correct API: POST /api/pulsation/query with body
+            const response = await fetch(`${this.API_BASE}/api/pulsation/query`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                view_type: this.pulsationViewType
+              })
+            });
+
             if (!response.ok) {
               const errorText = await response.text();
               throw new Error(`Failed to fetch data: ${response.status} ${errorText}`);
             }
-            this.pulsationData = await response.json();
+
+            const result = await response.json();
+
+            if (result.status === 'no_data') {
+              alert(result.message || 'No data available for the selected period');
+              this.pulsationData = null;
+            } else {
+              this.pulsationData = result;
+            }
           } catch (error) {
             console.error('Error:', error);
             alert('Failed to load pulsation data: ' + error.message);
@@ -971,14 +989,20 @@
         async collectYesterdayData() {
           this.pulsationLoading = true;
           try {
-            const response = await fetch(`${this.API_BASE}/api/pulsation/collect/yesterday`, {
+            // Correct API: POST /api/pulsation/collect-yesterday
+            const response = await fetch(`${this.API_BASE}/api/pulsation/collect-yesterday`, {
               method: 'POST'
             });
+
             if (!response.ok) {
               const errorText = await response.text();
               throw new Error(`Failed to collect data: ${response.status} ${errorText}`);
             }
-            alert('Data collection started. This may take a few minutes.');
+
+            const result = await response.json();
+            alert(result.message || 'Data collection started. This may take a few minutes.');
+
+            // Refresh data
             await this.fetchPulsationData();
           } catch (error) {
             console.error('Error:', error);
@@ -994,14 +1018,20 @@
           }
           this.pulsationLoading = true;
           try {
-            const response = await fetch(`${this.API_BASE}/api/pulsation/collect/custom/${this.pulsationCustomCollectDate}`, {
+            // Correct API: POST /api/pulsation/collect-date?date=YYYY-MM-DD
+            const response = await fetch(`${this.API_BASE}/api/pulsation/collect-date?date=${this.pulsationCustomCollectDate}`, {
               method: 'POST'
             });
+
             if (!response.ok) {
               const errorText = await response.text();
               throw new Error(`Failed to collect data: ${response.status} ${errorText}`);
             }
-            alert('Data collection started. This may take a few minutes.');
+
+            const result = await response.json();
+            alert(result.message || 'Data collection completed!');
+
+            // Refresh data
             await this.fetchPulsationData();
           } catch (error) {
             console.error('Error:', error);
