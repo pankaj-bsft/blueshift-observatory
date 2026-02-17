@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Component Library Demo - Blueshift Observatory</title>
+  <script src="https://unpkg.com/vue@3.3.4/dist/vue.global.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f1f5f9;
+      padding: 40px 20px;
+    }
+    .demo-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .demo-section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 1px solid #e2e8f0;
+    }
+    .demo-section h2 {
+      font-size: 18px;
+      color: #1e293b;
+      margin-bottom: 16px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 8px;
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .demo-item {
+      padding: 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+    .demo-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+    .page-title {
+      font-size: 32px;
+      font-weight: 800;
+      color: #1e293b;
+      margin-bottom: 8px;
+    }
+    .page-subtitle {
+      font-size: 14px;
+      color: #64748b;
+      margin-bottom: 32px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="demo-container">
+      <h1 class="page-title">Component Library Demo</h1>
+      <p class="page-subtitle">Testing all Vue components before integration</p>
+
+      <!-- Sparkline Demo -->
+      <div class="demo-section">
+        <h2>📊 Sparkline Component</h2>
+        <div class="demo-grid">
+          <div class="demo-item">
+            <div class="demo-label">Upward Trend</div>
+            <Sparkline :data="[60, 65, 70, 75, 80, 85, 90]" color="#10b981" />
+          </div>
+          <div class="demo-item">
+            <div class="demo-label">Downward Trend</div>
+            <Sparkline :data="[90, 85, 80, 75, 70, 65, 60]" color="#ef4444" />
+          </div>
+          <div class="demo-item">
+            <div class="demo-label">Volatile Trend</div>
+            <Sparkline :data="[70, 85, 60, 90, 55, 80, 75]" color="#f59e0b" />
+          </div>
+          <div class="demo-item">
+            <div class="demo-label">Stable Trend</div>
+            <Sparkline :data="[95, 96, 95, 97, 96, 95, 96]" color="#3b82f6" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ProgressRing Demo -->
+      <div class="demo-section">
+        <h2>🎯 ProgressRing Component</h2>
+        <div class="demo-grid">
+          <div class="demo-item">
+            <div class="demo-label">Excellent (98%)</div>
+            <ProgressRing :value="98" />
+          </div>
+          <div class="demo-item">
+            <div class="demo-label">Good (90%)</div>
+            <ProgressRing :value="90" />
+          </div>
+          <div class="demo-item">
+            <div class="demo-label">Warning (85%)</div>
+            <ProgressRing :value="85" />
+          </div>
+          <div class="demo-item">
+            <div class="demo-label">Critical (72%)</div>
+            <ProgressRing :value="72" />
+          </div>
+        </div>
+      </div>
+
+      <!-- AnimNum Demo -->
+      <div class="demo-section">
+        <h2>🔢 AnimNum Component</h2>
+        <div class="demo-grid">
+          <div class="demo-item">
+            <div class="demo-label">Small Number</div>
+            <div style="font-size: 32px; font-weight: 800; color: #1e293b;">
+              <AnimNum :target="262" />
+            </div>
+          </div>
+          <div class="demo-item">
+            <div class="demo-label">Medium Number</div>
+            <div style="font-size: 32px; font-weight: 800; color: #1e293b;">
+              <AnimNum :target="1117" />
+            </div>
+          </div>
+          <div class="demo-item">
+            <div class="demo-label">Large Number</div>
+            <div style="font-size: 32px; font-weight: 800; color: #1e293b;">
+              <AnimNum :target="338450" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Badge Variants -->
+      <div class="demo-section">
+        <h2>🏷️ Badge Components</h2>
+
+        <div style="margin-bottom: 20px;">
+          <div class="demo-label">ESP Badges</div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <ESPBadge esp="Sendgrid" />
+            <ESPBadge esp="Sparkpost" />
+            <ESPBadge esp="Mailgun" />
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div class="demo-label">Region Badges</div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <RegionBadge region="US" />
+            <RegionBadge region="EU" />
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div class="demo-label">Status Dots</div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <StatusDot status="healthy" />
+              <span style="font-size: 13px; color: #64748b;">Healthy</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <StatusDot status="warning" />
+              <span style="font-size: 13px; color: #64748b;">Warning</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <StatusDot status="low" />
+              <span style="font-size: 13px; color: #64748b;">Low</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <StatusDot status="critical" />
+              <span style="font-size: 13px; color: #64748b;">Critical</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div class="demo-label">Reputation Badges</div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <RepBadge rep="HIGH" />
+            <RepBadge rep="MEDIUM(10)" />
+            <RepBadge rep="LOW(5)" />
+            <RepBadge rep="BAD(1)" />
+            <RepBadge rep="N/A" />
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div class="demo-label">Severity Badges</div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <SeverityBadge severity="critical" />
+            <SeverityBadge severity="high" />
+            <SeverityBadge severity="medium" />
+            <SeverityBadge severity="info" />
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div class="demo-label">ISP Badges</div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <ISPBadge isp="Gmail" />
+            <ISPBadge isp="Apple" />
+            <ISPBadge isp="Comcast" />
+            <ISPBadge isp="Yahoo" />
+            <ISPBadge isp="Outlook" />
+            <ISPBadge isp="Other" />
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div class="demo-label">Bounce Type Badges</div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <BounceTypeBadge type="hard" />
+            <BounceTypeBadge type="soft" />
+          </div>
+        </div>
+      </div>
+
+      <!-- PageHeader Demo -->
+      <div class="demo-section">
+        <h2>📄 PageHeader Component</h2>
+        <PageHeader
+          title="Pulsation — Deliverability Health Monitor"
+          subtitle="Real-time monitoring of domain health with historical trends and intelligent risk classification"
+        >
+          <template #icon>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+          </template>
+        </PageHeader>
+      </div>
+
+      <!-- CardSection Demo -->
+      <div class="demo-section">
+        <h2>🗂️ CardSection Component</h2>
+        <CardSection title="Sample Card">
+          <template #extra>
+            <span style="font-size: 12px; color: #94a3b8;">338 domains</span>
+          </template>
+          <div style="padding: 20px;">
+            <p style="color: #64748b; font-size: 14px;">This is the content inside a CardSection component. It provides consistent styling for all card-based sections.</p>
+          </div>
+        </CardSection>
+      </div>
+
+      <div class="demo-section" style="background: #dcfce7; border-color: #86efac;">
+        <h2 style="color: #166534;">✅ All Components Loaded Successfully!</h2>
+        <p style="color: #166534; font-size: 14px; margin-top: 8px;">If you can see this page with all components rendered correctly, the component library is ready for integration into the main application.</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const { createApp } = Vue;
+
+    // Import all components
+    import Sparkline from './components/Sparkline.vue';
+    import ProgressRing from './components/ProgressRing.vue';
+    import AnimNum from './components/AnimNum.vue';
+    import Badge from './components/Badge.vue';
+    import ESPBadge from './components/ESPBadge.vue';
+    import RegionBadge from './components/RegionBadge.vue';
+    import StatusDot from './components/StatusDot.vue';
+    import RepBadge from './components/RepBadge.vue';
+    import SeverityBadge from './components/SeverityBadge.vue';
+    import ISPBadge from './components/ISPBadge.vue';
+    import BounceTypeBadge from './components/BounceTypeBadge.vue';
+    import PageHeader from './components/PageHeader.vue';
+    import CardSection from './components/CardSection.vue';
+
+    const app = createApp({
+      components: {
+        Sparkline,
+        ProgressRing,
+        AnimNum,
+        Badge,
+        ESPBadge,
+        RegionBadge,
+        StatusDot,
+        RepBadge,
+        SeverityBadge,
+        ISPBadge,
+        BounceTypeBadge,
+        PageHeader,
+        CardSection
+      }
+    });
+
+    app.mount('#app');
+  </script>
+</body>
+</html>

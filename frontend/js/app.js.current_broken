@@ -1,0 +1,2717 @@
+// MBR Dashboard Vue Application
+
+const { createApp } = Vue;
+
+createApp({
+  data() {
+    return {
+      activeView: 'pulsation',
+      fromDate: '',
+      toDate: '',
+      loading: false,
+      exporting: false,
+      data: null,
+      accountData: null,
+      mbrViewMode: 'domain', // 'domain' or 'account'
+      savingToDb: false,
+      reportExists: null,
+      error: null,
+      successMessage: null,
+      // Saved Reports
+      savedReportsList: [],
+      loadingReports: false,
+      loadingReportId: null,
+      filterMonth: null,
+      filterYear: null,
+      deletingReportId: null,
+      // Pulsation data
+      pulsationViewType: 'yesterday',
+      pulsationLoading: false,
+      pulsationData: null,
+      pulsationTab: 'overall',
+      selectedDomain: '',
+      chartData: null,
+      activeCharts: {},
+      // Sorting and filtering
+      sortColumn: '',
+      sortDirection: 'asc',
+      activeClassificationFilter: '',
+      // Account Mappings
+      accountMappings: [],
+      accountMappingsTotal: 0,
+      accountMappingsLoading: false,
+      accountSearchQuery: '',
+      accountStats: null,
+      showAddMappingModal: false,
+      showEditMappingModal: false,
+      mappingForm: {
+        id: null,
+        sending_domain: '',
+        account_name: '',
+        notes: '',
+        is_affiliate: false
+      },
+      // Email Recipients
+      emailRecipients: [],
+      selectedRecipients: [],
+      showSendEmailModal: false,
+      emailForm: {
+        subject: '',
+        body: ''
+      },
+      sendingEmail: false,
+      showManageRecipientsModal: false,
+      showAddRecipientModal: false,
+      showEditRecipientModal: false,
+      recipientForm: {
+        id: null,
+        name: '',
+        email: '',
+        notes: ''
+      },
+      // Account Info (ESP Integration)
+      accountInfo: null,
+      accountInfoLoading: false,
+      accountInfoError: null,
+      accountInfoFilters: {
+        esp: '',
+        region: '',
+        domain: '',
+        account_name: '',
+        ip_addresses: '',
+        subaccount: '',
+        ip_pool: '',
+        status: '',
+        verified: '',
+        created_at: ''
+      },
+      // SNDS Analytics
+      sndsTimePeriod: '30day',
+      sndsViewBy: 'ip',
+      sndsSelectedAccount: '',
+      sndsSelectedIP: '',
+      sndsLoading: false,
+      sndsError: null,
+      sndsOverview: null,
+      sndsData: [],
+      sndsTopPerformers: [],
+      sndsProblemIPs: [],
+      sndsAnomalies: [],
+      sndsReputationTrends: null,
+      sndsTrafficTrends: null,
+      sndsAccountsList: [],
+      sndsIPsList: [],
+      reputationChart: null,
+      trafficChart: null,
+      spamChart: null,
+      filterChart: null,
+      distributionChart: null,
+      sndsLastUpdated: null,
+      sndsAutoRefresh: false,
+      sndsRefreshInterval: null,
+      sndsFilterPresets: {
+        all: { name: 'All IPs', account: '', ip: '' },
+        problems: { name: 'Problem IPs', threshold: 50 },
+        excellent: { name: 'Excellent Only', minScore: 85 },
+        needsAttention: { name: 'Needs Attention', maxScore: 70 }
+      },
+
+      // Google Postmaster Tools (GPT)
+      gptTimePeriod: '30day',
+      gptSelectedDomain: '',
+      gptLoading: false,
+      gptError: null,
+      gptAuthorized: false,
+      gptOverview: null,
+      gptData: [],
+      gptDomainsList: [],
+      gptReputationChanges: [],
+      gptLastUpdated: null,
+      showIPModal: false,
+      showGPTNotifications: false,
+      // Bounce Analytics
+      activeBounceESP: 'Mailgun',
+      bounceStartDate: '',
+      bounceEndDate: '',
+      bounceSelectedDomain: 'all',
+      bounceLoading: false,
+      bounceData: [],
+      bounceSendingDomains: [],
+      bounceSortColumn: 'event_date',
+      bounceSortOrder: 'desc'
+    };
+  },
+
+  computed: {
+    hasData() {
+      return this.data !== null;
+    },
+
+    canFetch() {
+      return this.fromDate && this.toDate && !this.loading;
+    },
+
+    overallSummary() {
+      return this.data?.overall_summary || null;
+    },
+
+    espData() {
+      return this.data?.esp_data || {};
+    },
+
+    top10Overall() {
+      return this.data?.top10_overall || [];
+    },
+
+    espList() {
+      return Object.keys(this.espData);
+    },
+
+    // Account-level computed properties
+    topAccountsByESP() {
+      return this.accountData?.top_accounts_by_esp || {};
+    },
+
+    topAccountsOverall() {
+      return this.accountData?.top10_accounts_overall || [];
+    },
+
+    affiliateAccounts() {
+      return this.accountData?.affiliate_accounts || [];
+    },
+
+    hasAccountData() {
+      return this.accountData !== null;
+    },
+
+    // Filtered and sorted data for each Pulsation tab
+    filteredOverallData() {
+      return this.getFilteredAndSorted(this.pulsationData?.overall_data || []);
+    },
+
+    filteredLowDeliveryData() {
+      return this.getFilteredAndSorted(this.pulsationData?.top20_low_delivery || []);
+    },
+
+    filteredSpamData() {
+      return this.getFilteredAndSorted(this.pulsationData?.top20_spam || []);
+    },
+
+    filteredBounceData() {
+      return this.getFilteredAndSorted(this.pulsationData?.top20_bounce || []);
+    },
+
+    filteredRiskData() {
+      return this.getFilteredAndSorted(this.pulsationData?.top20_risk || []);
+    },
+
+    // Filtered saved reports
+    filteredSavedReports() {
+      let filtered = this.savedReportsList;
+
+      if (this.filterMonth !== null) {
+        filtered = filtered.filter(r => r.month === this.filterMonth);
+      }
+
+      if (this.filterYear !== null) {
+        filtered = filtered.filter(r => r.year === this.filterYear);
+      }
+
+      return filtered;
+    },
+
+    // Available months from saved reports
+    availableMonths() {
+      const months = [...new Set(this.savedReportsList.map(r => r.month).filter(m => m !== null))];
+      return months.sort((a, b) => a - b);
+    },
+
+    // Available years from saved reports
+    availableYears() {
+      const years = [...new Set(this.savedReportsList.map(r => r.year).filter(y => y !== null))];
+      return years.sort((a, b) => b - a); // Descending order
+    },
+
+    // Filtered account info data
+    filteredAccountInfo() {
+      if (!this.accountInfo || !this.accountInfo.data) {
+        return [];
+      }
+
+      return this.accountInfo.data.filter(item => {
+        // ESP filter
+        if (this.accountInfoFilters.esp && !item.esp.toLowerCase().includes(this.accountInfoFilters.esp.toLowerCase())) {
+          return false;
+        }
+
+        // Region filter
+        if (this.accountInfoFilters.region && !item.region.toLowerCase().includes(this.accountInfoFilters.region.toLowerCase())) {
+          return false;
+        }
+
+        // Domain filter
+        if (this.accountInfoFilters.domain && !item.domain.toLowerCase().includes(this.accountInfoFilters.domain.toLowerCase())) {
+          return false;
+        }
+
+        // Account Name filter
+        if (this.accountInfoFilters.account_name && !item.account_name.toLowerCase().includes(this.accountInfoFilters.account_name.toLowerCase())) {
+          return false;
+        }
+
+        // IP Addresses filter
+        if (this.accountInfoFilters.ip_addresses && !item.ip_addresses.toLowerCase().includes(this.accountInfoFilters.ip_addresses.toLowerCase())) {
+          return false;
+        }
+
+        // Subaccount filter
+        if (this.accountInfoFilters.subaccount && !item.subaccount.toLowerCase().includes(this.accountInfoFilters.subaccount.toLowerCase())) {
+          return false;
+        }
+
+        // IP Pool filter
+        if (this.accountInfoFilters.ip_pool && !item.ip_pool.toLowerCase().includes(this.accountInfoFilters.ip_pool.toLowerCase())) {
+          return false;
+        }
+
+        // Status filter
+        if (this.accountInfoFilters.status && !item.status.toLowerCase().includes(this.accountInfoFilters.status.toLowerCase())) {
+          return false;
+        }
+
+        // Verified filter
+        if (this.accountInfoFilters.verified !== '') {
+          const verifiedFilter = this.accountInfoFilters.verified.toLowerCase();
+          if (verifiedFilter === 'yes' || verifiedFilter === 'true') {
+            if (!item.verified) return false;
+          } else if (verifiedFilter === 'no' || verifiedFilter === 'false') {
+            if (item.verified) return false;
+          }
+        }
+
+        // Created date filter
+        if (this.accountInfoFilters.created_at && !item.created_at.toLowerCase().includes(this.accountInfoFilters.created_at.toLowerCase())) {
+          return false;
+        }
+
+        return true;
+      });
+    },
+
+    // Sorted Bounce Data
+    sortedBounceData() {
+      if (!this.bounceData || this.bounceData.length === 0) {
+        return [];
+      }
+
+      const sorted = [...this.bounceData];
+      const column = this.bounceSortColumn;
+      const order = this.bounceSortOrder;
+
+      sorted.sort((a, b) => {
+        let aVal = a[column];
+        let bVal = b[column];
+
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+          return order === 'asc' ? aVal - bVal : bVal - aVal;
+        }
+
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          return order === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        }
+
+        return 0;
+      });
+
+      return sorted;
+    }
+  },
+
+  methods: {
+    setActiveView(view) {
+      this.activeView = view;
+      this.error = null;
+      this.successMessage = null;
+
+      // Load data when switching to accounts view
+      if (view === 'accounts') {
+        this.loadAccountMappings();
+        this.loadAccountStats();
+      }
+
+      // Load data when switching to account info view
+      if (view === 'accountInfo') {
+        this.fetchAccountInfo();
+      }
+    },
+
+    getRowStyle(classification) {
+      const colorMap = {
+        'Green (Healthy)': '#2ECC711A',
+        'Yellow (Monitor)': '#F1C40F1A',
+        'Orange (Low Delivery)': '#E67E221A',
+        'Red (High Spam Complaints)': '#E74C3C1A',
+        'Unclassified': '#95A5A61A'
+      };
+      return { background: colorMap[classification] || 'transparent' };
+    },
+
+    async fetchData() {
+      if (!this.canFetch) return;
+
+      this.loading = true;
+      this.error = null;
+      this.successMessage = null;
+      this.reportExists = null;
+
+      try {
+        this.data = await window.api.fetchData(this.fromDate, this.toDate);
+        this.successMessage = `Data loaded successfully! Found ${this.data.total_domains} domains.`;
+
+        setTimeout(() => {
+          this.successMessage = null;
+        }, 5000);
+      } catch (err) {
+        this.error = err.message;
+        this.data = null;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchAccountData() {
+      if (!this.canFetch) return;
+
+      this.loading = true;
+      this.error = null;
+      this.successMessage = null;
+      this.reportExists = null;
+
+      try {
+        const response = await fetch('http://localhost:8001/api/fetch-data-by-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from_date: this.fromDate,
+            to_date: this.toDate
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.detail || 'Failed to fetch account data');
+        }
+
+        this.accountData = await response.json();
+        this.successMessage = `Account data loaded successfully! Found ${this.accountData.total_accounts} accounts.`;
+
+        setTimeout(() => {
+          this.successMessage = null;
+        }, 5000);
+      } catch (err) {
+        this.error = err.message;
+        this.accountData = null;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchMBRData() {
+      // Fetch both domain and account data
+      if (this.mbrViewMode === 'domain') {
+        await this.fetchData();
+      } else {
+        await this.fetchAccountData();
+      }
+    },
+
+    async saveReportToDB() {
+      if (!this.hasData && !this.hasAccountData) {
+        this.error = 'No data to save. Please fetch data first.';
+        return;
+      }
+
+      const reportData = this.mbrViewMode === 'domain' ? this.data : this.accountData;
+      if (!reportData) {
+        this.error = 'No data available to save.';
+        return;
+      }
+
+      this.savingToDb = true;
+      this.error = null;
+
+      try {
+        const response = await fetch('http://localhost:8001/api/mbr/save-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from_date: this.fromDate,
+            to_date: this.toDate,
+            report_type: this.mbrViewMode,
+            report_data: reportData,
+            overwrite: false  // Always create new snapshot, never overwrite
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = `Report saved successfully! (ID: ${result.report_id})`;
+          setTimeout(() => { this.successMessage = null; }, 5000);
+          this.reportExists = null;
+          // Refresh the saved reports list
+          this.fetchSavedReports();
+        } else {
+          this.error = result.message || 'Failed to save report';
+        }
+      } catch (err) {
+        this.error = 'Error saving report: ' + err.message;
+      } finally {
+        this.savingToDb = false;
+      }
+    },
+
+    async fetchSavedReports() {
+      this.loadingReports = true;
+      this.error = null;
+
+      try {
+        const response = await fetch('http://localhost:8001/api/mbr/reports?limit=100');
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.savedReportsList = result.reports;
+        } else {
+          this.error = 'Failed to fetch saved reports';
+        }
+      } catch (err) {
+        console.error('Error fetching saved reports:', err);
+        this.savedReportsList = [];
+      } finally {
+        this.loadingReports = false;
+      }
+    },
+
+    async loadSavedReport(reportId) {
+      console.log('Loading report ID:', reportId);
+      this.loadingReportId = reportId;
+      this.error = null;
+      this.successMessage = null;
+
+      try {
+        const response = await fetch(`http://localhost:8001/api/mbr/reports/${reportId}`);
+        const result = await response.json();
+        console.log('API response:', result);
+
+        if (result.status === 'success' && result.report) {
+          const report = result.report;
+          console.log('Report data structure:', Object.keys(report.report_data));
+
+          // IMPORTANT: Switch to MBR tab first
+          this.activeView = 'mbr';
+
+          // Set the dates from the report
+          this.fromDate = report.from_date;
+          this.toDate = report.to_date;
+
+          // Load the report data based on type
+          if (report.report_type === 'domain') {
+            // Clear account data first
+            this.accountData = null;
+            // Switch to domain view
+            this.mbrViewMode = 'domain';
+            // Set the data (create new object to ensure reactivity)
+            this.data = { ...report.report_data };
+
+            this.successMessage = `✅ Loaded domain report (ID: ${reportId}) - ${report.total_domains} domains from ${report.from_date} to ${report.to_date}`;
+            console.log('Domain report loaded. Has data:', !!this.data);
+            console.log('Data keys:', Object.keys(this.data));
+            console.log('hasData computed:', this.hasData);
+            console.log('activeView:', this.activeView);
+            console.log('mbrViewMode:', this.mbrViewMode);
+            console.log('Should show data (all conditions):', this.activeView === 'mbr' && this.mbrViewMode === 'domain' && this.hasData);
+          } else if (report.report_type === 'account') {
+            // Clear domain data first
+            this.data = null;
+            // Ensure we're on MBR tab (already set above, but being explicit)
+            this.activeView = 'mbr';
+            // Switch to account view
+            this.mbrViewMode = 'account';
+            // Set the data (create new object to ensure reactivity)
+            this.accountData = { ...report.report_data };
+
+            this.successMessage = `✅ Loaded account report (ID: ${reportId}) - ${report.total_accounts} accounts from ${report.from_date} to ${report.to_date}`;
+            console.log('Account report loaded. Has accountData:', !!this.accountData);
+            console.log('AccountData keys:', Object.keys(this.accountData));
+            console.log('hasAccountData computed:', this.hasAccountData);
+            console.log('activeView:', this.activeView);
+            console.log('mbrViewMode:', this.mbrViewMode);
+            console.log('Should show data (all conditions):', this.activeView === 'mbr' && this.mbrViewMode === 'account' && this.hasAccountData);
+          }
+
+          // Use nextTick to ensure Vue has processed the data update
+          this.$nextTick(() => {
+            // Scroll to top to see the data
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          });
+
+          setTimeout(() => { this.successMessage = null; }, 8000);
+        } else {
+          this.error = 'Failed to load report';
+          console.error('API returned error:', result);
+        }
+      } catch (err) {
+        console.error('Error loading report:', err);
+        this.error = 'Error loading report: ' + err.message;
+      } finally {
+        this.loadingReportId = null;
+      }
+    },
+
+    async deleteSavedReport(reportId) {
+      if (!confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
+        return;
+      }
+
+      this.deletingReportId = reportId;
+      this.error = null;
+
+      try {
+        const response = await fetch(`http://localhost:8001/api/mbr/reports/${reportId}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = `Report deleted successfully (ID: ${reportId})`;
+          // Refresh the saved reports list
+          await this.fetchSavedReports();
+          setTimeout(() => { this.successMessage = null; }, 3000);
+        } else {
+          this.error = result.message || 'Failed to delete report';
+        }
+      } catch (err) {
+        console.error('Error deleting report:', err);
+        this.error = 'Error deleting report: ' + err.message;
+      } finally {
+        this.deletingReportId = null;
+      }
+    },
+
+    clearFilters() {
+      this.filterMonth = null;
+      this.filterYear = null;
+    },
+
+    async exportExcel() {
+      if (!this.hasData || this.exporting) return;
+
+      this.exporting = true;
+      this.error = null;
+
+      try {
+        await window.api.exportExcel(this.fromDate, this.toDate);
+        this.successMessage = 'Excel file downloaded successfully with all data!';
+
+        setTimeout(() => {
+          this.successMessage = null;
+        }, 3000);
+      } catch (err) {
+        this.error = 'Failed to export Excel file';
+      } finally {
+        this.exporting = false;
+      }
+    },
+
+    async exportPDF() {
+      if (!this.hasData || this.exporting) return;
+
+      this.exporting = true;
+      this.error = null;
+
+      try {
+        await window.api.exportPDF(this.fromDate, this.toDate);
+        this.successMessage = 'PDF file downloaded successfully with all data!';
+
+        setTimeout(() => {
+          this.successMessage = null;
+        }, 3000);
+      } catch (err) {
+        this.error = 'Failed to export PDF file';
+      } finally {
+        this.exporting = false;
+      }
+    },
+
+    formatNumber(value) {
+      if (value === null || value === undefined) return '-';
+      return Number(value).toLocaleString('en-US');
+    },
+
+    formatRate(value) {
+      if (value === null || value === undefined) return '-';
+      return `${value}%`;
+    },
+
+    formatDateTime(value) {
+      if (!value) return '-';
+      const date = new Date(value);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    },
+
+    formatMonthYear(month, year) {
+      if (!month || !year) return null;
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+      return `${monthNames[month - 1]} ${year}`;
+    },
+
+    getMonthName(month) {
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+      return monthNames[month - 1] || '';
+    },
+
+    getRateClass(value, type) {
+      if (value === null || value === undefined) return '';
+
+      switch (type) {
+        case 'delivery':
+          return value >= 99 ? 'rate-good' : value >= 95 ? 'rate-warning' : 'rate-bad';
+        case 'bounce':
+        case 'spam':
+        case 'unsub':
+          return value <= 0.1 ? 'rate-good' : value <= 1 ? 'rate-warning' : 'rate-bad';
+        case 'open':
+          return value >= 20 ? 'rate-good' : value >= 10 ? 'rate-warning' : 'rate-bad';
+        case 'click':
+          return value >= 3 ? 'rate-good' : value >= 1 ? 'rate-warning' : 'rate-bad';
+        default:
+          return '';
+      }
+    },
+
+    formatMoM(value) {
+      if (value === null || value === undefined) return 'N/A';
+      const sign = value >= 0 ? '+' : '';
+      return `${sign}${value}%`;
+    },
+
+    getMoMClass(value) {
+      if (value === null || value === undefined) return 'mom-na';
+      if (value > 0) return 'mom-increase';
+      if (value < 0) return 'mom-decrease';
+      return '';
+    },
+
+    getHealthScoreClass(rating) {
+      if (!rating) return '';
+      switch (rating) {
+        case 'Excellent':
+          return 'health-excellent';
+        case 'Good':
+          return 'health-good';
+        case 'Fair':
+          return 'health-fair';
+        case 'Poor':
+          return 'health-poor';
+        case 'Critical':
+          return 'health-critical';
+        default:
+          return '';
+      }
+    },
+
+    getESPRegionData(esp) {
+      const data = this.espData[esp];
+      if (!data) return [];
+
+      const rows = [];
+
+      if (data.us_summary) {
+        rows.push({ region: 'US', ...data.us_summary });
+      }
+
+      if (data.eu_summary) {
+        rows.push({ region: 'EU', ...data.eu_summary });
+      }
+
+      if (data.combined_summary) {
+        rows.push({ region: 'Total', ...data.combined_summary, isTotal: true });
+      }
+
+      return rows;
+    },
+
+    getESPTop10(esp) {
+      const data = this.espData[esp];
+      return data?.top10_domains || [];
+    },
+
+    getESPAccountTop10(esp) {
+      const espData = this.topAccountsByESP[esp];
+      return espData?.top10_accounts || [];
+    },
+
+    setDefaultDates() {
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      this.fromDate = firstDay.toISOString().split('T')[0];
+      this.toDate = today.toISOString().split('T')[0];
+    },
+
+    // Sorting and Filtering Methods
+    sortTable(column) {
+      if (this.sortColumn === column) {
+        this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortColumn = column;
+        this.sortDirection = 'asc';
+      }
+    },
+
+    getSortIcon(column) {
+      if (this.sortColumn !== column) {
+        return 'fas fa-sort';
+      }
+      return this.sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+    },
+
+    toggleClassificationFilter(classification) {
+      if (this.activeClassificationFilter === classification) {
+        this.activeClassificationFilter = '';
+      } else {
+        this.activeClassificationFilter = classification;
+      }
+    },
+
+    getFilteredAndSorted(data) {
+      if (!data || data.length === 0) return [];
+
+      let result = [...data];
+
+      // Apply classification filter
+      if (this.activeClassificationFilter) {
+        result = result.filter(row => row.classification === this.activeClassificationFilter);
+      }
+
+      // Apply sorting
+      if (this.sortColumn) {
+        result.sort((a, b) => {
+          let aVal = a[this.sortColumn];
+          let bVal = b[this.sortColumn];
+
+          // Handle null/undefined values
+          if (aVal == null) return 1;
+          if (bVal == null) return -1;
+
+          // Compare values
+          if (typeof aVal === 'string') {
+            aVal = aVal.toLowerCase();
+            bVal = bVal.toLowerCase();
+          }
+
+          if (aVal < bVal) return this.sortDirection === 'asc' ? -1 : 1;
+          if (aVal > bVal) return this.sortDirection === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }
+
+      return result;
+    },
+
+    // Pulsation Methods
+    async collectYesterdayData() {
+      this.pulsationLoading = true;
+      this.error = null;
+
+      try {
+        const response = await fetch('http://localhost:8001/api/pulsation/collect-yesterday', {
+          method: 'POST',
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success' || result.status === 'skipped') {
+          this.successMessage = result.message;
+          setTimeout(() => { this.successMessage = null; }, 5000);
+        } else {
+          this.error = result.message || 'Failed to collect data';
+        }
+      } catch (err) {
+        this.error = 'Error collecting yesterday\'s data: ' + err.message;
+      } finally {
+        this.pulsationLoading = false;
+      }
+    },
+
+    async fetchPulsationData() {
+      this.pulsationLoading = true;
+      this.error = null;
+      this.selectedDomain = '';
+      this.sortColumn = '';
+      this.sortDirection = 'asc';
+      this.activeClassificationFilter = '';
+
+      try {
+        const response = await fetch('http://localhost:8001/api/pulsation/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ view_type: this.pulsationViewType })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.pulsationData = result;
+          this.successMessage = `Loaded ${result.overall_data.length} domains`;
+          setTimeout(() => { this.successMessage = null; }, 3000);
+        } else if (result.status === 'no_data') {
+          this.pulsationData = null;
+          this.error = result.message;
+        } else {
+          this.error = 'Failed to load data';
+        }
+      } catch (err) {
+        this.error = 'Error fetching Pulsation data: ' + err.message;
+        this.pulsationData = null;
+      } finally {
+        this.pulsationLoading = false;
+      }
+    },
+
+    async loadDomainCharts() {
+      if (!this.selectedDomain) {
+        this.destroyAllCharts();
+        this.chartData = null;
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `http://localhost:8001/api/pulsation/domain-timeseries/${encodeURIComponent(this.selectedDomain)}?days=30`
+        );
+        const result = await response.json();
+
+        if (result.status === 'success' && result.data) {
+          this.chartData = result.data;
+
+          // Wait for DOM update
+          this.$nextTick(() => {
+            this.renderChart('chartSent', result.data.dates, result.data.sent, 'Sent', '#3498db');
+            this.renderChart('chartDelivered', result.data.dates, result.data.delivered, 'Delivered', '#2ecc71');
+            this.renderChart('chartDeliveryRate', result.data.dates, result.data.delivery_rate, 'Delivery Rate (%)', '#f39c12');
+            this.renderChart('chartSpamRate', result.data.dates, result.data.spam_rate, 'Spam Rate (%)', '#e74c3c');
+          });
+        } else {
+          this.chartData = null;
+          this.error = 'No chart data available for this domain';
+        }
+      } catch (err) {
+        this.error = 'Error loading chart data: ' + err.message;
+        this.chartData = null;
+      }
+    },
+
+    viewDomainCharts(domain) {
+      this.selectedDomain = domain;
+      this.pulsationTab = 'charts';
+      this.$nextTick(() => {
+        this.loadDomainCharts();
+      });
+    },
+
+    destroyChart(chartId) {
+      if (this.activeCharts[chartId]) {
+        this.activeCharts[chartId].destroy();
+        delete this.activeCharts[chartId];
+      }
+    },
+
+    destroyAllCharts() {
+      Object.keys(this.activeCharts).forEach(chartId => {
+        this.destroyChart(chartId);
+      });
+    },
+
+    renderChart(canvasId, labels, data, label, color) {
+      this.destroyChart(canvasId);
+
+      const canvas = this.$refs[canvasId];
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d');
+      this.activeCharts[canvasId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: label,
+            data: data,
+            borderColor: color || '#0C3C78',
+            backgroundColor: (color || '#0C3C78') + '20',
+            tension: 0.3,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    },
+
+    // Account Mapping Methods
+    async loadAccountMappings() {
+      this.accountMappingsLoading = true;
+      this.error = null;
+
+      try {
+        const url = new URL('http://localhost:8001/api/account-mappings');
+        if (this.accountSearchQuery) {
+          url.searchParams.append('search', this.accountSearchQuery);
+        }
+
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.accountMappings = result.mappings;
+          this.accountMappingsTotal = result.total;
+        } else {
+          this.error = 'Failed to load mappings';
+        }
+      } catch (err) {
+        this.error = 'Error loading mappings: ' + err.message;
+      } finally {
+        this.accountMappingsLoading = false;
+      }
+    },
+
+    async loadAccountStats() {
+      try {
+        const response = await fetch('http://localhost:8001/api/account-mappings/statistics');
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.accountStats = result;
+        }
+      } catch (err) {
+        console.error('Error loading stats:', err);
+      }
+    },
+
+    searchAccountMappings() {
+      // Debounce search
+      clearTimeout(this.searchTimeout);
+      this.searchTimeout = setTimeout(() => {
+        this.loadAccountMappings();
+      }, 500);
+    },
+
+    editMapping(mapping) {
+      this.mappingForm = {
+        id: mapping.id,
+        sending_domain: mapping.sending_domain,
+        account_name: mapping.account_name,
+        notes: mapping.notes || '',
+        is_affiliate: mapping.is_affiliate === 1 || mapping.is_affiliate === true
+      };
+      this.showEditMappingModal = true;
+    },
+
+    async createMapping() {
+      if (!this.mappingForm.sending_domain || !this.mappingForm.account_name) {
+        this.error = 'Domain and Account Name are required';
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:8001/api/account-mappings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sending_domain: this.mappingForm.sending_domain,
+            account_name: this.mappingForm.account_name,
+            notes: this.mappingForm.notes,
+            is_affiliate: this.mappingForm.is_affiliate
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = 'Mapping created successfully!';
+          setTimeout(() => { this.successMessage = null; }, 3000);
+          this.closeModals();
+          this.loadAccountMappings();
+          this.loadAccountStats();
+        } else {
+          this.error = result.detail || 'Failed to create mapping';
+        }
+      } catch (err) {
+        this.error = 'Error creating mapping: ' + err.message;
+      }
+    },
+
+    async updateMapping() {
+      if (!this.mappingForm.account_name) {
+        this.error = 'Account Name is required';
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:8001/api/account-mappings/${this.mappingForm.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            account_name: this.mappingForm.account_name,
+            notes: this.mappingForm.notes,
+            is_affiliate: this.mappingForm.is_affiliate
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = 'Mapping updated successfully!';
+          setTimeout(() => { this.successMessage = null; }, 3000);
+          this.closeModals();
+          this.loadAccountMappings();
+        } else {
+          this.error = result.detail || 'Failed to update mapping';
+        }
+      } catch (err) {
+        this.error = 'Error updating mapping: ' + err.message;
+      }
+    },
+
+    async deleteMapping(mappingId) {
+      if (!confirm('Are you sure you want to delete this mapping?')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:8001/api/account-mappings/${mappingId}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = 'Mapping deleted successfully!';
+          setTimeout(() => { this.successMessage = null; }, 3000);
+          this.loadAccountMappings();
+          this.loadAccountStats();
+        } else {
+          this.error = result.detail || 'Failed to delete mapping';
+        }
+      } catch (err) {
+        this.error = 'Error deleting mapping: ' + err.message;
+      }
+    },
+
+    async importCSV() {
+      if (!confirm('This will import mappings from CSV file. Existing mappings will be updated. Continue?')) {
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:8001/api/account-mappings/import-csv', {
+          method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = result.message;
+          setTimeout(() => { this.successMessage = null; }, 5000);
+          this.loadAccountMappings();
+          this.loadAccountStats();
+        } else {
+          this.error = result.detail || 'Failed to import CSV';
+        }
+      } catch (err) {
+        this.error = 'Error importing CSV: ' + err.message;
+      }
+    },
+
+    async exportCSV() {
+      try {
+        const response = await fetch('http://localhost:8001/api/account-mappings/export-csv');
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = result.message;
+          setTimeout(() => { this.successMessage = null; }, 3000);
+        } else {
+          this.error = result.detail || 'Failed to export CSV';
+        }
+      } catch (err) {
+        this.error = 'Error exporting CSV: ' + err.message;
+      }
+    },
+
+    closeModals() {
+      this.showAddMappingModal = false;
+      this.showEditMappingModal = false;
+      this.mappingForm = {
+        id: null,
+        sending_domain: '',
+        account_name: '',
+        notes: '',
+        is_affiliate: false
+      };
+    },
+
+    formatDate(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    },
+
+    // Email Methods
+    async loadEmailRecipients() {
+      try {
+        const response = await fetch('http://localhost:8001/api/email-recipients?active_only=true');
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.emailRecipients = result.recipients;
+        }
+      } catch (err) {
+        console.error('Error loading email recipients:', err);
+      }
+    },
+
+    openSendEmailModal() {
+      if (!this.hasData && !this.hasAccountData) {
+        this.error = 'Please fetch data first before sending email';
+        return;
+      }
+
+      // Pre-fill email subject and body
+      this.emailForm.subject = `MBR Deliverability Report - ${this.fromDate} to ${this.toDate}`;
+      this.emailForm.body = `
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333;">
+            <h2 style="color: #0C3C78;">Monthly Business Review (MBR) - Deliverability Report</h2>
+            <p>Please find attached the MBR Deliverability Report for the period <strong>${this.fromDate} to ${this.toDate}</strong>.</p>
+            <p>This report includes:</p>
+            <ul>
+              <li>Executive Summary with key metrics</li>
+              <li>Domain-level analysis by ESP</li>
+              <li>Account-level analysis</li>
+              <li>Top 10 performing domains and accounts</li>
+            </ul>
+            <p style="margin-top: 20px;">Best regards,<br/>Blueshift Deliverability Team</p>
+          </body>
+        </html>
+      `;
+
+      this.selectedRecipients = [];
+      this.showSendEmailModal = true;
+    },
+
+    closeSendEmailModal() {
+      this.showSendEmailModal = false;
+      this.selectedRecipients = [];
+      this.emailForm = { subject: '', body: '' };
+    },
+
+    async sendReportEmail() {
+      if (this.selectedRecipients.length === 0) {
+        this.error = 'Please select at least one recipient';
+        return;
+      }
+
+      if (!this.emailForm.subject) {
+        this.error = 'Please enter email subject';
+        return;
+      }
+
+      this.sendingEmail = true;
+      this.error = null;
+
+      try {
+        const response = await fetch('http://localhost:8001/api/send-report-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient_emails: this.selectedRecipients,
+            subject: this.emailForm.subject,
+            body: this.emailForm.body,
+            from_date: this.fromDate,
+            to_date: this.toDate
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = `✅ Email sent successfully to ${result.recipients.length} recipient(s)!`;
+          setTimeout(() => { this.successMessage = null; }, 5000);
+          this.closeSendEmailModal();
+        } else {
+          this.error = result.message || 'Failed to send email';
+        }
+      } catch (err) {
+        this.error = 'Error sending email: ' + err.message;
+      } finally {
+        this.sendingEmail = false;
+      }
+    },
+
+    openManageRecipientsModal() {
+      this.showManageRecipientsModal = true;
+      this.loadEmailRecipients();
+    },
+
+    closeManageRecipientsModal() {
+      this.showManageRecipientsModal = false;
+    },
+
+    openAddRecipientModal() {
+      this.recipientForm = { id: null, name: '', email: '', notes: '' };
+      this.showAddRecipientModal = true;
+    },
+
+    closeRecipientModals() {
+      this.showAddRecipientModal = false;
+      this.showEditRecipientModal = false;
+      this.recipientForm = { id: null, name: '', email: '', notes: '' };
+    },
+
+    async createRecipient() {
+      if (!this.recipientForm.name || !this.recipientForm.email) {
+        this.error = 'Name and Email are required';
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:8001/api/email-recipients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: this.recipientForm.name,
+            email: this.recipientForm.email,
+            notes: this.recipientForm.notes
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = 'Recipient added successfully!';
+          setTimeout(() => { this.successMessage = null; }, 3000);
+          this.closeRecipientModals();
+          this.loadEmailRecipients();
+        } else {
+          this.error = result.detail || 'Failed to add recipient';
+        }
+      } catch (err) {
+        this.error = 'Error adding recipient: ' + err.message;
+      }
+    },
+
+    editRecipient(recipient) {
+      this.recipientForm = {
+        id: recipient.id,
+        name: recipient.name,
+        email: recipient.email,
+        notes: recipient.notes || ''
+      };
+      this.showEditRecipientModal = true;
+    },
+
+    async updateRecipient() {
+      if (!this.recipientForm.name || !this.recipientForm.email) {
+        this.error = 'Name and Email are required';
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:8001/api/email-recipients/${this.recipientForm.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: this.recipientForm.name,
+            email: this.recipientForm.email,
+            notes: this.recipientForm.notes
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = 'Recipient updated successfully!';
+          setTimeout(() => { this.successMessage = null; }, 3000);
+          this.closeRecipientModals();
+          this.loadEmailRecipients();
+        } else {
+          this.error = result.detail || 'Failed to update recipient';
+        }
+      } catch (err) {
+        this.error = 'Error updating recipient: ' + err.message;
+      }
+    },
+
+    async deleteRecipient(recipientId) {
+      if (!confirm('Are you sure you want to delete this recipient?')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:8001/api/email-recipients/${recipientId}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.successMessage = 'Recipient deleted successfully!';
+          setTimeout(() => { this.successMessage = null; }, 3000);
+          this.loadEmailRecipients();
+        } else {
+          this.error = result.detail || 'Failed to delete recipient';
+        }
+      } catch (err) {
+        this.error = 'Error deleting recipient: ' + err.message;
+      }
+    },
+
+    // -------------------------
+    // Account Info (ESP Integration) Methods
+    // -------------------------
+
+    async fetchAccountInfo(forceRefresh = false) {
+      this.accountInfoLoading = true;
+      this.accountInfoError = null;
+
+      try {
+        const url = `http://localhost:8001/api/account-info${forceRefresh ? '?force_refresh=true' : ''}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          this.accountInfo = result;
+
+          if (result.cached) {
+            const minutes = Math.floor(result.cache_expires_in / 60);
+            this.successMessage = `✅ Loaded ${result.total_records} records from cache (expires in ${minutes}m)`;
+          } else {
+            this.successMessage = `✅ Loaded ${result.total_records} records from ESPs`;
+          }
+
+          setTimeout(() => { this.successMessage = null; }, 5000);
+        } else {
+          this.accountInfoError = 'Failed to fetch account info';
+        }
+      } catch (err) {
+        console.error('Error fetching account info:', err);
+        this.accountInfoError = 'Error: ' + err.message;
+      } finally {
+        this.accountInfoLoading = false;
+      }
+    },
+
+    async clearAccountInfoCache() {
+      try {
+        await fetch('http://localhost:8001/api/account-info/clear-cache', {
+          method: 'POST'
+        });
+
+        this.successMessage = 'Cache cleared! Fetching fresh data...';
+        setTimeout(() => { this.successMessage = null; }, 3000);
+
+        // Fetch fresh data
+        await this.fetchAccountInfo(true);
+      } catch (err) {
+        this.error = 'Error clearing cache: ' + err.message;
+      }
+    },
+
+    clearAccountInfoFilters() {
+      this.accountInfoFilters = {
+        esp: '',
+        region: '',
+        domain: '',
+        account_name: '',
+        ip_addresses: '',
+        subaccount: '',
+        ip_pool: '',
+        status: '',
+        verified: '',
+        created_at: ''
+      };
+    },
+
+    // ==================== SNDS METHODS ====================
+
+    async loadSNDSData() {
+      this.sndsLoading = true;
+      this.sndsError = null;
+
+      try {
+        // Load overview statistics
+        const overviewResponse = await fetch(`${API_BASE_URL}/api/snds/overview?period=${this.sndsTimePeriod}`);
+        if (!overviewResponse.ok) throw new Error('Failed to fetch SNDS overview');
+        this.sndsOverview = await overviewResponse.json();
+
+        // Load detailed data
+        const params = new URLSearchParams({
+          period: this.sndsTimePeriod,
+          view_by: this.sndsViewBy
+        });
+
+        if (this.sndsSelectedAccount) {
+          params.append('account_name', this.sndsSelectedAccount);
+        }
+        if (this.sndsSelectedIP) {
+          params.append('ip_address', this.sndsSelectedIP);
+        }
+
+        const dataResponse = await fetch(`${API_BASE_URL}/api/snds/data?${params}`);
+        if (!dataResponse.ok) throw new Error('Failed to fetch SNDS data');
+        const dataResult = await dataResponse.json();
+        this.sndsData = dataResult.data || dataResult;
+
+        // Load top performers
+        const topPerformersResponse = await fetch(
+          `${API_BASE_URL}/api/snds/top-performers?period=${this.sndsTimePeriod}&metric=reputation&limit=10`
+        );
+        if (!topPerformersResponse.ok) throw new Error('Failed to fetch top performers');
+        const topPerformersResult = await topPerformersResponse.json();
+        this.sndsTopPerformers = topPerformersResult.performers || topPerformersResult;
+
+        // Load trends data
+        const trendsResponse = await fetch(
+          `${API_BASE_URL}/api/snds/reputation-trends?period=${this.sndsTimePeriod}&group_by=${this.sndsViewBy}`
+        );
+        if (!trendsResponse.ok) throw new Error('Failed to fetch reputation trends');
+        this.sndsReputationTrends = await trendsResponse.json();
+
+        const trafficResponse = await fetch(
+          `${API_BASE_URL}/api/snds/traffic-trends?period=${this.sndsTimePeriod}&group_by=${this.sndsViewBy}`
+        );
+        if (!trafficResponse.ok) throw new Error('Failed to fetch traffic trends');
+        this.sndsTrafficTrends = await trafficResponse.json();
+
+        // Load problem IPs
+        const problemIPsResponse = await fetch(
+          `${API_BASE_URL}/api/snds/problem-ips?period=${this.sndsTimePeriod}&threshold=50`
+        );
+        if (!problemIPsResponse.ok) throw new Error('Failed to fetch problem IPs');
+        const problemIPsResult = await problemIPsResponse.json();
+        this.sndsProblemIPs = problemIPsResult.problem_ips || problemIPsResult;
+
+        // Load accounts and IPs lists
+        await this.loadSNDSFilters();
+
+        // Detect anomalies
+        this.detectAnomalies();
+
+        // Update last updated timestamp
+        this.sndsLastUpdated = new Date();
+
+        // Render charts
+        this.$nextTick(() => {
+          this.renderSNDSCharts();
+        });
+
+      } catch (err) {
+        this.sndsError = err.message;
+        console.error('SNDS Error:', err);
+      } finally {
+        this.sndsLoading = false;
+      }
+    },
+
+    async loadSNDSFilters() {
+      try {
+        // Load accounts list
+        const accountsResponse = await fetch(`${API_BASE_URL}/api/snds/accounts`);
+        if (accountsResponse.ok) {
+          const accountsResult = await accountsResponse.json();
+          this.sndsAccountsList = accountsResult.accounts || accountsResult;
+        }
+
+        // Load IPs list
+        const ipsResponse = await fetch(`${API_BASE_URL}/api/snds/ips`);
+        if (ipsResponse.ok) {
+          const ipsResult = await ipsResponse.json();
+          this.sndsIPsList = ipsResult.ips || ipsResult;
+        }
+      } catch (err) {
+        console.error('Error loading SNDS filters:', err);
+      }
+    },
+
+    async collectSNDSData() {
+      this.sndsLoading = true;
+      this.sndsError = null;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/snds/collect`, {
+          method: 'POST'
+        });
+
+        if (!response.ok) throw new Error('Failed to collect SNDS data');
+        const result = await response.json();
+
+        this.successMessage = `Successfully collected data for ${result.total_ips} IPs, mapped ${result.ips_mapped} to accounts`;
+        setTimeout(() => { this.successMessage = null; }, 5000);
+
+        // Reload data
+        await this.loadSNDSData();
+
+      } catch (err) {
+        this.sndsError = err.message;
+        console.error('SNDS Collection Error:', err);
+      } finally {
+        this.sndsLoading = false;
+      }
+    },
+
+    detectAnomalies() {
+      if (!this.sndsReputationTrends || !this.sndsTrafficTrends) {
+        this.sndsAnomalies = [];
+        return;
+      }
+
+      const anomalies = [];
+      const trends = this.sndsReputationTrends.trends;
+      const trafficTrends = this.sndsTrafficTrends.trends;
+
+      // Analyze each entity
+      Object.keys(trends).forEach(entity => {
+        const scores = trends[entity].scores;
+        const spamRates = trends[entity].spam_rates;
+        const trapHits = trends[entity].trap_hits;
+        const volumes = trafficTrends[entity]?.volumes || [];
+        const dates = trends[entity].dates;
+
+        // Detect reputation drops (> 15 points)
+        for (let i = 1; i < scores.length; i++) {
+          const drop = scores[i - 1] - scores[i];
+          if (drop > 15) {
+            anomalies.push({
+              type: 'reputation_drop',
+              severity: drop > 30 ? 'critical' : 'warning',
+              entity: entity,
+              message: `Reputation dropped ${drop.toFixed(1)} points`,
+              date: dates[i],
+              value: scores[i],
+              previousValue: scores[i - 1]
+            });
+          }
+        }
+
+        // Detect spam rate spikes (> 0.5% or 3x increase)
+        for (let i = 1; i < spamRates.length; i++) {
+          const increase = spamRates[i] - spamRates[i - 1];
+          const multiplier = spamRates[i - 1] > 0 ? spamRates[i] / spamRates[i - 1] : 0;
+          if (increase > 0.5 || multiplier > 3) {
+            anomalies.push({
+              type: 'spam_spike',
+              severity: increase > 1 ? 'critical' : 'warning',
+              entity: entity,
+              message: `Spam rate increased to ${spamRates[i]}%`,
+              date: dates[i],
+              value: spamRates[i],
+              previousValue: spamRates[i - 1]
+            });
+          }
+        }
+
+        // Detect new trap hits
+        for (let i = 1; i < trapHits.length; i++) {
+          if (trapHits[i] > 0 && trapHits[i - 1] === 0) {
+            anomalies.push({
+              type: 'trap_hits',
+              severity: trapHits[i] > 5 ? 'critical' : 'warning',
+              entity: entity,
+              message: `${trapHits[i]} trap hit${trapHits[i] > 1 ? 's' : ''} detected`,
+              date: dates[i],
+              value: trapHits[i]
+            });
+          }
+        }
+
+        // Detect traffic drops (> 50%)
+        for (let i = 1; i < volumes.length; i++) {
+          if (volumes[i - 1] > 0) {
+            const drop = ((volumes[i - 1] - volumes[i]) / volumes[i - 1]) * 100;
+            if (drop > 50) {
+              anomalies.push({
+                type: 'traffic_drop',
+                severity: drop > 75 ? 'critical' : 'warning',
+                entity: entity,
+                message: `Traffic dropped ${drop.toFixed(0)}%`,
+                date: dates[i],
+                value: volumes[i],
+                previousValue: volumes[i - 1]
+              });
+            }
+          }
+        }
+      });
+
+      // Sort by date (most recent first) and limit to top 20
+      this.sndsAnomalies = anomalies
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 20);
+    },
+
+    exportSNDSData() {
+      if (!this.sndsData || this.sndsData.length === 0) {
+        alert('No data to export');
+        return;
+      }
+
+      // Create CSV header
+      const headers = this.sndsViewBy === 'ip'
+        ? ['IP Address', 'Account', 'Date', 'Message Volume', 'Spam Rate (%)', 'Trap Hits', 'Filter Result', 'Reputation Score', 'Rating', 'Comments']
+        : ['Account', 'Date', 'Message Volume', 'Spam Rate (%)', 'Trap Hits', 'Filter Result', 'Reputation Score', 'Rating'];
+
+      // Create CSV rows
+      const rows = this.sndsData.map(record => {
+        if (this.sndsViewBy === 'ip') {
+          return [
+            record.ip_address || '',
+            record.account_name || 'Unmapped',
+            record.date || '',
+            record.message_volume || 0,
+            record.spam_rate || 0,
+            record.trap_hits || 0,
+            record.filter_result || '',
+            record.reputation_score || 0,
+            record.reputation_rating || '',
+            (record.comments || '').replace(/,/g, ';') // Replace commas in comments
+          ];
+        } else {
+          return [
+            record.account_name || 'Unmapped',
+            record.date || '',
+            record.message_volume || 0,
+            record.spam_rate || 0,
+            record.trap_hits || 0,
+            record.filter_result || '',
+            record.reputation_score || 0,
+            record.reputation_rating || ''
+          ];
+        }
+      });
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+      ].join('\n');
+
+      // Create download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      const filename = `snds_data_${this.sndsTimePeriod}_${this.sndsViewBy}_${new Date().toISOString().split('T')[0]}.csv`;
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      this.successMessage = `Exported ${this.sndsData.length} records to ${filename}`;
+      setTimeout(() => { this.successMessage = null; }, 3000);
+    },
+
+    renderSNDSCharts() {
+      if (!this.sndsReputationTrends || !this.sndsTrafficTrends) return;
+
+      this.renderReputationChart();
+      this.renderTrafficChart();
+      this.renderSpamChart();
+      this.renderFilterChart();
+
+      if (this.sndsData && this.sndsData.length > 0) {
+        this.renderDistributionChart();
+      }
+    },
+
+    renderReputationChart() {
+      const canvas = document.getElementById('sndsReputationChart');
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d');
+
+      // Destroy existing chart
+      if (this.reputationChart) {
+        this.reputationChart.destroy();
+      }
+
+      const trends = this.sndsReputationTrends.trends;
+      const entities = Object.keys(trends).slice(0, 5); // Top 5 entities
+
+      const datasets = entities.map((entity, index) => {
+        const colors = [
+          'rgb(59, 130, 246)',  // blue
+          'rgb(16, 185, 129)',  // green
+          'rgb(251, 146, 60)',  // orange
+          'rgb(139, 92, 246)',  // purple
+          'rgb(236, 72, 153)'   // pink
+        ];
+
+        return {
+          label: entity,
+          data: trends[entity].scores,
+          borderColor: colors[index],
+          backgroundColor: colors[index].replace('rgb', 'rgba').replace(')', ', 0.1)'),
+          borderWidth: 2,
+          tension: 0.4,
+          fill: false
+        };
+      });
+
+      // Use dates from first entity
+      const labels = trends[entities[0]]?.dates || [];
+
+      this.reputationChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom'
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              title: {
+                display: true,
+                text: 'Reputation Score'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Date'
+              }
+            }
+          },
+          interaction: {
+            mode: 'nearest',
+            axis: 'x',
+            intersect: false
+          }
+        }
+      });
+    },
+
+    renderTrafficChart() {
+      const canvas = document.getElementById('sndsTrafficChart');
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d');
+
+      // Destroy existing chart
+      if (this.trafficChart) {
+        this.trafficChart.destroy();
+      }
+
+      const trends = this.sndsTrafficTrends.trends;
+      const entities = Object.keys(trends).slice(0, 5); // Top 5 entities
+
+      const datasets = entities.map((entity, index) => {
+        const colors = [
+          'rgb(59, 130, 246)',  // blue
+          'rgb(16, 185, 129)',  // green
+          'rgb(251, 146, 60)',  // orange
+          'rgb(139, 92, 246)',  // purple
+          'rgb(236, 72, 153)'   // pink
+        ];
+
+        return {
+          label: entity,
+          data: trends[entity].volumes,
+          backgroundColor: colors[index].replace('rgb', 'rgba').replace(')', ', 0.5)'),
+          borderColor: colors[index],
+          borderWidth: 1
+        };
+      });
+
+      // Use dates from first entity
+      const labels = trends[entities[0]]?.dates || [];
+
+      this.trafficChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom'
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Message Volume'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value.toLocaleString();
+                }
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Date'
+              },
+              stacked: false
+            }
+          }
+        }
+      });
+    },
+
+    renderSpamChart() {
+      const canvas = document.getElementById('sndsSpamChart');
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d');
+
+      // Destroy existing chart
+      if (this.spamChart) {
+        this.spamChart.destroy();
+      }
+
+      const trends = this.sndsReputationTrends.trends;
+      const entities = Object.keys(trends).slice(0, 5); // Top 5 entities
+
+      // Create datasets for spam rate and trap hits
+      const spamRateDatasets = entities.map((entity, index) => {
+        const colors = [
+          'rgb(239, 68, 68)',    // red
+          'rgb(251, 146, 60)',   // orange
+          'rgb(251, 191, 36)',   // amber
+          'rgb(234, 88, 12)',    // orange-600
+          'rgb(220, 38, 38)'     // red-600
+        ];
+
+        return {
+          label: `${entity} - Spam Rate`,
+          data: trends[entity].spam_rates,
+          borderColor: colors[index],
+          backgroundColor: colors[index].replace('rgb', 'rgba').replace(')', ', 0.1)'),
+          borderWidth: 2,
+          tension: 0.4,
+          fill: false,
+          yAxisID: 'y'
+        };
+      });
+
+      const trapHitsDatasets = entities.map((entity, index) => {
+        const colors = [
+          'rgb(139, 92, 246)',   // purple
+          'rgb(168, 85, 247)',   // purple-500
+          'rgb(147, 51, 234)',   // purple-600
+          'rgb(126, 34, 206)',   // purple-700
+          'rgb(107, 33, 168)'    // purple-800
+        ];
+
+        return {
+          label: `${entity} - Trap Hits`,
+          data: trends[entity].trap_hits,
+          borderColor: colors[index],
+          backgroundColor: colors[index].replace('rgb', 'rgba').replace(')', ', 0.1)'),
+          borderWidth: 2,
+          tension: 0.4,
+          fill: false,
+          yAxisID: 'y1'
+        };
+      });
+
+      // Use dates from first entity
+      const labels = trends[entities[0]]?.dates || [];
+
+      this.spamChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [...spamRateDatasets, ...trapHitsDatasets]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom',
+              labels: {
+                boxWidth: 12,
+                font: { size: 10 }
+              }
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false
+            }
+          },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: {
+                display: true,
+                text: 'Spam Rate (%)',
+                color: 'rgb(239, 68, 68)'
+              },
+              ticks: {
+                color: 'rgb(239, 68, 68)'
+              }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              title: {
+                display: true,
+                text: 'Trap Hits',
+                color: 'rgb(139, 92, 246)'
+              },
+              ticks: {
+                color: 'rgb(139, 92, 246)'
+              },
+              grid: {
+                drawOnChartArea: false
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Date'
+              }
+            }
+          },
+          interaction: {
+            mode: 'nearest',
+            axis: 'x',
+            intersect: false
+          }
+        }
+      });
+    },
+
+    renderFilterChart() {
+      const canvas = document.getElementById('sndsFilterChart');
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d');
+
+      // Destroy existing chart
+      if (this.filterChart) {
+        this.filterChart.destroy();
+      }
+
+      if (!this.sndsOverview || !this.sndsOverview.filter_distribution) return;
+
+      const distribution = this.sndsOverview.filter_distribution;
+
+      this.filterChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['GREEN', 'YELLOW', 'RED'],
+          datasets: [{
+            data: [
+              distribution.GREEN || 0,
+              distribution.YELLOW || 0,
+              distribution.RED || 0
+            ],
+            backgroundColor: [
+              'rgba(16, 185, 129, 0.8)',   // green
+              'rgba(251, 146, 60, 0.8)',   // yellow/orange
+              'rgba(239, 68, 68, 0.8)'     // red
+            ],
+            borderColor: [
+              'rgb(16, 185, 129)',
+              'rgb(251, 146, 60)',
+              'rgb(239, 68, 68)'
+            ],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom'
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = ((value / total) * 100).toFixed(1);
+                  return `${label}: ${value} (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    },
+
+    renderDistributionChart() {
+      const canvas = document.getElementById('sndsDistributionChart');
+      if (!canvas || !this.sndsData) return;
+
+      const ctx = canvas.getContext('2d');
+
+      // Destroy existing chart
+      if (this.distributionChart) {
+        this.distributionChart.destroy();
+      }
+
+      // Group reputation scores into buckets
+      const buckets = {
+        'Excellent (85-100)': 0,
+        'Good (70-84)': 0,
+        'Fair (50-69)': 0,
+        'Poor (30-49)': 0,
+        'Critical (0-29)': 0
+      };
+
+      this.sndsData.forEach(record => {
+        const score = record.reputation_score;
+        if (score >= 85) buckets['Excellent (85-100)']++;
+        else if (score >= 70) buckets['Good (70-84)']++;
+        else if (score >= 50) buckets['Fair (50-69)']++;
+        else if (score >= 30) buckets['Poor (30-49)']++;
+        else buckets['Critical (0-29)']++;
+      });
+
+      this.distributionChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(buckets),
+          datasets: [{
+            label: 'Number of IPs',
+            data: Object.values(buckets),
+            backgroundColor: [
+              'rgba(16, 185, 129, 0.8)',   // green
+              'rgba(59, 130, 246, 0.8)',   // blue
+              'rgba(251, 146, 60, 0.8)',   // orange
+              'rgba(239, 68, 68, 0.8)',    // red
+              'rgba(127, 29, 29, 0.8)'     // dark red
+            ],
+            borderColor: [
+              'rgb(16, 185, 129)',
+              'rgb(59, 130, 246)',
+              'rgb(251, 146, 60)',
+              'rgb(239, 68, 68)',
+              'rgb(127, 29, 29)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `IPs: ${context.parsed.y}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1
+              },
+              title: {
+                display: true,
+                text: 'Number of IPs'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Reputation Score Range'
+              }
+            }
+          }
+        }
+      });
+    },
+
+    getReputationColor(score, alpha = 1) {
+      if (score >= 85) {
+        return alpha === 1 ? 'rgb(16, 185, 129)' : `rgba(16, 185, 129, ${alpha})`;  // green
+      } else if (score >= 70) {
+        return alpha === 1 ? 'rgb(59, 130, 246)' : `rgba(59, 130, 246, ${alpha})`;  // blue
+      } else if (score >= 50) {
+        return alpha === 1 ? 'rgb(251, 146, 60)' : `rgba(251, 146, 60, ${alpha})`;  // orange
+      } else if (score >= 30) {
+        return alpha === 1 ? 'rgb(239, 68, 68)' : `rgba(239, 68, 68, ${alpha})`;   // red
+      } else {
+        return alpha === 1 ? 'rgb(127, 29, 29)' : `rgba(127, 29, 29, ${alpha})`;   // dark red
+      }
+    },
+
+    getFilterColor(filterResult, alpha = 1) {
+      if (filterResult === 'GREEN') {
+        return alpha === 1 ? 'rgb(16, 185, 129)' : `rgba(16, 185, 129, ${alpha})`;
+      } else if (filterResult === 'YELLOW') {
+        return alpha === 1 ? 'rgb(251, 146, 60)' : `rgba(251, 146, 60, ${alpha})`;
+      } else if (filterResult === 'RED') {
+        return alpha === 1 ? 'rgb(239, 68, 68)' : `rgba(239, 68, 68, ${alpha})`;
+      } else {
+        return alpha === 1 ? 'rgb(107, 114, 128)' : `rgba(107, 114, 128, ${alpha})`;
+      }
+    },
+
+    generateSparkline(entity) {
+      // Generate SVG sparkline for an entity's reputation trend
+      if (!this.sndsReputationTrends || !this.sndsReputationTrends.trends[entity]) {
+        return '';
+      }
+
+      const data = this.sndsReputationTrends.trends[entity].scores;
+      if (!data || data.length < 2) return '';
+
+      const width = 80;
+      const height = 24;
+      const padding = 2;
+
+      const max = Math.max(...data, 100);
+      const min = Math.min(...data, 0);
+      const range = max - min || 1;
+
+      // Calculate points
+      const points = data.map((value, index) => {
+        const x = padding + (index / (data.length - 1)) * (width - 2 * padding);
+        const y = height - padding - ((value - min) / range) * (height - 2 * padding);
+        return `${x},${y}`;
+      }).join(' ');
+
+      // Determine color based on trend
+      const trend = data[data.length - 1] - data[0];
+      const color = trend >= 0 ? '#10b981' : '#ef4444';
+
+      return `<svg width="${width}" height="${height}" style="vertical-align: middle;">
+        <polyline
+          points="${points}"
+          fill="none"
+          stroke="${color}"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>`;
+    },
+
+    toggleAutoRefresh() {
+      this.sndsAutoRefresh = !this.sndsAutoRefresh;
+
+      if (this.sndsAutoRefresh) {
+        // Refresh every 5 minutes
+        this.sndsRefreshInterval = setInterval(() => {
+          this.loadSNDSData();
+        }, 5 * 60 * 1000);
+        this.successMessage = 'Auto-refresh enabled (every 5 minutes)';
+      } else {
+        if (this.sndsRefreshInterval) {
+          clearInterval(this.sndsRefreshInterval);
+          this.sndsRefreshInterval = null;
+        }
+        this.successMessage = 'Auto-refresh disabled';
+      }
+
+      setTimeout(() => { this.successMessage = null; }, 3000);
+    },
+
+    formatTimeAgo(date) {
+      if (!date) return '';
+      const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+
+      if (seconds < 60) return 'just now';
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+      return `${Math.floor(seconds / 86400)}d ago`;
+    },
+
+    handleKeyboardShortcut(event) {
+      // Only handle shortcuts when SNDS view is active and no input is focused
+      if (this.activeView !== 'snds') return;
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT' || event.target.tagName === 'TEXTAREA') return;
+
+      // Cmd/Ctrl + R: Refresh data
+      if ((event.metaKey || event.ctrlKey) && event.key === 'r') {
+        event.preventDefault();
+        this.loadSNDSData();
+      }
+
+      // Cmd/Ctrl + E: Export data
+      if ((event.metaKey || event.ctrlKey) && event.key === 'e') {
+        event.preventDefault();
+        this.exportSNDSData();
+      }
+
+      // Cmd/Ctrl + A: Toggle auto-refresh
+      if ((event.metaKey || event.ctrlKey) && event.key === 'a') {
+        event.preventDefault();
+        this.toggleAutoRefresh();
+      }
+
+      // Number keys 1-7: Quick period selection
+      if (event.key >= '1' && event.key <= '7' && !event.metaKey && !event.ctrlKey) {
+        const periods = ['yesterday', '7day', '30day', '60day', '90day', '120day', '1year'];
+        this.sndsTimePeriod = periods[parseInt(event.key) - 1];
+      }
+    },
+    async checkGPTAuthStatus() {
+      // Check localStorage cache first (valid for 30 minutes)
+      const cached = localStorage.getItem('gptAuthStatus');
+      const cacheTime = localStorage.getItem('gptAuthStatusTime');
+
+      if (cached && cacheTime) {
+        const age = Date.now() - parseInt(cacheTime);
+        if (age < 30 * 60 * 1000) { // 30 minutes
+          this.gptAuthorized = cached === 'true';
+          console.log('Using cached GPT auth status:', this.gptAuthorized);
+          return;
+        }
+      }
+
+      // Fetch from backend with timeout and retry
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+        const response = await fetch(`${API_BASE_URL}/api/gpt/auth-status`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        const data = await response.json();
+        this.gptAuthorized = data.authorized;
+
+        // Cache the result
+        localStorage.setItem('gptAuthStatus', this.gptAuthorized.toString());
+        localStorage.setItem('gptAuthStatusTime', Date.now().toString());
+      } catch (error) {
+        console.error('Error checking GPT auth status:', error);
+
+        // If we have ANY cached value (even expired), use it as fallback
+        if (cached) {
+          console.log('Using expired cache as fallback:', cached);
+          this.gptAuthorized = cached === 'true';
+        } else {
+          // Only set to false if no cache exists at all
+          this.gptAuthorized = false;
+        }
+      }
+    },
+
+    async authorizeGPT() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/gpt/authorize`);
+        const data = await response.json();
+
+        if (data.authorization_url) {
+          window.open(data.authorization_url, '_blank');
+          const code = prompt('After authorizing, paste the authorization code here:');
+
+          if (code) {
+            await this.handleGPTCallback(code);
+          }
+        }
+      } catch (error) {
+        console.error('Error getting GPT authorization URL:', error);
+        this.gptError = 'Failed to get authorization URL';
+      }
+    },
+
+    async handleGPTCallback(code) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/gpt/oauth-callback?code=${encodeURIComponent(code)}`, {
+          method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+          this.gptAuthorized = true;
+          this.gptError = null;
+
+          // Cache auth status
+          localStorage.setItem('gptAuthStatus', 'true');
+          localStorage.setItem('gptAuthStatusTime', Date.now().toString());
+
+          alert('Authorization successful! You can now collect GPT data.');
+          await this.loadGPTData();
+        } else {
+          throw new Error(data.message || 'Authorization failed');
+        }
+      } catch (error) {
+        console.error('Error handling GPT callback:', error);
+        this.gptError = 'Authorization failed: ' + error.message;
+      }
+    },
+
+    async loadGPTData() {
+      if (!this.gptAuthorized) {
+        await this.checkGPTAuthStatus();
+        if (!this.gptAuthorized) {
+          return;
+        }
+      }
+
+      this.gptLoading = true;
+      this.gptError = null;
+
+      try {
+        // Load domains list (always needed)
+        const domainsResponse = await fetch(`${API_BASE_URL}/api/gpt/domains`);
+        if (!domainsResponse.ok) throw new Error('Failed to fetch domains list');
+        const domainsResult = await domainsResponse.json();
+        this.gptDomainsList = domainsResult.domains || [];
+
+        // Dual-view logic: Load overview table OR detailed domain view
+        if (!this.gptSelectedDomain || this.gptSelectedDomain === '') {
+          // Overview mode: Load yesterday's data for all domains
+          await this.loadGPTOverviewTable();
+        } else {
+          // Detailed mode: Load metrics for selected domain
+          await this.loadGPTDomainDetails(this.gptSelectedDomain);
+        }
+
+        this.gptLastUpdated = 'just now';
+        this.gptError = null;
+      } catch (error) {
+        console.error('GPT Error:', error);
+        this.gptError = 'Error: ' + error.message;
+      } finally {
+        this.gptLoading = false;
+      }
+    },
+
+    async loadGPTOverviewTable() {
+      try {
+        // Load yesterday's overview table
+        const tableResponse = await fetch(`${API_BASE_URL}/api/gpt/overview-table`);
+        if (!tableResponse.ok) throw new Error('Failed to fetch overview table');
+        const tableResult = await tableResponse.json();
+        this.gptOverviewTable = tableResult.domains || [];
+
+        // Load enhanced reputation changes
+        const changesResponse = await fetch(`${API_BASE_URL}/api/gpt/enhanced-changes`);
+        if (!changesResponse.ok) throw new Error('Failed to fetch enhanced changes');
+        const changesResult = await changesResponse.json();
+        this.gptEnhancedChanges = changesResult.changes || [];
+
+        // Clear detailed view data
+        this.gptDomainDetails = null;
+      } catch (error) {
+        console.error('GPT Overview Table Error:', error);
+        throw error;
+      }
+    },
+
+    async loadGPTDomainDetails(domain) {
+      try {
+        // Load detailed metrics for selected domain
+        const detailsResponse = await fetch(`${API_BASE_URL}/api/gpt/domain-details?domain=${encodeURIComponent(domain)}&period=${this.gptTimePeriod}`);
+        if (!detailsResponse.ok) throw new Error('Failed to fetch domain details');
+        this.gptDomainDetails = await detailsResponse.json();
+
+        // Clear overview table data
+        this.gptOverviewTable = [];
+        this.gptEnhancedChanges = [];
+
+        // Create charts after data is loaded
+        await this.$nextTick();
+        this.createGPTCharts();
+      } catch (error) {
+        console.error('GPT Domain Details Error:', error);
+        throw error;
+      }
+    },
+
+    async collectGPTData() {
+      if (!confirm('This will collect the last 120 days of data from Google Postmaster Tools. Continue?')) {
+        return;
+      }
+
+      this.gptLoading = true;
+      this.gptError = null;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/gpt/collect?days_back=120`, {
+          method: 'POST'
+        });
+
+        if (!response.ok) throw new Error('Failed to collect GPT data');
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          alert(`Successfully collected data for ${result.domains_collected} domains (${result.total_records} records)`);
+          await this.loadGPTData();
+        } else if (result.status === 'started') {
+          // Collection started in background
+          alert(`✓ Collection started in background!\n\n${result.message}\n\nThe data will be collected over the next 10-15 minutes without blocking the application. You can continue using other tabs while it runs.`);
+          // Reload current data
+          await this.loadGPTData();
+        } else {
+          throw new Error(result.message || 'Collection failed');
+        }
+      } catch (error) {
+        console.error('GPT Collection Error:', error);
+        this.gptError = 'Collection failed: ' + error.message;
+      } finally {
+        this.gptLoading = false;
+      }
+    },
+
+    getGPTReputationColor(reputation, alpha = 1) {
+      const colors = {
+        'HIGH': alpha === 1 ? 'var(--green-600)' : 'var(--green-100)',
+        'MEDIUM': alpha === 1 ? 'var(--yellow-600)' : 'var(--yellow-100)',
+        'LOW': alpha === 1 ? 'var(--orange-600)' : 'var(--orange-100)',
+        'BAD': alpha === 1 ? 'var(--red-600)' : 'var(--red-100)',
+        'UNKNOWN': alpha === 1 ? 'var(--gray-600)' : 'var(--gray-100)'
+      };
+      return colors[reputation] || colors['UNKNOWN'];
+    },
+
+    hasReputationChange(domain) {
+      return this.gptReputationChanges.some(change => change.domain === domain);
+    },
+
+    getChangeColor(domain) {
+      const change = this.gptReputationChanges.find(c => c.domain === domain);
+      if (!change) return 'var(--gray-500)';
+
+      if (change.change_type === 'degraded') return 'var(--red-500)';
+      if (change.change_type === 'improved') return 'var(--green-500)';
+      return 'var(--blue-500)';
+    },
+
+    getChangeMessage(domain) {
+      const change = this.gptReputationChanges.find(c => c.domain === domain);
+      return change ? change.message : '';
+    },
+
+    // New methods for dual-view functionality
+    selectDomainForDetails(domain) {
+      this.gptSelectedDomain = domain;
+      this.loadGPTData();
+    },
+
+    clearDomainSelection() {
+      this.destroyGPTCharts();
+      this.gptSelectedDomain = '';
+      this.loadGPTData();
+    },
+
+    showIPReputationModal() {
+      if (this.gptDomainDetails && this.gptDomainDetails.latest.ip_reputation_samples &&
+          Object.keys(this.gptDomainDetails.latest.ip_reputation_samples).length > 0) {
+        this.showIPModal = true;
+      }
+    },
+
+    toggleGPTNotifications() {
+      this.showGPTNotifications = !this.showGPTNotifications;
+    },
+
+
+    // Bounce Analytics Methods
+    async loadBounceData() {
+      this.bounceLoading = true;
+
+      try {
+        const domainsResponse = await fetch(`${API_BASE_URL}/api/bounces/${this.activeBounceESP}/domains`);
+        if (domainsResponse.ok) {
+          const domainsData = await domainsResponse.json();
+          this.bounceSendingDomains = domainsData.domains || [];
+        }
+
+        const params = new URLSearchParams({
+          start_date: this.bounceStartDate,
+          end_date: this.bounceEndDate
+        });
+
+        if (this.bounceSelectedDomain && this.bounceSelectedDomain !== 'all') {
+          params.append('sending_domain', this.bounceSelectedDomain);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/bounces/${this.activeBounceESP}?${params}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          this.bounceData = data.bounces || [];
+        } else {
+          throw new Error('Failed to load bounce data');
+        }
+      } catch (error) {
+        console.error('Error loading bounce data:', error);
+        this.error = 'Failed to load bounce data: ' + error.message;
+      } finally {
+        this.bounceLoading = false;
+      }
+    },
+
+    sortBounceTable(column) {
+      if (this.bounceSortColumn === column) {
+        this.bounceSortOrder = this.bounceSortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.bounceSortColumn = column;
+        this.bounceSortOrder = 'asc';
+      }
+    },
+
+    async exportBounceCSV() {
+      try {
+        const params = new URLSearchParams({
+          esp: this.activeBounceESP,
+          start_date: this.bounceStartDate,
+          end_date: this.bounceEndDate
+        });
+
+        if (this.bounceSelectedDomain && this.bounceSelectedDomain !== 'all') {
+          params.append('sending_domain', this.bounceSelectedDomain);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/bounces/export-csv?${params}`);
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const domain_suffix = (this.bounceSelectedDomain && this.bounceSelectedDomain !== 'all')
+            ? `_${this.bounceSelectedDomain}`
+            : '';
+          a.download = `bounces_${this.activeBounceESP.toLowerCase()}_${this.bounceStartDate}_${this.bounceEndDate}${domain_suffix}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } else {
+          throw new Error('Failed to export CSV');
+        }
+      } catch (error) {
+        console.error('Error exporting CSV:', error);
+        this.error = 'Failed to export CSV: ' + error.message;
+      }
+    },
+
+    getBounceTypeColor(type, opacity) {
+      const colors = {
+        'hard': opacity === 1 ? 'rgb(239, 68, 68)' : 'rgba(239, 68, 68, 0.1)',
+        'soft': opacity === 1 ? 'rgb(249, 115, 22)' : 'rgba(249, 115, 22, 0.1)',
+        'block': opacity === 1 ? 'rgb(234, 179, 8)' : 'rgba(234, 179, 8, 0.1)',
+        'unknown': opacity === 1 ? 'rgb(107, 114, 128)' : 'rgba(107, 114, 128, 0.1)'
+      };
+      return colors[type.toLowerCase()] || colors['unknown'];
+    },
+
+    initBounceDates() {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      this.bounceStartDate = yesterdayStr;
+      this.bounceEndDate = yesterdayStr;
+    }
+  },
+
+  watch: {
+    sndsTimePeriod() {
+      if (this.activeView === 'snds' && this.sndsOverview) {
+        this.loadSNDSData();
+      }
+    }
+  },
+
+  mounted() {
+    this.setDefaultDates();
+    this.fetchSavedReports();
+    this.loadEmailRecipients();
+    this.checkGPTAuthStatus();
+    this.initBounceDates();
+
+    // Add keyboard shortcuts
+    window.addEventListener('keydown', this.handleKeyboardShortcut);
+  },
+
+  beforeUnmount() {
+    // Clean up auto-refresh interval
+    if (this.sndsRefreshInterval) {
+      clearInterval(this.sndsRefreshInterval);
+    }
+
+    // Remove keyboard event listener
+    window.removeEventListener('keydown', this.handleKeyboardShortcut);
+  }
+}).mount('#app');
