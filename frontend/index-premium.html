@@ -952,7 +952,9 @@
         async fetchPulsationData() {
           this.pulsationLoading = true;
           try {
-            const response = await fetch(`/api/pulsation/${this.pulsationViewType}`);
+            // Use absolute URL to backend on port 8001
+            const API_BASE = window.location.port === '8001' ? '' : 'http://localhost:8001';
+            const response = await fetch(`${API_BASE}/api/pulsation/${this.pulsationViewType}`);
             if (!response.ok) throw new Error('Failed to fetch data');
             this.pulsationData = await response.json();
           } catch (error) {
@@ -965,7 +967,9 @@
         async collectYesterdayData() {
           this.pulsationLoading = true;
           try {
-            const response = await fetch('/api/pulsation/collect/yesterday', {
+            // Use absolute URL to backend on port 8001
+            const API_BASE = window.location.port === '8001' ? '' : 'http://localhost:8001';
+            const response = await fetch(`${API_BASE}/api/pulsation/collect/yesterday`, {
               method: 'POST'
             });
             if (!response.ok) throw new Error('Failed to collect data');
@@ -985,7 +989,9 @@
           }
           this.pulsationLoading = true;
           try {
-            const response = await fetch(`/api/pulsation/collect/custom/${this.pulsationCustomCollectDate}`, {
+            // Use absolute URL to backend on port 8001
+            const API_BASE = window.location.port === '8001' ? '' : 'http://localhost:8001';
+            const response = await fetch(`${API_BASE}/api/pulsation/collect/custom/${this.pulsationCustomCollectDate}`, {
               method: 'POST'
             });
             if (!response.ok) throw new Error('Failed to collect data');
