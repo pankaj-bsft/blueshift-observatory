@@ -952,12 +952,12 @@
         async fetchPulsationData() {
           this.pulsationLoading = true;
           try {
-            const response = await fetch(`http://localhost:8001/api/pulsation/${this.pulsationViewType}`);
+            const response = await fetch(`/api/pulsation/${this.pulsationViewType}`);
             if (!response.ok) throw new Error('Failed to fetch data');
             this.pulsationData = await response.json();
           } catch (error) {
             console.error('Error:', error);
-            alert('Failed to load pulsation data');
+            alert('Failed to load pulsation data: ' + error.message);
           } finally {
             this.pulsationLoading = false;
           }
@@ -965,7 +965,7 @@
         async collectYesterdayData() {
           this.pulsationLoading = true;
           try {
-            const response = await fetch('http://localhost:8001/api/pulsation/collect/yesterday', {
+            const response = await fetch('/api/pulsation/collect/yesterday', {
               method: 'POST'
             });
             if (!response.ok) throw new Error('Failed to collect data');
@@ -973,7 +973,7 @@
             await this.fetchPulsationData();
           } catch (error) {
             console.error('Error:', error);
-            alert('Failed to collect data');
+            alert('Failed to collect data: ' + error.message);
           } finally {
             this.pulsationLoading = false;
           }
@@ -985,7 +985,7 @@
           }
           this.pulsationLoading = true;
           try {
-            const response = await fetch(`http://localhost:8001/api/pulsation/collect/custom/${this.pulsationCustomCollectDate}`, {
+            const response = await fetch(`/api/pulsation/collect/custom/${this.pulsationCustomCollectDate}`, {
               method: 'POST'
             });
             if (!response.ok) throw new Error('Failed to collect data');
@@ -993,7 +993,7 @@
             await this.fetchPulsationData();
           } catch (error) {
             console.error('Error:', error);
-            alert('Failed to collect data');
+            alert('Failed to collect data: ' + error.message);
           } finally {
             this.pulsationLoading = false;
           }
