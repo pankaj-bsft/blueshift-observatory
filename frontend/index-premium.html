@@ -745,28 +745,28 @@
             <div class="stat-card stat-card-healthy" v-if="pulsationData.classification_counts['Green (Healthy)']">
               <div class="stat-card-icon-badge">✓</div>
               <p class="stat-card-label">HEALTHY DOMAINS</p>
-              <p class="stat-card-value">{{ pulsationData.classification_counts['Green (Healthy)'] || 0 }}</p>
+              <p class="stat-card-value">{{ formatAnimatedNumber(animatedCounts.healthy) }}</p>
               <p class="stat-card-subtitle">Excellent Performance</p>
             </div>
 
             <div class="stat-card stat-card-monitor" v-if="pulsationData.classification_counts['Yellow (Monitor)']">
               <div class="stat-card-icon-badge">⚠</div>
               <p class="stat-card-label">MONITOR REQUIRED</p>
-              <p class="stat-card-value">{{ pulsationData.classification_counts['Yellow (Monitor)'] || 0 }}</p>
+              <p class="stat-card-value">{{ formatAnimatedNumber(animatedCounts.monitor) }}</p>
               <p class="stat-card-subtitle">Needs Attention</p>
             </div>
 
             <div class="stat-card stat-card-low" v-if="pulsationData.classification_counts['Orange (Low Delivery)']">
               <div class="stat-card-icon-badge">!</div>
               <p class="stat-card-label">LOW DELIVERY</p>
-              <p class="stat-card-value">{{ pulsationData.classification_counts['Orange (Low Delivery)'] || 0 }}</p>
+              <p class="stat-card-value">{{ formatAnimatedNumber(animatedCounts.low) }}</p>
               <p class="stat-card-subtitle">Action Required</p>
             </div>
 
             <div class="stat-card stat-card-critical" v-if="pulsationData.classification_counts['Red (High Spam Complaints)']">
               <div class="stat-card-icon-badge">✕</div>
               <p class="stat-card-label">HIGH SPAM RISK</p>
-              <p class="stat-card-value">{{ pulsationData.classification_counts['Red (High Spam Complaints)'] || 0 }}</p>
+              <p class="stat-card-value">{{ formatAnimatedNumber(animatedCounts.critical) }}</p>
               <p class="stat-card-subtitle">Critical Issue</p>
             </div>
           </div>
@@ -922,7 +922,15 @@
           pulsationViewType: 'yesterday',
           pulsationCustomCollectDate: '',
           sortColumn: null,
-          sortOrder: 'asc'
+          sortOrder: 'asc',
+
+          // Animated counts for stat cards
+          animatedCounts: {
+            healthy: 0,
+            monitor: 0,
+            low: 0,
+            critical: 0
+          }
         };
       },
       computed: {
@@ -978,6 +986,8 @@
               this.pulsationData = null;
             } else {
               this.pulsationData = result;
+              // Trigger animation for stat cards
+              this.animateStatCards();
             }
           } catch (error) {
             console.error('Error:', error);
@@ -1084,6 +1094,38 @@
             const y = height - ((v - min) / range) * (height - 4) - 2;
             return `${x},${y}`;
           }).join(' ');
+        },
+        animateStatCards() {
+          // Get target values from the data
+          const targets = {
+            healthy: this.pulsationData?.classification_counts?.['Green (Healthy)'] || 0,
+            monitor: this.pulsationData?.classification_counts?.['Yellow (Monitor)'] || 0,
+            low: this.pulsationData?.classification_counts?.['Orange (Low Delivery)'] || 0,
+            critical: this.pulsationData?.classification_counts?.['Red (High Spam Complaints)'] || 0
+          };
+
+          const duration = 1000; // 1 second
+          const startTime = Date.now();
+
+          const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            // Update animated counts
+            this.animatedCounts.healthy = Math.floor(progress * targets.healthy);
+            this.animatedCounts.monitor = Math.floor(progress * targets.monitor);
+            this.animatedCounts.low = Math.floor(progress * targets.low);
+            this.animatedCounts.critical = Math.floor(progress * targets.critical);
+
+            if (progress < 1) {
+              requestAnimationFrame(animate);
+            }
+          };
+
+          requestAnimationFrame(animate);
+        },
+        formatAnimatedNumber(num) {
+          return num.toLocaleString();
         }
       },
       mounted() {
