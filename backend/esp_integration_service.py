@@ -545,6 +545,13 @@ def get_all_account_info(force_refresh: bool = False) -> Dict:
             elapsed = datetime.utcnow() - _cache['timestamp']
             remaining = timedelta(minutes=_cache['expiry_minutes']) - elapsed
 
+            # IMPORTANT: Always refresh account mappings even on cached ESP data
+            # because mappings can be updated independently
+            account_mapping = get_account_name_mapping()
+            for item in cached['data']:
+                domain = item['domain'].lower()
+                item['account_name'] = account_mapping.get(domain, 'Unmapped')
+
             return {
                 **cached,
                 'cached': True,

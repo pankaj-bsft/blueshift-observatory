@@ -1,0 +1,3514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blueshift Observatory Dashboard</title>
+
+  <!-- Bootstrap 3.4.1 -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/blueshift-colors.css">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app">
+    <div class="app-wrapper">
+      <!-- Sidebar Navigation -->
+      <div class="nav-wrapper">
+        <nav class="nav-main">
+          <div class="nav-header">
+            <div class="nav-logo">
+              <span>Blueshift Observatory</span>
+            </div>
+          </div>
+
+          <ul class="nav-items">
+            <li class="nav-item">
+              <a
+                class="nav-item-link"
+                :class="{ active: activeView === 'pulsation' }"
+                @click="setActiveView('pulsation')"
+              >
+                <i class="nav-icon fas fa-heartbeat"></i>
+                <span class="nav-text">Pulsation</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-item-link"
+                :class="{ active: activeView === 'mbr' }"
+                @click="setActiveView('mbr')"
+              >
+                <i class="nav-icon fas fa-chart-line"></i>
+                <span class="nav-text">MBR Deliverability</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-item-link"
+                :class="{ active: activeView === 'accounts' }"
+                @click="setActiveView('accounts')"
+              >
+                <i class="nav-icon fas fa-building"></i>
+                <span class="nav-text">Account Mappings</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-item-link"
+                :class="{ active: activeView === 'accountInfo' }"
+                @click="setActiveView('accountInfo')"
+              >
+                <i class="nav-icon fas fa-server"></i>
+                <span class="nav-text">Account Info</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-item-link"
+                :class="{ active: activeView === 'snds' }"
+                @click="setActiveView('snds')"
+              >
+                <i class="nav-icon fas fa-shield-alt"></i>
+                <span class="nav-text">SNDS</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-item-link"
+                :class="{ active: activeView === 'gpt' }"
+                @click="setActiveView('gpt')"
+              >
+                <i class="nav-icon fas fa-envelope-open-text"></i>
+                <span class="nav-text">GPT</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-item-link"
+                :class="{ active: activeView === 'bounces' }"
+                @click="setActiveView('bounces')"
+              >
+                <i class="nav-icon fas fa-exclamation-triangle"></i>
+                <span class="nav-text">Bounce Analytics</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-item-link"
+                :class="{ active: activeView === 'industryUpdates' }"
+                @click="setActiveView('industryUpdates')"
+              >
+                <i class="nav-icon fas fa-newspaper"></i>
+                <span class="nav-text">Industry Updates</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+
+      <!-- Main Content -->
+      <div class="content-wrapper">
+        <!-- SNDS VIEW - MOVED TO TOP TO FIX SPACING -->
+        <div v-if="activeView === 'snds'">
+
+          <!-- Enhanced Header -->
+          <div class="pulsation-header">
+            <h1 class="page-title">
+              <i class="fas fa-shield-alt"></i> SNDS Analytics
+            </h1>
+            <p class="page-subtitle">
+              Microsoft Smart Network Data Services - IP Reputation & Traffic Monitoring
+            </p>
+          </div>
+
+          <!-- Control Panel -->
+          <div class="pulsation-control-panel">
+            <div class="date-range-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-md); margin-bottom: var(--space-md);">
+              <!-- Time Period Selector -->
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label"><i class="fas fa-calendar-alt"></i> Time Period</label>
+                <select class="form-input" v-model="sndsTimePeriod" :disabled="sndsLoading">
+                  <option value="yesterday">Yesterday</option>
+                  <option value="7day">Last 7 Days</option>
+                  <option value="30day">Last 30 Days</option>
+                  <option value="60day">Last 60 Days</option>
+                  <option value="90day">Last 90 Days</option>
+                  <option value="120day">Last 120 Days</option>
+                  <option value="1year">Last Year</option>
+                </select>
+              </div>
+
+              <!-- View By Toggle -->
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label"><i class="fas fa-eye"></i> View By</label>
+                <select class="form-input" v-model="sndsViewBy" @change="loadSNDSData" :disabled="sndsLoading">
+                  <option value="ip">IP Address</option>
+                  <option value="account">Account</option>
+                </select>
+              </div>
+
+              <!-- Account Filter -->
+              <div class="form-group" style="margin: 0;" v-if="sndsViewBy === 'account'">
+                <label class="form-label"><i class="fas fa-building"></i> Account</label>
+                <select class="form-input" v-model="sndsSelectedAccount" :disabled="sndsLoading">
+                  <option value="">All Accounts</option>
+                  <option v-for="account in sndsAccountsList" :key="account" :value="account">{{ account }}</option>
+                </select>
+              </div>
+
+              <!-- IP Filter -->
+              <div class="form-group" style="margin: 0;" v-if="sndsViewBy === 'ip'">
+                <label class="form-label"><i class="fas fa-server"></i> IP Address</label>
+                <select class="form-input" v-model="sndsSelectedIP" :disabled="sndsLoading">
+                  <option value="">All IPs</option>
+                  <option v-for="ip in sndsIPsList" :key="ip" :value="ip">{{ ip }}</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Last Updated & Action Buttons -->
+            <div style="display: flex; gap: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+              <!-- Last Updated Info -->
+              <div v-if="sndsLastUpdated" style="display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--gray-600);">
+                <span>
+                  <i class="fas fa-clock"></i> Updated {{ formatTimeAgo(sndsLastUpdated) }}
+                </span>
+                <button
+                  class="btn btn-sm"
+                  :class="sndsAutoRefresh ? 'btn-success' : 'btn-default'"
+                  @click="toggleAutoRefresh"
+                  style="font-size: 12px; padding: 4px 10px;"
+                >
+                  <i class="fas" :class="sndsAutoRefresh ? 'fa-pause' : 'fa-play'"></i>
+                  Auto-refresh {{ sndsAutoRefresh ? 'ON' : 'OFF' }}
+                </button>
+              </div>
+
+              <!-- Action Buttons -->
+              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button
+                  class="btn btn-primary"
+                  @click="loadSNDSData"
+                  :disabled="sndsLoading"
+                >
+                  <span v-if="sndsLoading" class="loading-spinner" style="width: 14px; height: 14px;"></span>
+                  <i v-else class="fas fa-sync-alt"></i>
+                  {{ sndsLoading ? 'Loading...' : 'Load Data' }}
+                </button>
+
+                <button
+                  class="btn btn-success"
+                  @click="exportSNDSData"
+                  :disabled="!sndsData || sndsData.length === 0"
+                >
+                  <i class="fas fa-download"></i>
+                  Export CSV
+                </button>
+
+                <button
+                  class="btn btn-default"
+                  @click="collectSNDSData"
+                  :disabled="sndsLoading"
+                >
+                  <i class="fas fa-database"></i>
+                  Collect New Data
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error Alert -->
+          <div v-if="sndsError" class="alert" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%); border-left: 4px solid var(--red-600); margin-bottom: var(--space-md); padding: var(--space-md); display: flex; align-items: center; gap: 12px;">
+            <i class="fas fa-exclamation-circle"></i> {{ sndsError }}
+          </div>
+
+          <!-- Loading State -->
+          <div v-if="sndsLoading && !sndsOverview" style="text-align: center; padding: 40px 20px; background: white; border-radius: var(--radius-sm); margin-bottom: var(--space-md);">
+            <div class="loading-spinner" style="width: 40px; height: 40px; margin: 0 auto 16px;"></div>
+            <p style="color: var(--gray-600); font-size: 14px;">Loading SNDS data...</p>
+          </div>
+
+          <!-- Empty State - No Data Yet -->
+          <div v-if="!sndsLoading && !sndsOverview" style="text-align: center; padding: 30px 20px; background: white; border-radius: var(--radius-sm); margin-bottom: var(--space-md);">
+            <i class="fas fa-shield-alt" style="font-size: 48px; color: var(--blue-500); margin-bottom: 16px;"></i>
+            <h3 style="font-size: 18px; font-weight: 600; color: var(--gray-800); margin-bottom: 8px;">
+              SNDS Analytics Dashboard
+            </h3>
+            <p style="font-size: 14px; color: var(--gray-600); margin-bottom: 20px;">
+              Click Load Data to view IP reputation and traffic analytics
+            </p>
+            <button class="btn btn-primary" @click="loadSNDSData">
+              <i class="fas fa-sync-alt"></i>
+              Load SNDS Data
+            </button>
+          </div>
+
+          <!-- Overview Statistics -->
+          <div v-if="sndsOverview" class="classification-stats" style="margin-bottom: 20px; max-width: 100%; overflow-x: auto;">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: var(--blue-100); color: var(--blue-700);">
+                <i class="fas fa-server"></i>
+              </div>
+              <div class="stat-content">
+                <div class="stat-label">Total IPs</div>
+                <div class="stat-value">{{ sndsOverview.total_ips.toLocaleString() }}</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" style="background: var(--purple-100); color: var(--purple-700);">
+                <i class="fas fa-building"></i>
+              </div>
+              <div class="stat-content">
+                <div class="stat-label">Accounts</div>
+                <div class="stat-value">{{ sndsOverview.total_accounts.toLocaleString() }}</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" style="background: var(--teal-100); color: var(--teal-700);">
+                <i class="fas fa-envelope"></i>
+              </div>
+              <div class="stat-content">
+                <div class="stat-label">Total Messages</div>
+                <div class="stat-value">{{ sndsOverview.total_messages.toLocaleString() }}</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" :style="{
+                background: getReputationColor(sndsOverview.avg_reputation_score, 0.1),
+                color: getReputationColor(sndsOverview.avg_reputation_score, 1)
+              }">
+                <i class="fas fa-star"></i>
+              </div>
+              <div class="stat-content">
+                <div class="stat-label">Avg Reputation</div>
+                <div class="stat-value">{{ sndsOverview.avg_reputation_score }}</div>
+                <div class="stat-sublabel" :style="{ color: getReputationColor(sndsOverview.avg_reputation_score, 1) }">
+                  {{ sndsOverview.avg_reputation_rating }}
+                </div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" style="background: var(--yellow-100); color: var(--yellow-700);">
+                <i class="fas fa-exclamation-triangle"></i>
+              </div>
+              <div class="stat-content">
+                <div class="stat-label">Avg Spam Rate</div>
+                <div class="stat-value">{{ sndsOverview.avg_spam_rate }}%</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" style="background: var(--red-100); color: var(--red-700);">
+                <i class="fas fa-bug"></i>
+              </div>
+              <div class="stat-content">
+                <div class="stat-label">Total Trap Hits</div>
+                <div class="stat-value">{{ sndsOverview.total_trap_hits.toLocaleString() }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Distribution -->
+          <div v-if="sndsOverview && sndsOverview.filter_distribution" style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); margin-bottom: var(--space-xl); box-shadow: var(--shadow-sm);">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+              <i class="fas fa-filter"></i> Filter Result Distribution
+            </h3>
+            <div style="display: flex; gap: var(--space-lg); flex-wrap: wrap;">
+              <div v-if="sndsOverview.filter_distribution.GREEN" style="flex: 1; min-width: 150px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                  <div style="width: 12px; height: 12px; background: var(--green-500); border-radius: 50%;"></div>
+                  <span style="font-size: 13px; font-weight: 600; color: var(--gray-700);">GREEN</span>
+                </div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--green-600);">
+                  {{ sndsOverview.filter_distribution.GREEN }}
+                </div>
+              </div>
+              <div v-if="sndsOverview.filter_distribution.YELLOW" style="flex: 1; min-width: 150px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                  <div style="width: 12px; height: 12px; background: var(--yellow-500); border-radius: 50%;"></div>
+                  <span style="font-size: 13px; font-weight: 600; color: var(--gray-700);">YELLOW</span>
+                </div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--yellow-600);">
+                  {{ sndsOverview.filter_distribution.YELLOW }}
+                </div>
+              </div>
+              <div v-if="sndsOverview.filter_distribution.RED" style="flex: 1; min-width: 150px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                  <div style="width: 12px; height: 12px; background: var(--red-500); border-radius: 50%;"></div>
+                  <span style="font-size: 13px; font-weight: 600; color: var(--gray-700);">RED</span>
+                </div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--red-600);">
+                  {{ sndsOverview.filter_distribution.RED }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Problem IPs Alert -->
+          <div v-if="sndsProblemIPs && sndsProblemIPs.length > 0" class="alert" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%); border-left: 4px solid var(--red-600); margin-bottom: var(--space-xl); padding: var(--space-lg);">
+            <div style="display: flex; align-items: flex-start; gap: 12px;">
+              <i class="fas fa-exclamation-triangle" style="color: var(--red-600); font-size: 24px; margin-top: 4px;"></i>
+              <div style="flex: 1;">
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--red-700); margin-bottom: 8px;">
+                  ⚠️ {{ sndsProblemIPs.length }} IP{{ sndsProblemIPs.length > 1 ? 's' : '' }} Need Attention
+                </h3>
+                <p style="font-size: 14px; color: var(--gray-700); margin-bottom: 12px;">
+                  The following IPs have reputation scores below 50 and require immediate investigation:
+                </p>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                  <span
+                    v-for="problem in sndsProblemIPs.slice(0, 10)"
+                    :key="problem.ip_address"
+                    style="background: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-family: 'Monaco', monospace; box-shadow: var(--shadow-xs); border: 1px solid var(--red-300);"
+                  >
+                    {{ problem.ip_address }}
+                    <span :style="{ color: getReputationColor(problem.reputation_score, 1), fontWeight: 600 }">
+                      ({{ problem.reputation_score }})
+                    </span>
+                  </span>
+                  <span v-if="sndsProblemIPs.length > 10" style="padding: 6px 12px; font-size: 12px; color: var(--gray-600);">
+                    +{{ sndsProblemIPs.length - 10 }} more
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Anomalies Detection -->
+          <div v-if="sndsAnomalies && sndsAnomalies.length > 0" style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); margin-bottom: var(--space-xl);">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+              <i class="fas fa-bell"></i> Anomaly Detection ({{ sndsAnomalies.length }})
+            </h3>
+            <p style="font-size: 13px; color: var(--gray-600); margin-bottom: var(--space-md);">
+              Automated detection of reputation drops, spam spikes, trap hits, and traffic anomalies
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">
+              <div
+                v-for="anomaly in sndsAnomalies"
+                :key="`${anomaly.entity}-${anomaly.type}-${anomaly.date}`"
+                style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-xs); border: 1px solid;"
+                :style="{
+                  background: anomaly.severity === 'critical' ? 'rgba(239, 68, 68, 0.05)' : 'rgba(251, 146, 60, 0.05)',
+                  borderColor: anomaly.severity === 'critical' ? 'var(--red-300)' : 'var(--orange-300)'
+                }"
+              >
+                <!-- Severity Icon -->
+                <div
+                  style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"
+                  :style="{
+                    background: anomaly.severity === 'critical' ? 'var(--red-100)' : 'var(--orange-100)',
+                    color: anomaly.severity === 'critical' ? 'var(--red-600)' : 'var(--orange-600)'
+                  }"
+                >
+                  <i class="fas" :class="{
+                    'fa-exclamation-circle': anomaly.type === 'reputation_drop',
+                    'fa-virus': anomaly.type === 'spam_spike',
+                    'fa-spider': anomaly.type === 'trap_hits',
+                    'fa-chart-line-down': anomaly.type === 'traffic_drop'
+                  }"></i>
+                </div>
+
+                <!-- Anomaly Details -->
+                <div style="flex: 1; min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <span style="font-weight: 600; font-size: 13px; color: var(--gray-800); font-family: 'Monaco', monospace;">
+                      {{ anomaly.entity }}
+                    </span>
+                    <span style="font-size: 11px; color: var(--gray-500);">
+                      {{ anomaly.date }}
+                    </span>
+                    <span
+                      style="font-size: 10px; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;"
+                      :style="{
+                        background: anomaly.severity === 'critical' ? 'var(--red-200)' : 'var(--orange-200)',
+                        color: anomaly.severity === 'critical' ? 'var(--red-800)' : 'var(--orange-800)'
+                      }"
+                    >
+                      {{ anomaly.severity }}
+                    </span>
+                  </div>
+                  <div style="font-size: 13px; color: var(--gray-700);">
+                    {{ anomaly.message }}
+                  </div>
+                  <div v-if="anomaly.previousValue !== undefined" style="font-size: 12px; color: var(--gray-500); margin-top: 2px;">
+                    Previous: {{ typeof anomaly.previousValue === 'number' ? anomaly.previousValue.toLocaleString() : anomaly.previousValue }}
+                    → Current: {{ typeof anomaly.value === 'number' ? anomaly.value.toLocaleString() : anomaly.value }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Primary Charts Section -->
+          <div v-if="sndsReputationTrends" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 16px; margin-bottom: 24px; max-width: 100%; overflow-x: auto;">
+            <!-- Reputation Trends Chart -->
+            <div style="background: white; padding: 16px; border-radius: 4px; box-shadow: var(--shadow-sm);">
+              <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--gray-800);">
+                <i class="fas fa-chart-line"></i> Reputation Trends
+              </h3>
+              <canvas id="sndsReputationChart" style="max-height: 280px;"></canvas>
+            </div>
+
+            <!-- Traffic Volume Chart -->
+            <div style="background: white; padding: 16px; border-radius: 4px; box-shadow: var(--shadow-sm);">
+              <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--gray-800);">
+                <i class="fas fa-chart-area"></i> Traffic Volume
+              </h3>
+              <canvas id="sndsTrafficChart" style="max-height: 280px;"></canvas>
+            </div>
+          </div>
+
+          <!-- Advanced Analytics Charts -->
+          <div v-if="sndsReputationTrends" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 16px; margin-bottom: 24px; max-width: 100%; overflow-x: auto;">
+            <!-- Spam Analysis Chart -->
+            <div style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+                <i class="fas fa-bug"></i> Spam & Trap Analysis
+              </h3>
+              <canvas id="sndsSpamChart" style="max-height: 300px;"></canvas>
+            </div>
+
+            <!-- Filter Status Distribution Chart -->
+            <div style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+                <i class="fas fa-pie-chart"></i> Filter Status Distribution
+              </h3>
+              <canvas id="sndsFilterChart" style="max-height: 300px;"></canvas>
+            </div>
+          </div>
+
+          <!-- Reputation Score Distribution -->
+          <div v-if="sndsData && sndsData.length > 0" style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); margin-bottom: var(--space-xl);">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+              <i class="fas fa-chart-bar"></i> Reputation Score Distribution
+            </h3>
+            <canvas id="sndsDistributionChart" style="max-height: 250px;"></canvas>
+          </div>
+
+          <!-- Quick Insights & Metrics -->
+          <div v-if="sndsOverview" style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); margin-bottom: var(--space-xl);">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+              <i class="fas fa-lightbulb"></i> Quick Insights
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-md);">
+              <!-- Highest Volume -->
+              <div style="padding: var(--space-md); background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%); border-radius: var(--radius-xs); border-left: 3px solid var(--blue-500);">
+                <div style="font-size: 12px; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                  Highest Volume Period
+                </div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--blue-700); font-family: 'Monaco', monospace;">
+                  {{ (sndsOverview.total_messages / 1000000).toFixed(1) }}M
+                </div>
+                <div style="font-size: 11px; color: var(--gray-500); margin-top: 4px;">
+                  messages in {{ sndsTimePeriod === '30day' ? '30 days' : sndsTimePeriod }}
+                </div>
+              </div>
+
+              <!-- Health Score -->
+              <div style="padding: var(--space-md); background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.02) 100%); border-radius: var(--radius-xs); border-left: 3px solid var(--green-500);">
+                <div style="font-size: 12px; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                  Overall Health
+                </div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--green-700);">
+                  {{ sndsOverview.avg_reputation_rating }}
+                </div>
+                <div style="font-size: 11px; color: var(--gray-500); margin-top: 4px;">
+                  avg score: {{ sndsOverview.avg_reputation_score }}/100
+                </div>
+              </div>
+
+              <!-- Clean IPs Percentage -->
+              <div style="padding: var(--space-md); background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.02) 100%); border-radius: var(--radius-xs); border-left: 3px solid var(--teal-500);">
+                <div style="font-size: 12px; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                  Clean IPs
+                </div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--teal-700);">
+                  {{ sndsOverview.filter_distribution.GREEN || 0 }}
+                </div>
+                <div style="font-size: 11px; color: var(--gray-500); margin-top: 4px;">
+                  {{ ((sndsOverview.filter_distribution.GREEN / sndsOverview.total_ips) * 100).toFixed(1) }}% with GREEN status
+                </div>
+              </div>
+
+              <!-- Spam Rate -->
+              <div style="padding: var(--space-md); background: linear-gradient(135deg, rgba(251, 146, 60, 0.05) 0%, rgba(251, 146, 60, 0.02) 100%); border-radius: var(--radius-xs); border-left: 3px solid var(--yellow-500);">
+                <div style="font-size: 12px; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                  Network Spam Rate
+                </div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--yellow-700); font-family: 'Monaco', monospace;">
+                  {{ sndsOverview.avg_spam_rate }}%
+                </div>
+                <div style="font-size: 11px; color: var(--gray-500); margin-top: 4px;">
+                  {{ sndsOverview.total_trap_hits }} trap hits detected
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Performers Table -->
+          <div v-if="sndsTopPerformers && sndsTopPerformers.length > 0" class="data-section" style="margin-bottom: var(--space-xl);">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+              <i class="fas fa-trophy"></i> Top Performers ({{ sndsViewBy === 'ip' ? 'by IP' : 'by Account' }})
+            </h3>
+            <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th v-if="sndsViewBy === 'ip'">IP Address</th>
+                    <th v-if="sndsViewBy === 'ip'">Account</th>
+                    <th>Reputation Score</th>
+                    <th>Rating</th>
+                    <th>Spam Rate</th>
+                    <th>Trap Hits</th>
+                    <th>Filter Result</th>
+                    <th>Total Volume</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="performer in sndsTopPerformers" :key="performer.ip_address || performer.account_name">
+                    <td v-if="sndsViewBy === 'ip'" style="font-family: 'Monaco', 'Courier New', monospace;">{{ performer.ip_address }}</td>
+                    <td v-if="sndsViewBy === 'ip'">{{ performer.account_name }}</td>
+                    <td>
+                      <span :style="{
+                        fontWeight: 600,
+                        color: getReputationColor(performer.reputation_score, 1)
+                      }">
+                        {{ performer.reputation_score }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge" :style="{
+                        background: getReputationColor(performer.reputation_score, 0.1),
+                        color: getReputationColor(performer.reputation_score, 1),
+                        border: `1px solid ${getReputationColor(performer.reputation_score, 0.3)}`
+                      }">
+                        {{ performer.reputation_rating }}
+                      </span>
+                    </td>
+                    <td style="font-family: 'Monaco', 'Courier New', monospace;">{{ performer.spam_rate }}%</td>
+                    <td>{{ performer.trap_hits }}</td>
+                    <td>
+                      <span class="badge" :style="{
+                        background: getFilterColor(performer.filter_result, 0.1),
+                        color: getFilterColor(performer.filter_result, 1),
+                        border: `1px solid ${getFilterColor(performer.filter_result, 0.3)}`
+                      }">
+                        {{ performer.filter_result }}
+                      </span>
+                    </td>
+                    <td style="font-family: 'Monaco', 'Courier New', monospace;">{{ performer.total_volume.toLocaleString() }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Detailed Data Table -->
+          <div v-if="sndsData && sndsData.length > 0" class="data-section">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+              <i class="fas fa-table"></i> Detailed Data ({{ sndsData.length }} records)
+            </h3>
+            <div class="table-wrapper" style="max-height: 600px; overflow-y: auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th v-if="sndsViewBy === 'ip'">IP Address</th>
+                    <th>Account</th>
+                    <th>Date</th>
+                    <th>Message Volume</th>
+                    <th>Spam Rate</th>
+                    <th>Trap Hits</th>
+                    <th>Filter Result</th>
+                    <th>Reputation Score</th>
+                    <th>Rating</th>
+                    <th v-if="sndsViewBy === 'ip'">Comments</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="record in sndsData" :key="`${record.ip_address || record.account_name}-${record.date}`">
+                    <td v-if="sndsViewBy === 'ip'" style="font-family: 'Monaco', 'Courier New', monospace;">{{ record.ip_address }}</td>
+                    <td>{{ record.account_name }}</td>
+                    <td style="font-family: 'Monaco', 'Courier New', monospace;">{{ record.date }}</td>
+                    <td style="font-family: 'Monaco', 'Courier New', monospace;">{{ record.message_volume.toLocaleString() }}</td>
+                    <td style="font-family: 'Monaco', 'Courier New', monospace;">{{ record.spam_rate }}%</td>
+                    <td>{{ record.trap_hits }}</td>
+                    <td>
+                      <span class="badge" :style="{
+                        background: getFilterColor(record.filter_result, 0.1),
+                        color: getFilterColor(record.filter_result, 1),
+                        border: `1px solid ${getFilterColor(record.filter_result, 0.3)}`
+                      }">
+                        {{ record.filter_result }}
+                      </span>
+                    </td>
+                    <td>
+                      <span :style="{
+                        fontWeight: 600,
+                        color: getReputationColor(record.reputation_score, 1)
+                      }">
+                        {{ record.reputation_score }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge" :style="{
+                        background: getReputationColor(record.reputation_score, 0.1),
+                        color: getReputationColor(record.reputation_score, 1),
+                        border: `1px solid ${getReputationColor(record.reputation_score, 0.3)}`
+                      }">
+                        {{ record.reputation_rating }}
+                      </span>
+                    </td>
+                    <td v-if="sndsViewBy === 'ip'" style="font-size: 12px; max-width: 200px;">{{ record.comments }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- No Data Message -->
+          <div v-if="!sndsLoading && sndsOverview && (!sndsData || sndsData.length === 0)" style="text-align: center; padding: 60px 20px; background: white; border-radius: var(--radius-sm);">
+            <i class="fas fa-inbox" style="font-size: 48px; color: var(--gray-400); margin-bottom: 16px;"></i>
+            <p style="color: var(--gray-600); font-size: 16px; font-weight: 500;">No data available for selected filters</p>
+            <p style="color: var(--gray-500); font-size: 14px; margin-top: 8px;">Try selecting a different time period or removing filters</p>
+          </div>
+
+        </div>
+        <!-- END SNDS VIEW (moved to top) -->
+        <!-- GPT VIEW -->
+        <div v-if="activeView === 'gpt'" @click="showGPTNotifications = false">
+          <!-- Header -->
+          <div class="pulsation-header" style="position: relative;">
+            <h1 class="page-title" style="display: flex; align-items: center; justify-content: space-between;">
+              <span>
+                <i class="fas fa-envelope-open-text"></i> Google Postmaster Tools
+              </span>
+              <!-- Notification Bell -->
+              <div v-if="gptAuthorized" @click.stop="toggleGPTNotifications" style="position: relative; cursor: pointer; margin-left: auto;">
+                <i class="fas fa-bell" style="font-size: 20px; color: var(--blue-600); transition: all 0.2s;" :style="gptEnhancedChanges.length > 0 ? 'animation: pulse 2s infinite;' : ''"></i>
+                <span v-if="gptEnhancedChanges.length > 0" style="position: absolute; top: -8px; right: -8px; background: var(--red-600); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;">
+                  {{ gptEnhancedChanges.length }}
+                </span>
+              </div>
+            </h1>
+            <p class="page-subtitle">
+              Domain Reputation & Email Authentication Monitoring
+            </p>
+
+            <!-- Notifications Dropdown -->
+            <div v-if="showGPTNotifications && gptAuthorized" @click.stop style="position: absolute; top: 60px; right: 0; background: white; border-radius: var(--radius-md); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); width: 400px; max-height: 500px; overflow-y: auto; z-index: 1000; border: 1px solid var(--gray-200);">
+              <div style="padding: 16px; border-bottom: 1px solid var(--gray-200); display: flex; justify-content: space-between; align-items: center; background: var(--blue-50);">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--gray-800);">
+                  <i class="fas fa-bell" style="color: var(--blue-600); margin-right: 8px;"></i>
+                  Reputation Changes
+                </h3>
+                <button @click="showGPTNotifications = false" style="background: none; border: none; color: var(--gray-500); cursor: pointer; font-size: 18px;">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+
+              <div v-if="gptEnhancedChanges.length > 0" style="padding: 0;">
+                <div v-for="change in gptEnhancedChanges" :key="change.domain" @click="selectDomainForDetails(change.domain); showGPTNotifications = false;" style="padding: 16px; border-bottom: 1px solid var(--gray-100); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background='white'">
+                  <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                    <div style="font-weight: 600; color: var(--gray-800); font-size: 14px;">
+                      {{ change.domain }}
+                    </div>
+                    <div :style="{
+                      padding: '2px 8px',
+                      borderRadius: 'var(--radius-xs)',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      background: change.change_type === 'degraded' ? 'var(--red-100)' : change.change_type === 'improved' ? 'var(--green-100)' : 'var(--blue-100)',
+                      color: change.change_type === 'degraded' ? 'var(--red-700)' : change.change_type === 'improved' ? 'var(--green-700)' : 'var(--blue-700)'
+                    }">
+                      {{ change.change_type }}
+                    </div>
+                  </div>
+                  <div style="font-size: 13px; color: var(--gray-600); line-height: 1.4;">
+                    {{ change.message }}
+                  </div>
+                  <div style="font-size: 11px; color: var(--gray-500); margin-top: 6px;">
+                    <i class="fas fa-clock" style="margin-right: 4px;"></i>
+                    {{ change.recent_date }}
+                  </div>
+                </div>
+              </div>
+
+              <div v-else style="padding: 40px 20px; text-align: center; color: var(--gray-500);">
+                <i class="fas fa-check-circle" style="font-size: 36px; margin-bottom: 12px; opacity: 0.5; color: var(--green-500);"></i>
+                <p style="font-size: 14px; margin: 0;">No reputation changes detected</p>
+                <p style="font-size: 12px; margin-top: 4px; opacity: 0.7;">All domains have stable reputations</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Authorization Check -->
+          <div v-if="!gptAuthorized && !gptLoading" style="text-align: center; padding: 40px 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%); border-radius: var(--radius-sm); margin-bottom: var(--space-md); border: 2px dashed var(--blue-500);">
+            <i class="fas fa-key" style="font-size: 48px; color: var(--blue-500); margin-bottom: 16px;"></i>
+            <h3 style="font-size: 18px; font-weight: 600; color: var(--gray-800); margin-bottom: 8px;">
+              Authorization Required
+            </h3>
+            <p style="font-size: 14px; color: var(--gray-600); margin-bottom: 20px;">
+              Connect to Google Postmaster Tools to view domain reputation data
+            </p>
+            <button class="btn btn-primary" @click="authorizeGPT" :disabled="gptLoading">
+              <i class="fas fa-sign-in-alt"></i>
+              Authorize Google Postmaster
+            </button>
+          </div>
+
+          <!-- Control Panel -->
+          <div v-if="gptAuthorized" class="pulsation-control-panel">
+            <div class="date-range-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-md); margin-bottom: var(--space-md);">
+              <!-- Time Period -->
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label"><i class="fas fa-calendar-alt"></i> Time Period</label>
+                <select class="form-input" v-model="gptTimePeriod" :disabled="gptLoading">
+                  <option value="yesterday">Yesterday</option>
+                  <option value="7day">Last 7 Days</option>
+                  <option value="30day">Last 30 Days</option>
+                  <option value="60day">Last 60 Days</option>
+                  <option value="90day">Last 90 Days</option>
+                  <option value="120day">Last 120 Days</option>
+                  <option value="180day">Last 180 Days</option>
+                  <option value="365day">Last 365 Days</option>
+                </select>
+              </div>
+
+              <!-- Domain Filter -->
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label"><i class="fas fa-globe"></i> Domain</label>
+                <input
+                  list="gpt-domains-list"
+                  class="form-input"
+                  v-model="gptSelectedDomain"
+                  placeholder="Search or select domain..."
+                  :disabled="gptLoading"
+                  @change="onDomainChange"
+                />
+                <datalist id="gpt-domains-list">
+                  <option value="">All Domains (Overview)</option>
+                  <option v-for="domain in gptDomainsList" :key="domain" :value="domain">{{ domain }}</option>
+                </datalist>
+              </div>
+
+              <!-- Action Buttons -->
+              <div style="display: flex; gap: 8px; align-items: flex-end;">
+                <button
+                  class="btn btn-primary"
+                  @click="loadGPTData"
+                  :disabled="gptLoading"
+                  style="flex: 1;"
+                >
+                  <i class="fas fa-sync-alt"></i>
+                  Load Data
+                </button>
+                <button
+                  v-if="!gptSelectedDomain"
+                  class="btn btn-default"
+                  @click="collectGPTData"
+                  :disabled="gptLoading"
+                >
+                  <i class="fas fa-database"></i>
+                  Collect New Data
+                </button>
+                <button
+                  v-if="gptSelectedDomain"
+                  class="btn btn-default"
+                  @click="clearDomainSelection"
+                  :disabled="gptLoading"
+                >
+                  <i class="fas fa-times"></i>
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+
+            <!-- Last Updated -->
+            <div v-if="gptLastUpdated" style="font-size: 12px; color: var(--gray-600); text-align: right;">
+              <i class="fas fa-clock"></i> Updated {{ gptLastUpdated }}
+            </div>
+          </div>
+
+          <!-- Error Display -->
+          <div v-if="gptError" class="alert" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%); border-left: 4px solid var(--red-600); margin-bottom: var(--space-md); padding: var(--space-md); display: flex; align-items: center; gap: 12px;">
+            <i class="fas fa-exclamation-circle"></i> {{ gptError }}
+          </div>
+
+          <!-- Loading State -->
+          <div v-if="gptLoading && !gptOverviewTable && !gptDomainDetails" style="text-align: center; padding: 40px 20px; background: white; border-radius: var(--radius-sm); margin-bottom: var(--space-md);">
+            <div class="loading-spinner" style="width: 40px; height: 40px; margin: 0 auto 16px;"></div>
+            <p style="color: var(--gray-600); font-size: 14px;">Loading GPT data...</p>
+          </div>
+
+          <!-- OVERVIEW TABLE VIEW (When no domain selected) -->
+          <div v-if="gptAuthorized && !gptSelectedDomain && gptOverviewTable && gptOverviewTable.length > 0">
+            <!-- Notifications Panel -->
+            <div v-if="gptEnhancedChanges && gptEnhancedChanges.length > 0" style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); margin-bottom: var(--space-xl); box-shadow: var(--shadow-sm); border-left: 4px solid var(--orange-600);">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: var(--space-md);">
+                <i class="fas fa-bell" style="font-size: 20px; color: var(--orange-600); animation: pulse 2s infinite;"></i>
+                <div>
+                  <h3 style="font-size: 16px; font-weight: 600; color: var(--gray-800); margin: 0 0 4px 0;">
+                    <i class="fas fa-exclamation-triangle"></i> Reputation Changes Detected
+                  </h3>
+                  <p style="font-size: 13px; color: var(--gray-600); margin: 0;">
+                    {{ gptEnhancedChanges.length }} domain(s) had reputation changes since yesterday
+                  </p>
+                </div>
+              </div>
+
+              <!-- Change Details -->
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-md); margin-top: var(--space-md);">
+                <div v-for="change in gptEnhancedChanges.slice(0, 6)" :key="change.domain" style="padding: var(--space-md); background: var(--gray-50); border-radius: var(--radius-xs); border-left: 3px solid var(--orange-500);">
+                  <div style="display: flex; align-items: start; gap: 8px;">
+                    <i class="fas fa-arrow-down"
+                       v-if="change.change_type === 'degraded'"
+                       style="color: var(--red-600); font-size: 14px; margin-top: 2px;"></i>
+                    <i class="fas fa-arrow-up"
+                       v-if="change.change_type === 'improved'"
+                       style="color: var(--green-600); font-size: 14px; margin-top: 2px;"></i>
+                    <i class="fas fa-exchange-alt"
+                       v-if="change.change_type === 'ip_changed' || change.change_type === 'spam_increase'"
+                       style="color: var(--blue-600); font-size: 14px; margin-top: 2px;"></i>
+                    <div style="flex: 1;">
+                      <div style="font-size: 13px; font-weight: 600; color: var(--gray-800); margin-bottom: 4px;">
+                        {{ change.domain }}
+                      </div>
+                      <div style="font-size: 12px; color: var(--gray-600); line-height: 1.4;">
+                        {{ change.message }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- View All Link -->
+              <div v-if="gptEnhancedChanges.length > 6" style="margin-top: var(--space-md); text-align: center;">
+                <span style="font-size: 12px; color: var(--gray-600);">
+                  Showing 6 of {{ gptEnhancedChanges.length }} changes. Check the table below for all domains.
+                </span>
+              </div>
+            </div>
+
+            <!-- Overview Table -->
+            <div style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); margin-bottom: var(--space-xl); box-shadow: var(--shadow-sm); max-width: 100%; overflow-x: auto;">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+                <i class="fas fa-table"></i> All Domains - Yesterday's Reputation
+              </h3>
+              <div style="overflow-x: auto;">
+                <table class="data-table" style="width: 100%; min-width: 1000px;">
+                  <thead>
+                    <tr>
+                      <th style="text-align: left; width: 40px;">
+                        <i class="fas fa-bell"></i>
+                      </th>
+                      <th style="text-align: left; cursor: pointer;" @click="sortGPTTable('domain')">
+                        Domain
+                        <i class="fas" :class="gptSortColumn === 'domain' ? (gptSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 12px;"></i>
+                      </th>
+                      <th style="text-align: left; cursor: pointer;" @click="sortGPTTable('account_name')">
+                        Account Name
+                        <i class="fas" :class="gptSortColumn === 'account_name' ? (gptSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 12px;"></i>
+                      </th>
+                      <th style="text-align: center; cursor: pointer;" @click="sortGPTTable('domain_reputation')">
+                        Domain Rep.
+                        <i class="fas" :class="gptSortColumn === 'domain_reputation' ? (gptSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 12px;"></i>
+                      </th>
+                      <th style="text-align: center; cursor: pointer;" @click="sortGPTTable('ip_reputation')">
+                        IP Rep.
+                        <i class="fas" :class="gptSortColumn === 'ip_reputation' ? (gptSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 12px;"></i>
+                      </th>
+                      <th style="text-align: center; cursor: pointer;" @click="sortGPTTable('spam_rate')">
+                        Spam Rate
+                        <i class="fas" :class="gptSortColumn === 'spam_rate' ? (gptSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 12px;"></i>
+                      </th>
+                      <th style="text-align: center;">SPF</th>
+                      <th style="text-align: center;">DKIM</th>
+                      <th style="text-align: center;">DMARC</th>
+                      <th style="text-align: center;">TLS</th>
+                      <th style="text-align: center;">Date</th>
+                      <th style="text-align: center;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="item in sortedGPTTable" :key="item.domain">
+                      <td style="text-align: center;">
+                        <i v-if="hasGPTChange(item.domain)"
+                           class="fas fa-bell"
+                           :style="{
+                             color: getGPTChangeColor(item.domain),
+                             fontSize: '14px',
+                             animation: 'pulse 2s infinite'
+                           }"
+                           :title="getGPTChangeMessages(item.domain)"></i>
+                      </td>
+                      <td style="font-weight: 600;">
+                        <a href="#" @click.prevent="selectDomainForDetails(item.domain)" style="color: var(--blue-600); text-decoration: none;">
+                          {{ item.domain }}
+                        </a>
+                      </td>
+                      <td style="color: var(--gray-700); font-size: 13px;">
+                        {{ item.account_name }}
+                      </td>
+                      <td style="text-align: center;">
+                        <span :style="{
+                          padding: '4px 12px',
+                          borderRadius: 'var(--radius-xs)',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          background: getGPTReputationColor(item.domain_reputation, 0.1),
+                          color: getGPTReputationColor(item.domain_reputation, 1)
+                        }">
+                          {{ item.domain_reputation }}
+                        </span>
+                      </td>
+                      <td style="text-align: center;">
+                        <div v-if="item.ip_reputation && Object.keys(item.ip_reputation).length > 0" style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+                          <span v-for="(count, reputation) in item.ip_reputation" :key="reputation" :style="{
+                            padding: '4px 8px',
+                            borderRadius: 'var(--radius-xs)',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            background: getGPTReputationColor(reputation, 0.1),
+                            color: getGPTReputationColor(reputation, 1)
+                          }">
+                            {{ reputation }}({{ count }})
+                          </span>
+                        </div>
+                        <span v-else style="color: var(--gray-500); font-size: 12px;">N/A</span>
+                      </td>
+                      <td style="text-align: center;">{{ item.spam_rate }}%</td>
+                      <td style="text-align: center;">{{ item.spf_rate }}%</td>
+                      <td style="text-align: center;">{{ item.dkim_rate }}%</td>
+                      <td style="text-align: center;">{{ item.dmarc_rate }}%</td>
+                      <td style="text-align: center;">{{ item.tls_rate }}%</td>
+                      <td style="text-align: center; font-size: 12px; color: var(--gray-600);">{{ item.date }}</td>
+                      <td style="text-align: center;">
+                        <button
+                          class="btn btn-sm btn-default"
+                          @click="selectDomainForDetails(item.domain)"
+                          style="padding: 4px 8px; font-size: 12px;"
+                        >
+                          <i class="fas fa-eye"></i> View Details
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style="margin-top: var(--space-md); font-size: 12px; color: var(--gray-600);">
+                Showing {{ gptOverviewTable.length }} domain(s)
+              </div>
+            </div>
+          </div>
+
+          <!-- DETAILED DOMAIN VIEW (When domain selected) -->
+          <div v-if="gptAuthorized && gptSelectedDomain && gptDomainDetails">
+            <!-- Domain Header -->
+            <div style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); margin-bottom: var(--space-md); box-shadow: var(--shadow-sm);">
+              <h2 style="font-size: 20px; font-weight: 600; color: var(--gray-800); margin-bottom: var(--space-sm);">
+                <i class="fas fa-globe"></i> {{ gptSelectedDomain }}
+              </h2>
+              <p style="font-size: 14px; color: var(--gray-600);">
+                Detailed metrics for {{ gptTimePeriod }}
+              </p>
+            </div>
+
+            <!-- Latest Metrics Cards -->
+            <div class="classification-stats" style="margin-bottom: 20px; max-width: 100%; overflow-x: auto;">
+              <div class="stat-card">
+                <div class="stat-icon" :style="{
+                  background: getGPTReputationColor(gptDomainDetails.latest.domain_reputation, 0.1),
+                  color: getGPTReputationColor(gptDomainDetails.latest.domain_reputation, 1)
+                }">
+                  <i class="fas fa-star"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-label">Domain Reputation</div>
+                  <div class="stat-value">{{ gptDomainDetails.latest.domain_reputation }}</div>
+                </div>
+              </div>
+
+              <div class="stat-card" @click="showIPReputationModal" style="cursor: pointer;" title="Click to view IP addresses">
+                <div class="stat-icon" style="background: var(--blue-100); color: var(--blue-700);">
+                  <i class="fas fa-network-wired"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-label">IP Reputation <i class="fas fa-external-link-alt" style="font-size: 10px; margin-left: 4px; opacity: 0.6;"></i></div>
+                  <div class="stat-value" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <span v-if="gptDomainDetails.latest.ip_reputation && Object.keys(gptDomainDetails.latest.ip_reputation).length > 0"
+                          v-for="(count, reputation) in gptDomainDetails.latest.ip_reputation"
+                          :key="reputation"
+                          :style="{
+                            padding: '4px 10px',
+                            borderRadius: 'var(--radius-xs)',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            background: getGPTReputationColor(reputation, 0.1),
+                            color: getGPTReputationColor(reputation, 1)
+                          }">
+                      {{ reputation }}({{ count }})
+                    </span>
+                    <span v-else style="color: var(--gray-500);">N/A</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stat-card">
+                <div class="stat-icon" style="background: var(--yellow-100); color: var(--yellow-700);">
+                  <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-label">Spam Rate</div>
+                  <div class="stat-value">{{ gptDomainDetails.latest.spam_rate }}%</div>
+                </div>
+              </div>
+
+              <div class="stat-card">
+                <div class="stat-icon" style="background: var(--green-100); color: var(--green-700);">
+                  <i class="fas fa-shield-alt"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-label">SPF Success</div>
+                  <div class="stat-value">{{ gptDomainDetails.latest.spf_rate }}%</div>
+                </div>
+              </div>
+
+              <div class="stat-card">
+                <div class="stat-icon" style="background: var(--purple-100); color: var(--purple-700);">
+                  <i class="fas fa-certificate"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-label">DKIM Success</div>
+                  <div class="stat-value">{{ gptDomainDetails.latest.dkim_rate }}%</div>
+                </div>
+              </div>
+
+              <div class="stat-card">
+                <div class="stat-icon" style="background: var(--teal-100); color: var(--teal-700);">
+                  <i class="fas fa-lock"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-label">DMARC Success</div>
+                  <div class="stat-value">{{ gptDomainDetails.latest.dmarc_rate }}%</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Trends Section with Charts -->
+            <div v-if="gptDomainDetails.trends.dates.length > 0">
+              <!-- Reputation Chart -->
+              <div style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); margin-bottom: var(--space-md); box-shadow: var(--shadow-sm);">
+                <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+                  <i class="fas fa-star"></i> Domain Reputation Over Time
+                </h3>
+                <div style="height: 300px; position: relative;">
+                  <canvas id="gptReputationChart"></canvas>
+                </div>
+              </div>
+
+              <!-- IP Reputation Chart -->
+              <div style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); margin-bottom: var(--space-md); box-shadow: var(--shadow-sm);">
+                <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+                  <i class="fas fa-network-wired"></i> IP Reputation Over Time
+                </h3>
+                <div style="height: 300px; position: relative;">
+                  <canvas id="gptIpReputationChart"></canvas>
+                </div>
+              </div>
+
+              <!-- Authentication Rates Chart -->
+              <div style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); margin-bottom: var(--space-md); box-shadow: var(--shadow-sm);">
+                <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+                  <i class="fas fa-shield-alt"></i> Authentication Success Rates (SPF, DKIM, DMARC)
+                </h3>
+                <div style="height: 300px; position: relative;">
+                  <canvas id="gptAuthChart"></canvas>
+                </div>
+              </div>
+
+              <!-- Spam Rate Chart -->
+              <div style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); margin-bottom: var(--space-md); box-shadow: var(--shadow-sm);">
+                <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+                  <i class="fas fa-exclamation-triangle"></i> Spam Rate Over Time
+                </h3>
+                <div style="height: 250px; position: relative;">
+                  <canvas id="gptSpamChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Delivery Errors -->
+            <div v-if="gptDomainDetails.latest.delivery_errors && gptDomainDetails.latest.delivery_errors.length > 0" style="background: white; padding: var(--space-lg); border-radius: var(--radius-sm); margin-bottom: var(--space-md); box-shadow: var(--shadow-sm);">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: var(--space-md); color: var(--gray-800);">
+                <i class="fas fa-exclamation-circle"></i> Delivery Errors
+              </h3>
+              <div v-for="(error, index) in gptDomainDetails.latest.delivery_errors" :key="index" style="padding: var(--space-sm); background: var(--red-50); border-left: 4px solid var(--red-500); margin-bottom: var(--space-sm); border-radius: var(--radius-xs);">
+                <div style="font-size: 13px; font-weight: 600; color: var(--red-700);">{{ error.error_type || 'Error' }}</div>
+                <div style="font-size: 12px; color: var(--gray-600); margin-top: 4px;">{{ error.error_ratio || 'N/A' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- IP Reputation Modal -->
+          <div v-if="showIPModal" @click="showIPModal = false" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
+            <div @click.stop style="background: white; border-radius: var(--radius-md); max-width: 800px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+              <!-- Modal Header -->
+              <div style="padding: 24px; border-bottom: 1px solid var(--gray-200); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 18px; font-weight: 600; color: var(--gray-800); margin: 0;">
+                  <i class="fas fa-network-wired" style="margin-right: 8px; color: var(--blue-600);"></i>
+                  IP Addresses by Reputation - {{ gptSelectedDomain }}
+                </h3>
+                <button @click="showIPModal = false" style="background: none; border: none; color: var(--gray-500); font-size: 24px; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-xs); transition: all 0.2s;" onmouseover="this.style.background='var(--gray-100)'" onmouseout="this.style.background='none'">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+
+              <!-- Modal Body -->
+              <div style="padding: 24px;">
+                <div v-if="gptDomainDetails && gptDomainDetails.latest.ip_reputation_samples && Object.keys(gptDomainDetails.latest.ip_reputation_samples).length > 0">
+                  <div v-for="(ips, reputation) in gptDomainDetails.latest.ip_reputation_samples" :key="reputation" style="margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                      <span :style="{
+                        padding: '6px 12px',
+                        borderRadius: 'var(--radius-xs)',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        background: getGPTReputationColor(reputation, 0.1),
+                        color: getGPTReputationColor(reputation, 1),
+                        marginRight: '12px'
+                      }">
+                        {{ reputation }} ({{ ips.length }})
+                      </span>
+                      <div style="flex: 1; height: 1px; background: var(--gray-200);"></div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+                      <div v-for="(ip, index) in ips" :key="index" style="padding: 8px 12px; background: var(--gray-50); border-radius: var(--radius-xs); font-family: monospace; font-size: 13px; color: var(--gray-700);">
+                        {{ ip }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else style="text-align: center; padding: 40px 20px; color: var(--gray-500);">
+                  <i class="fas fa-inbox" style="font-size: 36px; margin-bottom: 12px; opacity: 0.5;"></i>
+                  <p>No IP addresses available</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- No Data Message -->
+          <div v-if="gptAuthorized && !gptLoading && !gptOverviewTable && !gptDomainDetails" style="text-align: center; padding: 60px 20px; background: white; border-radius: var(--radius-sm);">
+            <i class="fas fa-inbox" style="font-size: 48px; color: var(--gray-400); margin-bottom: 16px;"></i>
+            <p style="color: var(--gray-600); font-size: 16px; font-weight: 500;">No data available</p>
+            <p style="color: var(--gray-500); font-size: 14px; margin-top: 8px;">Click "Load Data" to view reputation metrics</p>
+          </div>
+
+        </div>
+        <!-- END GPT VIEW -->
+
+        <!-- BOUNCE ANALYTICS VIEW -->
+        <div v-if="activeView === 'bounces'">
+
+          <!-- Header -->
+          <div class="pulsation-header" style="margin-bottom: 24px;">
+            <h1 class="page-title">
+              <i class="fas fa-exclamation-triangle"></i> Bounce Analytics
+            </h1>
+            <p class="page-subtitle">
+              Email bounce tracking across Mailgun, SparkPost, and SendGrid
+            </p>
+          </div>
+
+          <!-- ESP Tabs (Horizontal) -->
+          <div style="background: white; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); margin-bottom: 24px;">
+            <div style="display: flex; border-bottom: 2px solid var(--gray-200); padding: 0 24px;">
+              <button
+                v-for="esp in ['Mailgun', 'Sparkpost', 'Sendgrid']"
+                :key="esp"
+                @click="activeBounceESP = esp; loadBounceData()"
+                :style="{
+                  padding: '16px 32px',
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  color: activeBounceESP === esp ? 'var(--blue-600)' : 'var(--gray-600)',
+                  borderBottom: activeBounceESP === esp ? '3px solid var(--blue-600)' : '3px solid transparent',
+                  marginBottom: '-2px',
+                  transition: 'all 0.2s'
+                }"
+              >
+                {{ esp }}
+              </button>
+            </div>
+
+            <!-- Filters -->
+            <div style="padding: 24px; background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">
+              <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+
+                <!-- Date Range -->
+                <div style="flex: 1; min-width: 200px;">
+                  <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px;">
+                    📅 Date Range
+                  </label>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <input
+                      type="date"
+                      v-model="bounceStartDate"
+                      style="flex: 1; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                    />
+                    <span style="color: var(--gray-500);">to</span>
+                    <input
+                      type="date"
+                      v-model="bounceEndDate"
+                      style="flex: 1; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                    />
+                  </div>
+                </div>
+
+                <!-- Sending Domain Filter -->
+                <div style="flex: 1; min-width: 200px;">
+                  <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px;">
+                    🔍 Sending Domain
+                  </label>
+                  <select
+                    v-model="bounceSelectedDomain"
+                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                  >
+                    <option value="all">All Domains</option>
+                    <option v-for="domain in bounceSendingDomains" :key="domain" :value="domain">
+                      {{ domain }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Search & Export Buttons -->
+                <div style="display: flex; gap: 8px;">
+                  <button
+                    @click="loadBounceData"
+                    :disabled="bounceLoading"
+                    style="padding: 8px 24px; background: var(--blue-600); color: white; border: none; border-radius: var(--radius-xs); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+                    onmouseover="this.style.background='var(--blue-700)'"
+                    onmouseout="this.style.background='var(--blue-600)'"
+                  >
+                    <i class="fas fa-search"></i> Search
+                  </button>
+                  <button
+                    @click="exportBounceCSV"
+                    :disabled="bounceLoading || !bounceData.length"
+                    style="padding: 8px 24px; background: var(--green-600); color: white; border: none; border-radius: var(--radius-xs); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+                    onmouseover="this.style.background='var(--green-700)'"
+                    onmouseout="this.style.background='var(--green-600)'"
+                  >
+                    <i class="fas fa-download"></i> Export CSV
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="bounceLoading" style="padding: 60px 20px; text-align: center;">
+              <div class="spinner" style="margin: 0 auto 16px;"></div>
+              <p style="color: var(--gray-600); font-size: 14px;">Loading bounce data...</p>
+            </div>
+
+            <!-- Bounce Data Table -->
+            <div v-else-if="bounceData.length > 0" style="padding: 24px; overflow-x: auto;">
+              <p style="font-size: 13px; color: var(--gray-600); margin-bottom: 16px;">
+                Showing <strong>{{ bounceData.length }}</strong> bounce events
+              </p>
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                  <tr style="background: var(--gray-100); border-bottom: 2px solid var(--gray-300);">
+                    <th @click="sortBounceTable('event_date')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Date
+                      <i class="fas" :class="bounceSortColumn === 'event_date' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('sending_domain')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Sending Domain
+                      <i class="fas" :class="bounceSortColumn === 'sending_domain' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('sending_ip')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Sending IP
+                      <i class="fas" :class="bounceSortColumn === 'sending_ip' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('recipient_domain')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Recipient Domain
+                      <i class="fas" :class="bounceSortColumn === 'recipient_domain' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('isp')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      ISP
+                      <i class="fas" :class="bounceSortColumn === 'isp' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('bounce_type')" style="text-align: center; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Bounce Type
+                      <i class="fas" :class="bounceSortColumn === 'bounce_type' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('bounce_reason')" style="text-align: left; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Bounce Reason
+                      <i class="fas" :class="bounceSortColumn === 'bounce_reason' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('bounce_code')" style="text-align: center; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Code
+                      <i class="fas" :class="bounceSortColumn === 'bounce_code' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                    <th @click="sortBounceTable('count')" style="text-align: center; padding: 12px; cursor: pointer; font-weight: 600; color: var(--gray-700);">
+                      Count
+                      <i class="fas" :class="bounceSortColumn === 'count' ? (bounceSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'" style="margin-left: 4px; font-size: 11px;"></i>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(bounce, index) in sortedBounceData"
+                    :key="index"
+                    style="border-bottom: 1px solid var(--gray-200);"
+                    onmouseover="this.style.background='var(--gray-50)'"
+                    onmouseout="this.style.background='white'"
+                  >
+                    <td style="padding: 12px; color: var(--gray-700);">{{ bounce.event_date }}</td>
+                    <td style="padding: 12px; color: var(--gray-700); font-weight: 500;">{{ bounce.sending_domain }}</td>
+                    <td style="padding: 12px; color: var(--gray-600); font-family: monospace; font-size: 12px;">{{ bounce.sending_ip }}</td>
+                    <td style="padding: 12px; color: var(--gray-700);">{{ bounce.recipient_domain }}</td>
+                    <td style="padding: 12px;">
+                      <span :style="{
+                        padding: '4px 8px',
+                        borderRadius: 'var(--radius-xs)',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        background: bounce.isp === 'Other' ? 'var(--gray-100)' : 'var(--blue-100)',
+                        color: bounce.isp === 'Other' ? 'var(--gray-600)' : 'var(--blue-700)'
+                      }">
+                        {{ bounce.isp }}
+                      </span>
+                    </td>
+                    <td style="padding: 12px; text-align: center;">
+                      <span :style="{
+                        padding: '4px 12px',
+                        borderRadius: 'var(--radius-xs)',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        background: getBounceTypeColor(bounce.bounce_type, 0.1),
+                        color: getBounceTypeColor(bounce.bounce_type, 1)
+                      }">
+                        {{ bounce.bounce_type.toUpperCase() }}
+                      </span>
+                    </td>
+                    <td style="padding: 12px; color: var(--gray-600); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="bounce.bounce_reason">
+                      {{ bounce.bounce_reason }}
+                    </td>
+                    <td style="padding: 12px; text-align: center; color: var(--gray-600); font-family: monospace; font-size: 12px;">{{ bounce.bounce_code }}</td>
+                    <td style="padding: 12px; text-align: center; font-weight: 600; color: var(--gray-800);">{{ bounce.count }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else style="padding: 60px 20px; text-align: center;">
+              <i class="fas fa-inbox" style="font-size: 48px; color: var(--gray-400); margin-bottom: 16px;"></i>
+              <p style="color: var(--gray-600); font-size: 16px; font-weight: 500;">No bounce data found</p>
+              <p style="color: var(--gray-500); font-size: 14px; margin-top: 8px;">Try selecting a different date range or domain</p>
+            </div>
+
+          </div>
+
+        </div>
+        <!-- END BOUNCE ANALYTICS VIEW -->
+
+        <!-- INDUSTRY UPDATES VIEW -->
+        <div v-if="activeView === 'industryUpdates'">
+
+          <!-- Header -->
+          <div class="pulsation-header" style="margin-bottom: 24px;">
+            <h1 class="page-title">
+              <i class="fas fa-newspaper"></i> Industry Updates
+            </h1>
+            <p class="page-subtitle">
+              Critical news and updates from email deliverability ecosystem (Gmail, Outlook, Spamhaus, Barracuda, Proofpoint)
+            </p>
+          </div>
+
+          <!-- Control Panel -->
+          <div style="background: white; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); margin-bottom: 24px;">
+
+            <!-- Filters -->
+            <div style="padding: 24px; background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: flex-end;">
+
+                <!-- Source Type Filter -->
+                <div>
+                  <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px;">
+                    <i class="fas fa-filter"></i> Source Type
+                  </label>
+                  <select
+                    v-model="industrySourceType"
+                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                  >
+                    <option value="">All Sources</option>
+                    <option v-for="source in industrySources" :key="source" :value="source">
+                      {{ source }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Severity Filter -->
+                <div>
+                  <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px;">
+                    <i class="fas fa-exclamation-circle"></i> Severity
+                  </label>
+                  <select
+                    v-model="industrySeverity"
+                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                  >
+                    <option value="">All Severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="info">Info</option>
+                  </select>
+                </div>
+
+                <!-- Days Filter -->
+                <div>
+                  <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px;">
+                    <i class="fas fa-calendar"></i> Time Range
+                  </label>
+                  <select
+                    v-model="industryDays"
+                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 14px;"
+                  >
+                    <option :value="7">Last 7 Days</option>
+                    <option :value="14">Last 14 Days</option>
+                    <option :value="30">Last 30 Days</option>
+                    <option :value="60">Last 60 Days</option>
+                    <option :value="90">Last 90 Days</option>
+                  </select>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 8px;">
+                  <button
+                    @click="loadIndustryUpdates"
+                    :disabled="industryLoading"
+                    style="flex: 1; padding: 8px 24px; background: var(--blue-600); color: white; border: none; border-radius: var(--radius-xs); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+                    onmouseover="this.style.background='var(--blue-700)'"
+                    onmouseout="this.style.background='var(--blue-600)'"
+                  >
+                    <i class="fas fa-sync-alt"></i> Refresh
+                  </button>
+                  <button
+                    @click="refreshIndustryFeeds"
+                    :disabled="industryLoading"
+                    style="padding: 8px 16px; background: var(--green-600); color: white; border: none; border-radius: var(--radius-xs); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+                    onmouseover="this.style.background='var(--green-700)'"
+                    onmouseout="this.style.background='var(--green-600)'"
+                    title="Fetch latest updates from RSS feeds"
+                  >
+                    <i class="fas fa-rss"></i>
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="industryLoading" style="padding: 60px 20px; text-align: center;">
+              <div class="spinner" style="margin: 0 auto 16px;"></div>
+              <p style="color: var(--gray-600); font-size: 14px;">Loading industry updates...</p>
+            </div>
+
+            <!-- Updates List -->
+            <div v-else-if="industryUpdates.length > 0" style="padding: 24px;">
+              <p style="font-size: 13px; color: var(--gray-600); margin-bottom: 20px;">
+                Showing <strong>{{ industryUpdates.length }}</strong> updates
+              </p>
+
+              <!-- Updates Cards -->
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div
+                  v-for="update in industryUpdates"
+                  :key="update.id"
+                  style="background: white; border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 20px; transition: all 0.2s;"
+                  onmouseover="this.style.boxShadow='var(--shadow-md)'; this.style.borderColor='var(--gray-300)'"
+                  onmouseout="this.style.boxShadow='none'; this.style.borderColor='var(--gray-200)'"
+                >
+                  <!-- Header Row -->
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                    <div style="flex: 1;">
+                      <h3 style="font-size: 16px; font-weight: 600; color: var(--gray-900); margin: 0 0 8px 0; line-height: 1.4;">
+                        <a :href="update.url" target="_blank" style="color: inherit; text-decoration: none; transition: color 0.2s;"
+                           onmouseover="this.style.color='var(--blue-600)'"
+                           onmouseout="this.style.color='inherit'">
+                          {{ update.title }}
+                          <i class="fas fa-external-link-alt" style="font-size: 12px; margin-left: 6px; opacity: 0.6;"></i>
+                        </a>
+                      </h3>
+                      <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <!-- Source Badge -->
+                        <span :style="{
+                          padding: '3px 10px',
+                          borderRadius: 'var(--radius-xs)',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          background: update.source_type === 'Gmail' ? 'var(--blue-100)' :
+                                     update.source_type === 'Outlook' ? 'var(--purple-100)' :
+                                     'var(--gray-100)',
+                          color: update.source_type === 'Gmail' ? 'var(--blue-700)' :
+                                update.source_type === 'Outlook' ? 'var(--purple-700)' :
+                                'var(--gray-700)'
+                        }">
+                          {{ update.source }}
+                        </span>
+                        <!-- Date -->
+                        <span style="font-size: 12px; color: var(--gray-600);">
+                          <i class="fas fa-calendar"></i> {{ formatDate(update.published_date) }}
+                        </span>
+                      </div>
+                    </div>
+                    <!-- Severity Badge -->
+                    <span :style="{
+                      padding: '6px 14px',
+                      borderRadius: 'var(--radius-xs)',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      background: getSeverityColor(update.severity, 0.15),
+                      color: getSeverityColor(update.severity, 1),
+                      border: '1px solid ' + getSeverityColor(update.severity, 0.3),
+                      whiteSpace: 'nowrap'
+                    }">
+                      {{ update.severity }}
+                    </span>
+                  </div>
+
+                  <!-- Description -->
+                  <p style="font-size: 14px; color: var(--gray-700); line-height: 1.6; margin: 0;">
+                    {{ truncateText(update.description, 200) }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else style="padding: 60px 20px; text-align: center;">
+              <i class="fas fa-newspaper" style="font-size: 48px; color: var(--gray-400); margin-bottom: 16px;"></i>
+              <p style="color: var(--gray-600); font-size: 16px; font-weight: 500;">No updates found</p>
+              <p style="color: var(--gray-500); font-size: 14px; margin-top: 8px;">Try changing your filters or click Refresh to fetch the latest updates</p>
+            </div>
+
+          </div>
+
+        </div>
+        <!-- END INDUSTRY UPDATES VIEW -->
+
+        <!-- Page Header (MBR only) -->
+        <div class="page-header" v-if="activeView === 'mbr'">
+          <h1 class="page-title">
+            <i class="fas fa-chart-line"></i> MBR Deliverability Report
+          </h1>
+          <p class="page-subtitle">View email deliverability metrics by ESP (SparkPost, SendGrid, Mailgun)</p>
+        </div>
+
+        <!-- Date Range Selector (MBR only) -->
+        <div v-if="activeView === 'mbr'" class="date-range-card">
+          <!-- View Mode Toggle -->
+          <div style="display: flex; gap: var(--space-sm); margin-bottom: var(--space-md); border-bottom: 2px solid var(--gray-300); padding-bottom: var(--space-sm);">
+            <button
+              class="btn"
+              :class="mbrViewMode === 'domain' ? 'btn-primary' : 'btn-secondary'"
+              @click="mbrViewMode = 'domain'"
+              style="flex: 1;"
+            >
+              <i class="fas fa-globe"></i> View by Domain
+            </button>
+            <button
+              class="btn"
+              :class="mbrViewMode === 'account' ? 'btn-primary' : 'btn-secondary'"
+              @click="mbrViewMode = 'account'"
+              style="flex: 1;"
+            >
+              <i class="fas fa-building"></i> View by Account
+            </button>
+          </div>
+
+          <div class="date-range-form">
+            <div class="form-group">
+              <label class="form-label">From Date</label>
+              <input
+                type="date"
+                class="form-input"
+                v-model="fromDate"
+                :disabled="loading"
+              >
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">To Date</label>
+              <input
+                type="date"
+                class="form-input"
+                v-model="toDate"
+                :disabled="loading"
+              >
+            </div>
+
+            <button
+              class="btn btn-primary"
+              @click="fetchMBRData"
+              :disabled="!canFetch"
+            >
+              <span v-if="loading" class="loading-spinner"></span>
+              <i v-else class="fas fa-search"></i>
+              {{ loading ? 'Loading...' : 'Fetch Data' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Success Message -->
+        <div v-if="successMessage" class="alert alert-success">
+          <i class="fas fa-check-circle"></i>
+          {{ successMessage }}
+        </div>
+
+        <!-- Error Message -->
+        <div v-if="error" class="alert alert-error">
+          <i class="fas fa-exclamation-circle"></i>
+          {{ error }}
+        </div>
+
+        <!-- PULSATION VIEW -->
+        <div v-if="activeView === 'pulsation'">
+          <!-- Enhanced Header -->
+          <div class="pulsation-header">
+            <h1 class="page-title">
+              <i class="fas fa-heartbeat"></i> Pulsation - Deliverability Health Monitor
+            </h1>
+            <p class="page-subtitle">
+              Real-time monitoring of domain health with historical trends and intelligent risk classification
+            </p>
+          </div>
+
+          <!-- Enhanced Control Panel -->
+          <div class="pulsation-control-panel">
+            <div class="date-range-form">
+              <div class="form-group">
+                <label class="form-label"><i class="fas fa-calendar-alt"></i> Time Period</label>
+                <select class="form-input" v-model="pulsationViewType" :disabled="pulsationLoading">
+                  <option value="yesterday">Yesterday</option>
+                  <option value="7day">Last 7 Days</option>
+                  <option value="30day">Last 30 Days</option>
+                </select>
+              </div>
+
+              <button
+                class="btn btn-primary"
+                @click="fetchPulsationData"
+                :disabled="pulsationLoading"
+              >
+                <span v-if="pulsationLoading" class="loading-spinner"></span>
+                <i v-else class="fas fa-sync-alt"></i>
+                {{ pulsationLoading ? 'Loading...' : 'Load Data' }}
+              </button>
+
+              <button
+                class="btn btn-secondary"
+                @click="collectYesterdayData"
+                :disabled="pulsationLoading"
+              >
+                <i class="fas fa-database"></i>
+                Collect Yesterday
+              </button>
+
+              <div class="form-group" style="margin-left: 20px;">
+                <label class="form-label"><i class="fas fa-calendar"></i> Custom Date</label>
+                <input
+                  type="date"
+                  class="form-input"
+                  v-model="pulsationCustomCollectDate"
+                  :disabled="pulsationLoading"
+                />
+              </div>
+
+              <button
+                class="btn btn-secondary"
+                @click="collectCustomDate"
+                :disabled="pulsationLoading"
+              >
+                <i class="fas fa-database"></i>
+                Collect Custom Date
+              </button>
+            </div>
+          </div>
+
+          <!-- Pulsation Data Display -->
+          <div v-if="pulsationData">
+            <!-- Enhanced Classification Stats Grid -->
+            <div class="classification-stats">
+              <div
+                class="stat-card stat-green"
+                :class="{ 'active-filter': activeClassificationFilter === 'Green (Healthy)' }"
+                v-if="pulsationData.classification_counts['Green (Healthy)']"
+                @click="toggleClassificationFilter('Green (Healthy)')"
+              >
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fas fa-check-circle"></i>
+                  </div>
+                </div>
+                <div class="stat-card-title">Healthy Domains</div>
+                <div class="stat-card-value">{{ pulsationData.classification_counts['Green (Healthy)'] || 0 }}</div>
+                <div class="stat-card-label">Excellent Performance</div>
+              </div>
+
+              <div
+                class="stat-card stat-yellow"
+                :class="{ 'active-filter': activeClassificationFilter === 'Yellow (Monitor)' }"
+                v-if="pulsationData.classification_counts['Yellow (Monitor)']"
+                @click="toggleClassificationFilter('Yellow (Monitor)')"
+              >
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                  </div>
+                </div>
+                <div class="stat-card-title">Monitor Required</div>
+                <div class="stat-card-value">{{ pulsationData.classification_counts['Yellow (Monitor)'] || 0 }}</div>
+                <div class="stat-card-label">Needs Attention</div>
+              </div>
+
+              <div
+                class="stat-card stat-orange"
+                :class="{ 'active-filter': activeClassificationFilter === 'Orange (Low Delivery)' }"
+                v-if="pulsationData.classification_counts['Orange (Low Delivery)']"
+                @click="toggleClassificationFilter('Orange (Low Delivery)')"
+              >
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fas fa-exclamation-circle"></i>
+                  </div>
+                </div>
+                <div class="stat-card-title">Low Delivery</div>
+                <div class="stat-card-value">{{ pulsationData.classification_counts['Orange (Low Delivery)'] || 0 }}</div>
+                <div class="stat-card-label">Action Required</div>
+              </div>
+
+              <div
+                class="stat-card stat-red"
+                :class="{ 'active-filter': activeClassificationFilter === 'Red (High Spam Complaints)' }"
+                v-if="pulsationData.classification_counts['Red (High Spam Complaints)']"
+                @click="toggleClassificationFilter('Red (High Spam Complaints)')"
+              >
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fas fa-times-circle"></i>
+                  </div>
+                </div>
+                <div class="stat-card-title">High Spam Risk</div>
+                <div class="stat-card-value">{{ pulsationData.classification_counts['Red (High Spam Complaints)'] || 0 }}</div>
+                <div class="stat-card-label">Critical Issue</div>
+              </div>
+            </div>
+
+            <!-- Pulsation Tabs -->
+            <div class="tabs pulsation-tabs">
+              <div class="tab" :class="{ active: pulsationTab === 'overall' }" @click="pulsationTab = 'overall'">
+                Overall
+              </div>
+              <div class="tab" :class="{ active: pulsationTab === 'low_delivery' }" @click="pulsationTab = 'low_delivery'">
+                Top 20 Low Delivery
+              </div>
+              <div class="tab" :class="{ active: pulsationTab === 'spam' }" @click="pulsationTab = 'spam'">
+                Top 20 Spam
+              </div>
+              <div class="tab" :class="{ active: pulsationTab === 'bounce' }" @click="pulsationTab = 'bounce'">
+                Top 20 Bounce
+              </div>
+              <div class="tab" :class="{ active: pulsationTab === 'risk' }" @click="pulsationTab = 'risk'">
+                Top 20 Risk
+              </div>
+              <div class="tab" :class="{ active: pulsationTab === 'charts' }" @click="pulsationTab = 'charts'">
+                Trend
+              </div>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content" :class="{ active: pulsationTab === 'overall' }">
+              <h3>Overall (Sent &gt; 0)</h3>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="sortable" @click="sortTable('Region')">
+                        Region <i :class="getSortIcon('Region')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('From_domain')">
+                        Domain <i :class="getSortIcon('From_domain')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('ESP')">
+                        ESP <i :class="getSortIcon('ESP')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Sent')">
+                        Sent <i :class="getSortIcon('Sent')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Delivered')">
+                        Delivered <i :class="getSortIcon('Delivered')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('delivery_rate')">
+                        Delivery % <i :class="getSortIcon('delivery_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('soft_bounce_pct')">
+                        Soft Bounce % <i :class="getSortIcon('soft_bounce_pct')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Spam_report')">
+                        Spam <i :class="getSortIcon('Spam_report')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('spam_rate')">
+                        Spam % <i :class="getSortIcon('spam_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('bounce_rate')">
+                        Bounce % <i :class="getSortIcon('bounce_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('risk_score')">
+                        Risk Score <i :class="getSortIcon('risk_score')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('classification')">
+                        Classification <i :class="getSortIcon('classification')"></i>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, idx) in filteredOverallData" :key="idx" :style="getRowStyle(row.classification)">
+                      <td><span :class="row.Region === 'US' ? 'region-us' : 'region-eu'">{{ row.Region }}</span></td>
+                      <td><span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span></td>
+                      <td>{{ row.ESP }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Sent) }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row.delivery_rate, 'delivery')">
+                        {{ formatRate(row.delivery_rate) }}
+                      </td>
+                      <td class="rate-cell">{{ formatRate(row.soft_bounce_pct) }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Spam_report) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row.spam_rate, 'spam')">
+                        {{ formatRate(row.spam_rate) }}
+                      </td>
+                      <td class="rate-cell" :class="getRateClass(row.bounce_rate, 'bounce')">
+                        {{ formatRate(row.bounce_rate) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(row.risk_score) }}</td>
+                      <td>{{ row.classification }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tab-content" :class="{ active: pulsationTab === 'low_delivery' }">
+              <h3>Top 20 — Lowest Delivery %</h3>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="sortable" @click="sortTable('Region')">
+                        Region <i :class="getSortIcon('Region')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('From_domain')">
+                        Domain <i :class="getSortIcon('From_domain')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('ESP')">
+                        ESP <i :class="getSortIcon('ESP')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Sent')">
+                        Sent <i :class="getSortIcon('Sent')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Delivered')">
+                        Delivered <i :class="getSortIcon('Delivered')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('delivery_rate')">
+                        Delivery % <i :class="getSortIcon('delivery_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('soft_bounce_pct')">
+                        Soft Bounce % <i :class="getSortIcon('soft_bounce_pct')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Spam_report')">
+                        Spam <i :class="getSortIcon('Spam_report')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('spam_rate')">
+                        Spam % <i :class="getSortIcon('spam_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('bounce_rate')">
+                        Bounce % <i :class="getSortIcon('bounce_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('risk_score')">
+                        Risk Score <i :class="getSortIcon('risk_score')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('classification')">
+                        Classification <i :class="getSortIcon('classification')"></i>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, idx) in filteredLowDeliveryData" :key="idx" :style="getRowStyle(row.classification)">
+                      <td><span :class="row.Region === 'US' ? 'region-us' : 'region-eu'">{{ row.Region }}</span></td>
+                      <td><span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span></td>
+                      <td>{{ row.ESP }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Sent) }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row.delivery_rate, 'delivery')">
+                        {{ formatRate(row.delivery_rate) }}
+                      </td>
+                      <td class="rate-cell">{{ formatRate(row.soft_bounce_pct) }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Spam_report) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row.spam_rate, 'spam')">
+                        {{ formatRate(row.spam_rate) }}
+                      </td>
+                      <td class="rate-cell" :class="getRateClass(row.bounce_rate, 'bounce')">
+                        {{ formatRate(row.bounce_rate) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(row.risk_score) }}</td>
+                      <td>{{ row.classification }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tab-content" :class="{ active: pulsationTab === 'spam' }">
+              <h3>Top 20 — Highest Spam %</h3>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="sortable" @click="sortTable('Region')">
+                        Region <i :class="getSortIcon('Region')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('From_domain')">
+                        Domain <i :class="getSortIcon('From_domain')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('ESP')">
+                        ESP <i :class="getSortIcon('ESP')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Sent')">
+                        Sent <i :class="getSortIcon('Sent')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Delivered')">
+                        Delivered <i :class="getSortIcon('Delivered')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('delivery_rate')">
+                        Delivery % <i :class="getSortIcon('delivery_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('soft_bounce_pct')">
+                        Soft Bounce % <i :class="getSortIcon('soft_bounce_pct')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Spam_report')">
+                        Spam <i :class="getSortIcon('Spam_report')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('spam_rate')">
+                        Spam % <i :class="getSortIcon('spam_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('bounce_rate')">
+                        Bounce % <i :class="getSortIcon('bounce_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('risk_score')">
+                        Risk Score <i :class="getSortIcon('risk_score')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('classification')">
+                        Classification <i :class="getSortIcon('classification')"></i>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, idx) in filteredSpamData" :key="idx" :style="getRowStyle(row.classification)">
+                      <td><span :class="row.Region === 'US' ? 'region-us' : 'region-eu'">{{ row.Region }}</span></td>
+                      <td><span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span></td>
+                      <td>{{ row.ESP }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Sent) }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row.delivery_rate, 'delivery')">
+                        {{ formatRate(row.delivery_rate) }}
+                      </td>
+                      <td class="rate-cell">{{ formatRate(row.soft_bounce_pct) }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Spam_report) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row.spam_rate, 'spam')">
+                        {{ formatRate(row.spam_rate) }}
+                      </td>
+                      <td class="rate-cell" :class="getRateClass(row.bounce_rate, 'bounce')">
+                        {{ formatRate(row.bounce_rate) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(row.risk_score) }}</td>
+                      <td>{{ row.classification }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tab-content" :class="{ active: pulsationTab === 'bounce' }">
+              <h3>Top 20 — Highest Bounce %</h3>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="sortable" @click="sortTable('Region')">
+                        Region <i :class="getSortIcon('Region')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('From_domain')">
+                        Domain <i :class="getSortIcon('From_domain')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('ESP')">
+                        ESP <i :class="getSortIcon('ESP')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Sent')">
+                        Sent <i :class="getSortIcon('Sent')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Delivered')">
+                        Delivered <i :class="getSortIcon('Delivered')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('delivery_rate')">
+                        Delivery % <i :class="getSortIcon('delivery_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('soft_bounce_pct')">
+                        Soft Bounce % <i :class="getSortIcon('soft_bounce_pct')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Spam_report')">
+                        Spam <i :class="getSortIcon('Spam_report')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('spam_rate')">
+                        Spam % <i :class="getSortIcon('spam_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('bounce_rate')">
+                        Bounce % <i :class="getSortIcon('bounce_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('risk_score')">
+                        Risk Score <i :class="getSortIcon('risk_score')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('classification')">
+                        Classification <i :class="getSortIcon('classification')"></i>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, idx) in filteredBounceData" :key="idx" :style="getRowStyle(row.classification)">
+                      <td><span :class="row.Region === 'US' ? 'region-us' : 'region-eu'">{{ row.Region }}</span></td>
+                      <td><span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span></td>
+                      <td>{{ row.ESP }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Sent) }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row.delivery_rate, 'delivery')">
+                        {{ formatRate(row.delivery_rate) }}
+                      </td>
+                      <td class="rate-cell">{{ formatRate(row.soft_bounce_pct) }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Spam_report) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row.spam_rate, 'spam')">
+                        {{ formatRate(row.spam_rate) }}
+                      </td>
+                      <td class="rate-cell" :class="getRateClass(row.bounce_rate, 'bounce')">
+                        {{ formatRate(row.bounce_rate) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(row.risk_score) }}</td>
+                      <td>{{ row.classification }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tab-content" :class="{ active: pulsationTab === 'risk' }">
+              <h3>Top 20 — Composite Risk Score</h3>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="sortable" @click="sortTable('Region')">
+                        Region <i :class="getSortIcon('Region')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('From_domain')">
+                        Domain <i :class="getSortIcon('From_domain')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('ESP')">
+                        ESP <i :class="getSortIcon('ESP')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Sent')">
+                        Sent <i :class="getSortIcon('Sent')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Delivered')">
+                        Delivered <i :class="getSortIcon('Delivered')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('delivery_rate')">
+                        Delivery % <i :class="getSortIcon('delivery_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('soft_bounce_pct')">
+                        Soft Bounce % <i :class="getSortIcon('soft_bounce_pct')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('Spam_report')">
+                        Spam <i :class="getSortIcon('Spam_report')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('spam_rate')">
+                        Spam % <i :class="getSortIcon('spam_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('bounce_rate')">
+                        Bounce % <i :class="getSortIcon('bounce_rate')"></i>
+                      </th>
+                      <th class="number-cell sortable" @click="sortTable('risk_score')">
+                        Risk Score <i :class="getSortIcon('risk_score')"></i>
+                      </th>
+                      <th class="sortable" @click="sortTable('classification')">
+                        Classification <i :class="getSortIcon('classification')"></i>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, idx) in filteredRiskData" :key="idx" :style="getRowStyle(row.classification)">
+                      <td><span :class="row.Region === 'US' ? 'region-us' : 'region-eu'">{{ row.Region }}</span></td>
+                      <td><span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span></td>
+                      <td>{{ row.ESP }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Sent) }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row.delivery_rate, 'delivery')">
+                        {{ formatRate(row.delivery_rate) }}
+                      </td>
+                      <td class="rate-cell">{{ formatRate(row.soft_bounce_pct) }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Spam_report) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row.spam_rate, 'spam')">
+                        {{ formatRate(row.spam_rate) }}
+                      </td>
+                      <td class="rate-cell" :class="getRateClass(row.bounce_rate, 'bounce')">
+                        {{ formatRate(row.bounce_rate) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(row.risk_score) }}</td>
+                      <td>{{ row.classification }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tab-content" :class="{ active: pulsationTab === 'charts' }">
+              <h3>Trends by Domain</h3>
+              <div class="date-range-card" style="display: grid; grid-template-columns: 1fr 200px; gap: 16px; align-items: end;">
+                <div>
+                  <label class="form-label">Select Domain:</label>
+                  <select class="form-input" v-model="selectedDomain" @change="loadDomainCharts">
+                    <option value="">-- Select a domain --</option>
+                    <option v-for="domain in pulsationData.all_domains" :key="domain" :value="domain">
+                      {{ domain }}
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Time Period:</label>
+                  <select class="form-input" v-model="chartDays" @change="loadDomainCharts" :disabled="!selectedDomain">
+                    <option :value="7">Last 7 Days</option>
+                    <option :value="30">Last 30 Days</option>
+                    <option :value="60">Last 60 Days</option>
+                    <option :value="90">Last 90 Days</option>
+                    <option :value="180">Last 180 Days</option>
+                    <option :value="365">Last 365 Days</option>
+                  </select>
+                </div>
+              </div>
+
+              <div v-if="!selectedDomain" class="empty-state">
+                <div class="empty-state-icon"><i class="fas fa-chart-area"></i></div>
+                <div class="empty-state-text">Please select a domain to view trends</div>
+              </div>
+
+              <div v-if="selectedDomain && chartData" class="chart-grid">
+                <div class="chart-container">
+                  <h4>Sent Volume</h4>
+                  <canvas ref="chartSent"></canvas>
+                </div>
+                <div class="chart-container">
+                  <h4>Delivered Volume</h4>
+                  <canvas ref="chartDelivered"></canvas>
+                </div>
+                <div class="chart-container">
+                  <h4>Delivery Rate (%)</h4>
+                  <canvas ref="chartDeliveryRate"></canvas>
+                </div>
+                <div class="chart-container">
+                  <h4>Spam Rate (%)</h4>
+                  <canvas ref="chartSpamRate"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pulsation Empty State -->
+          <div v-if="!pulsationData" class="empty-state">
+            <div class="empty-state-icon">
+              <i class="fas fa-heartbeat"></i>
+            </div>
+            <div class="empty-state-text">No Pulsation data loaded</div>
+            <p style="color: var(--gray-500);">Select a view type and click "Load Data" to get started</p>
+          </div>
+        </div>
+
+        <!-- MBR DELIVERABILITY VIEW -->
+        <!-- Save to DB Button (shown when data is available) -->
+        <div v-if="activeView === 'mbr' && (hasData || hasAccountData)" style="margin-bottom: var(--space-md);">
+          <!-- Save Button -->
+          <div style="display: flex; gap: var(--space-sm); align-items: center; padding: var(--space-sm) var(--space-md); background: var(--blue-50); border: 1px solid var(--blue-300); border-radius: var(--radius-sm);">
+            <button
+              class="btn btn-primary"
+              @click="saveReportToDB"
+              :disabled="savingToDb"
+              style="flex-shrink: 0;"
+            >
+              <span v-if="savingToDb" class="loading-spinner"></span>
+              <i v-else class="fas fa-database"></i>
+              {{ savingToDb ? 'Saving...' : 'Load Data into DB' }}
+            </button>
+            <span style="color: var(--gray-700); font-size: 13px;">
+              <i class="fas fa-arrow-left"></i>
+              Save this {{ mbrViewMode }} report as a timestamped snapshot for historical tracking
+            </span>
+          </div>
+        </div>
+
+        <!-- Export Buttons (shown when data is available - domain view only) -->
+        <div v-if="activeView === 'mbr' && mbrViewMode === 'domain' && hasData" class="export-actions">
+          <button
+            class="btn btn-success"
+            @click="exportExcel"
+            :disabled="exporting"
+          >
+            <span v-if="exporting" class="loading-spinner"></span>
+            <i v-else class="fas fa-file-excel"></i>
+            Export to Excel
+          </button>
+
+          <button
+            class="btn btn-secondary"
+            @click="exportPDF"
+            :disabled="exporting"
+          >
+            <span v-if="exporting" class="loading-spinner"></span>
+            <i v-else class="fas fa-file-pdf"></i>
+            Export to PDF
+          </button>
+
+          <button
+            class="btn btn-primary"
+            @click="openSendEmailModal"
+            :disabled="sendingEmail"
+            style="background: var(--blue-600);"
+          >
+            <span v-if="sendingEmail" class="loading-spinner"></span>
+            <i v-else class="fas fa-envelope"></i>
+            Send Email
+          </button>
+
+          <button
+            class="btn btn-secondary"
+            @click="openManageRecipientsModal"
+            style="margin-left: auto;"
+          >
+            <i class="fas fa-users-cog"></i>
+            Manage Recipients
+          </button>
+        </div>
+
+        <!-- MBR Deliverability Data (Domain View) -->
+        <div v-if="activeView === 'mbr' && mbrViewMode === 'domain' && hasData">
+            <!-- Executive Summary -->
+            <div class="data-section">
+              <h2 class="section-title">Executive Summary (All ESPs Combined)</h2>
+              <div class="table-wrapper" v-if="overallSummary">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="number-cell">Sent</th>
+                      <th class="number-cell">Delivered</th>
+                      <th class="number-cell">Delivery %</th>
+                      <th class="number-cell">Bounces</th>
+                      <th class="number-cell">Bounce %</th>
+                      <th class="number-cell">Spam</th>
+                      <th class="number-cell">Spam %</th>
+                      <th class="number-cell">Unsub</th>
+                      <th class="number-cell">Unsub %</th>
+                      <th class="number-cell">Opens</th>
+                      <th class="number-cell">Open %</th>
+                      <th class="number-cell">Clicks</th>
+                      <th class="number-cell">Click %</th>
+                      <th class="number-cell">CTOR %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="number-cell">{{ formatNumber(overallSummary.Total_Sent) }}</td>
+                      <td class="number-cell">{{ formatNumber(overallSummary.Total_Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(overallSummary['Delivery_Rate_%'], 'delivery')">
+                        {{ formatRate(overallSummary['Delivery_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(overallSummary.Total_Bounces) }}</td>
+                      <td class="rate-cell" :class="getRateClass(overallSummary['Bounce_Rate_%'], 'bounce')">
+                        {{ formatRate(overallSummary['Bounce_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(overallSummary.Total_Spam_Reports) }}</td>
+                      <td class="rate-cell" :class="getRateClass(overallSummary['Spam_Rate_%'], 'spam')">
+                        {{ formatRate(overallSummary['Spam_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(overallSummary.Total_Unsubscribes) }}</td>
+                      <td class="rate-cell" :class="getRateClass(overallSummary['Unsub_Rate_%'], 'unsub')">
+                        {{ formatRate(overallSummary['Unsub_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(overallSummary.Total_Unique_Opens) }}</td>
+                      <td class="rate-cell" :class="getRateClass(overallSummary['Open_Rate_%'], 'open')">
+                        {{ formatRate(overallSummary['Open_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(overallSummary.Total_Unique_Clicks) }}</td>
+                      <td class="rate-cell" :class="getRateClass(overallSummary['Click_Rate_%'], 'click')">
+                        {{ formatRate(overallSummary['Click_Rate_%']) }}
+                      </td>
+                      <td class="rate-cell">{{ formatRate(overallSummary['CTOR_%']) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ESP-wise Metrics -->
+            <div class="data-section" v-for="esp in espList" :key="esp">
+              <h2 class="section-title">{{ esp }} - Regional Breakdown</h2>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Region</th>
+                      <th class="number-cell">Sent</th>
+                      <th class="number-cell">MoM Send %</th>
+                      <th class="number-cell">Delivered</th>
+                      <th class="number-cell">Delivery %</th>
+                      <th class="number-cell">Bounces</th>
+                      <th class="number-cell">Bounce %</th>
+                      <th class="number-cell">Spam</th>
+                      <th class="number-cell">Spam %</th>
+                      <th class="number-cell">Opens</th>
+                      <th class="number-cell">Open %</th>
+                      <th class="number-cell">Clicks</th>
+                      <th class="number-cell">Click %</th>
+                      <th class="number-cell">Health Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in getESPRegionData(esp)" :key="row.region" :class="{ 'featured-row': row.isTotal }">
+                      <td :style="row.isTotal ? 'font-weight: 600' : ''">{{ row.region }}</td>
+                      <td class="number-cell">{{ formatNumber(row.Total_Sent) }}</td>
+                      <td class="rate-cell" :class="getMoMClass(row.MoM_Send_Change)">
+                        {{ formatMoM(row.MoM_Send_Change) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(row.Total_Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row['Delivery_Rate_%'], 'delivery')">
+                        {{ formatRate(row['Delivery_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(row.Total_Bounces) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row['Bounce_Rate_%'], 'bounce')">
+                        {{ formatRate(row['Bounce_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(row.Total_Spam_Reports) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row['Spam_Rate_%'], 'spam')">
+                        {{ formatRate(row['Spam_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(row.Total_Unique_Opens) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row['Open_Rate_%'], 'open')">
+                        {{ formatRate(row['Open_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(row.Total_Unique_Clicks) }}</td>
+                      <td class="rate-cell" :class="getRateClass(row['Click_Rate_%'], 'click')">
+                        {{ formatRate(row['Click_Rate_%']) }}
+                      </td>
+                      <td class="rate-cell" :class="getHealthScoreClass(row.Health_Rating)">
+                        <strong>{{ row.Health_Score || 'N/A' }}</strong>
+                        <span style="font-size: 11px; display: block;">{{ row.Health_Rating || '' }}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Top 10 Domains for this ESP -->
+              <h3 style="font-size: 16px; font-weight: 600; margin: 20px 0 12px;">Top 10 Domains by Send Volume</h3>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Domain</th>
+                      <th class="number-cell">Sent</th>
+                      <th class="number-cell">MoM Send %</th>
+                      <th class="number-cell">Delivered</th>
+                      <th class="number-cell">Delivery %</th>
+                      <th class="number-cell">Bounces</th>
+                      <th class="number-cell">Bounce %</th>
+                      <th class="number-cell">Open %</th>
+                      <th class="number-cell">Click %</th>
+                      <th class="number-cell">CTOR %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(domain, idx) in getESPTop10(esp)" :key="idx">
+                      <td>{{ domain.From_domain }}</td>
+                      <td class="number-cell">{{ formatNumber(domain.Sent) }}</td>
+                      <td class="rate-cell" :class="getMoMClass(domain['MoM_Send_Change_%'])">
+                        {{ formatMoM(domain['MoM_Send_Change_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(domain.Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(domain['Delivery_Rate_%'], 'delivery')">
+                        {{ formatRate(domain['Delivery_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(domain.Bounces) }}</td>
+                      <td class="rate-cell" :class="getRateClass(domain['Bounce_Rate_%'], 'bounce')">
+                        {{ formatRate(domain['Bounce_Rate_%']) }}
+                      </td>
+                      <td class="rate-cell" :class="getRateClass(domain['Open_Rate_%'], 'open')">
+                        {{ formatRate(domain['Open_Rate_%']) }}
+                      </td>
+                      <td class="rate-cell" :class="getRateClass(domain['Click_Rate_%'], 'click')">
+                        {{ formatRate(domain['Click_Rate_%']) }}
+                      </td>
+                      <td class="rate-cell">{{ formatRate(domain['CTOR_%']) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Top 10 Overall -->
+            <div class="data-section" v-if="top10Overall.length > 0">
+              <h2 class="section-title">Top 10 Domains Across All ESPs</h2>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Domain</th>
+                      <th>ESP</th>
+                      <th class="number-cell">Sent</th>
+                      <th class="number-cell">MoM Send %</th>
+                      <th class="number-cell">Delivered</th>
+                      <th class="number-cell">Delivery %</th>
+                      <th class="number-cell">Open %</th>
+                      <th class="number-cell">Click %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(domain, idx) in top10Overall" :key="idx">
+                      <td>{{ domain.From_domain }}</td>
+                      <td>{{ domain.ESP }}</td>
+                      <td class="number-cell">{{ formatNumber(domain.Sent) }}</td>
+                      <td class="rate-cell" :class="getMoMClass(domain['MoM_Send_Change_%'])">
+                        {{ formatMoM(domain['MoM_Send_Change_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(domain.Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(domain['Delivery_Rate_%'], 'delivery')">
+                        {{ formatRate(domain['Delivery_Rate_%']) }}
+                      </td>
+                      <td class="rate-cell" :class="getRateClass(domain['Open_Rate_%'], 'open')">
+                        {{ formatRate(domain['Open_Rate_%']) }}
+                      </td>
+                      <td class="rate-cell" :class="getRateClass(domain['Click_Rate_%'], 'click')">
+                        {{ formatRate(domain['Click_Rate_%']) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- MBR Deliverability Data (Account View) -->
+          <div v-if="activeView === 'mbr' && mbrViewMode === 'account' && hasAccountData">
+            <!-- Overall Top 10 Accounts -->
+            <div class="data-section">
+              <h2 class="section-title">Top 10 Accounts (Across All ESPs)</h2>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Account Name</th>
+                      <th class="number-cell">Sent</th>
+                      <th class="number-cell">MoM Send %</th>
+                      <th class="number-cell">Delivered</th>
+                      <th class="number-cell">Delivery %</th>
+                      <th class="number-cell">Bounces</th>
+                      <th class="number-cell">Bounce %</th>
+                      <th class="number-cell">Spam</th>
+                      <th class="number-cell">Spam %</th>
+                      <th class="number-cell">Opens</th>
+                      <th class="number-cell">Open %</th>
+                      <th class="number-cell">Clicks</th>
+                      <th class="number-cell">Click %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="account in topAccountsOverall" :key="account.Rank">
+                      <td style="font-weight: 600;">{{ account.Rank }}</td>
+                      <td><strong>{{ account.Account }}</strong></td>
+                      <td class="number-cell">{{ formatNumber(account.Sent) }}</td>
+                      <td class="rate-cell" :class="getMoMClass(account['MoM_Send_Change_%'])">
+                        {{ formatMoM(account['MoM_Send_Change_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Delivery_Rate_%'], 'delivery')">
+                        {{ formatRate(account['Delivery_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Bounces) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Bounce_Rate_%'], 'bounce')">
+                        {{ formatRate(account['Bounce_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Spam_Reports || account.Spam_report) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Spam_Rate_%'], 'spam')">
+                        {{ formatRate(account['Spam_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Total_Unique_Opens) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Open_Rate_%'], 'open')">
+                        {{ formatRate(account['Open_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.unique_click) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Click_Rate_%'], 'click')">
+                        {{ formatRate(account['Click_Rate_%']) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ESP-wise Top 10 Accounts -->
+            <div class="data-section" v-for="esp in Object.keys(topAccountsByESP)" :key="esp">
+              <h2 class="section-title">{{ esp }} - Top 10 Accounts by Send Volume</h2>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Account Name</th>
+                      <th class="number-cell">Sent</th>
+                      <th class="number-cell">MoM Send %</th>
+                      <th class="number-cell">Delivered</th>
+                      <th class="number-cell">Delivery %</th>
+                      <th class="number-cell">Bounces</th>
+                      <th class="number-cell">Bounce %</th>
+                      <th class="number-cell">Spam</th>
+                      <th class="number-cell">Spam %</th>
+                      <th class="number-cell">Opens</th>
+                      <th class="number-cell">Open %</th>
+                      <th class="number-cell">Clicks</th>
+                      <th class="number-cell">Click %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="account in getESPAccountTop10(esp)" :key="account.Rank">
+                      <td style="font-weight: 600;">{{ account.Rank }}</td>
+                      <td><strong>{{ account.Account }}</strong></td>
+                      <td class="number-cell">{{ formatNumber(account.Sent) }}</td>
+                      <td class="rate-cell" :class="getMoMClass(account['MoM_Send_Change_%'])">
+                        {{ formatMoM(account['MoM_Send_Change_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Delivery_Rate_%'], 'delivery')">
+                        {{ formatRate(account['Delivery_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Bounces) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Bounce_Rate_%'], 'bounce')">
+                        {{ formatRate(account['Bounce_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Spam_Reports || account.Spam_report) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Spam_Rate_%'], 'spam')">
+                        {{ formatRate(account['Spam_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Total_Unique_Opens) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Open_Rate_%'], 'open')">
+                        {{ formatRate(account['Open_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.unique_click) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Click_Rate_%'], 'click')">
+                        {{ formatRate(account['Click_Rate_%']) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Affiliate Accounts Section -->
+            <div class="data-section" v-if="affiliateAccounts && affiliateAccounts.length > 0">
+              <h2 class="section-title" style="color: var(--purple-700); border-left: 4px solid var(--purple-600); padding-left: 12px;">
+                <i class="fas fa-handshake"></i> Affiliate Accounts (IsAffiliate = Yes)
+              </h2>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Account Name</th>
+                      <th class="number-cell">Sent</th>
+                      <th class="number-cell">Delivered</th>
+                      <th class="number-cell">Delivery %</th>
+                      <th class="number-cell">Bounces</th>
+                      <th class="number-cell">Bounce %</th>
+                      <th class="number-cell">Spam</th>
+                      <th class="number-cell">Spam %</th>
+                      <th class="number-cell">Opens</th>
+                      <th class="number-cell">Open %</th>
+                      <th class="number-cell">Clicks</th>
+                      <th class="number-cell">Click %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="account in affiliateAccounts" :key="account.Rank">
+                      <td style="font-weight: 600;">{{ account.Rank }}</td>
+                      <td><strong style="color: var(--purple-700);">{{ account.Account }}</strong></td>
+                      <td class="number-cell">{{ formatNumber(account.Sent) }}</td>
+                      <td class="number-cell">{{ formatNumber(account.Delivered) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Delivery_Rate_%'], 'delivery')">
+                        {{ formatRate(account['Delivery_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Bounces) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Bounce_Rate_%'], 'bounce')">
+                        {{ formatRate(account['Bounce_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Spam_Reports || account.Spam_report) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Spam_Rate_%'], 'spam')">
+                        {{ formatRate(account['Spam_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.Total_Unique_Opens) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Open_Rate_%'], 'open')">
+                        {{ formatRate(account['Open_Rate_%']) }}
+                      </td>
+                      <td class="number-cell">{{ formatNumber(account.unique_click) }}</td>
+                      <td class="rate-cell" :class="getRateClass(account['Click_Rate_%'], 'click')">
+                        {{ formatRate(account['Click_Rate_%']) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- MBR Empty State -->
+          <div v-if="activeView === 'mbr' && !hasData && !hasAccountData" class="empty-state">
+            <div class="empty-state-icon">
+              <i class="fas fa-chart-bar"></i>
+            </div>
+            <div class="empty-state-text">No data to display</div>
+            <p style="color: var(--gray-500);">Select a date range and click "Fetch Data" to get started</p>
+          </div>
+
+          <!-- Load Saved Reports Section (Bottom of MBR) -->
+          <div v-if="activeView === 'mbr'" style="margin-top: var(--space-lg); padding: var(--space-md) var(--space-lg); background: var(--gray-50); border-radius: var(--radius-md); border: 1px solid var(--gray-300);">
+            <div style="display: flex; align-items: center; gap: var(--space-md); margin-bottom: var(--space-md);">
+              <i class="fas fa-database" style="color: var(--blue-600); font-size: 20px;"></i>
+              <h3 style="margin: 0; font-size: 18px; color: var(--gray-800); font-weight: 600;">Load Saved Reports</h3>
+              <button
+                class="btn btn-secondary"
+                @click="fetchSavedReports"
+                :disabled="loadingReports"
+                style="margin-left: auto; padding: 6px 12px; font-size: 13px;"
+              >
+                <i class="fas fa-sync-alt"></i>
+                {{ loadingReports ? 'Loading...' : 'Refresh List' }}
+              </button>
+            </div>
+
+            <!-- Filter Controls -->
+            <div v-if="savedReportsList.length > 0" style="margin-bottom: var(--space-md); padding: var(--space-md); background: white; border-radius: var(--radius-sm); border: 1px solid var(--gray-200);">
+              <div style="display: flex; align-items: center; gap: var(--space-md);">
+                <label style="font-weight: 500; font-size: 13px; color: var(--gray-700);">
+                  <i class="fas fa-filter" style="margin-right: 6px;"></i>Filter by:
+                </label>
+
+                <select v-model.number="filterMonth" style="padding: 6px 10px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 13px;">
+                  <option :value="null">All Months</option>
+                  <option v-for="month in availableMonths" :key="month" :value="month">
+                    {{ getMonthName(month) }}
+                  </option>
+                </select>
+
+                <select v-model.number="filterYear" style="padding: 6px 10px; border: 1px solid var(--gray-300); border-radius: var(--radius-xs); font-size: 13px;">
+                  <option :value="null">All Years</option>
+                  <option v-for="year in availableYears" :key="year" :value="year">
+                    {{ year }}
+                  </option>
+                </select>
+
+                <button
+                  v-if="filterMonth !== null || filterYear !== null"
+                  @click="clearFilters"
+                  class="btn btn-sm btn-default"
+                  style="padding: 6px 12px; font-size: 12px;"
+                >
+                  <i class="fas fa-times"></i> Clear
+                </button>
+
+                <span style="margin-left: auto; font-size: 12px; color: var(--gray-600);">
+                  Showing {{ filteredSavedReports.length }} of {{ savedReportsList.length }} reports
+                </span>
+              </div>
+            </div>
+
+            <div v-if="savedReportsList.length > 0" class="saved-reports-container">
+              <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
+                <table class="data-table" style="font-size: 13px;">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Type</th>
+                      <th>Date Range</th>
+                      <th>Duration</th>
+                      <th>Domains/Accounts</th>
+                      <th>Created</th>
+                      <th style="text-align: center;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="report in filteredSavedReports" :key="report.id">
+                      <td style="font-weight: 600;">{{ report.id }}</td>
+                      <td>
+                        <span class="badge" :style="report.report_type === 'domain' ? 'background: var(--blue-100); color: var(--blue-700);' : 'background: var(--green-100); color: var(--green-700);'">
+                          {{ report.report_type }}
+                        </span>
+                      </td>
+                      <td>
+                        <div v-if="report.month && report.year" style="display: flex; align-items: center; gap: 8px;">
+                          <span class="badge" style="background: var(--indigo-100); color: var(--indigo-700); font-weight: 600;">
+                            <i class="fas fa-calendar-alt" style="margin-right: 4px;"></i>
+                            {{ formatMonthYear(report.month, report.year) }}
+                          </span>
+                          <span style="font-size: 11px; color: var(--gray-500);">
+                            ({{ report.from_date }} → {{ report.to_date }})
+                          </span>
+                        </div>
+                        <span v-else>
+                          {{ report.from_date }} → {{ report.to_date }}
+                        </span>
+                      </td>
+                      <td>{{ report.duration_days }} days</td>
+                      <td class="number-cell">
+                        {{ report.report_type === 'domain' ? report.total_domains : report.total_accounts }}
+                      </td>
+                      <td>{{ formatDateTime(report.created_at) }}</td>
+                      <td style="text-align: center;">
+                        <div style="display: flex; gap: 6px; justify-content: center;">
+                          <button
+                            class="btn btn-sm btn-primary"
+                            @click="loadSavedReport(report.id)"
+                            :disabled="loadingReportId === report.id"
+                            style="padding: 4px 12px; font-size: 12px;"
+                          >
+                            <span v-if="loadingReportId === report.id" class="loading-spinner" style="width: 12px; height: 12px;"></span>
+                            <i v-else class="fas fa-download"></i>
+                            {{ loadingReportId === report.id ? 'Loading...' : 'Load' }}
+                          </button>
+                          <button
+                            class="btn btn-sm btn-danger"
+                            @click="deleteSavedReport(report.id)"
+                            :disabled="deletingReportId === report.id"
+                            style="padding: 4px 12px; font-size: 12px;"
+                            title="Delete this report"
+                          >
+                            <span v-if="deletingReportId === report.id" class="loading-spinner" style="width: 12px; height: 12px;"></span>
+                            <i v-else class="fas fa-trash-alt"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div v-else-if="savedReportsList.length > 0 && filteredSavedReports.length === 0" style="padding: var(--space-xl); text-align: center; color: var(--gray-600); background: white; border-radius: var(--radius-sm);">
+              <i class="fas fa-filter" style="font-size: 32px; margin-bottom: var(--space-md); opacity: 0.5;"></i>
+              <p style="margin: 0 0 var(--space-sm) 0; font-weight: 500;">No reports match the selected filters</p>
+              <button @click="clearFilters" class="btn btn-sm btn-default">
+                <i class="fas fa-times"></i> Clear Filters
+              </button>
+            </div>
+
+            <div v-else-if="!loadingReports" style="padding: var(--space-xl); text-align: center; color: var(--gray-600); background: white; border-radius: var(--radius-sm);">
+              <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: var(--space-md); opacity: 0.5;"></i>
+              <p style="margin: 0;">No saved reports found. Fetch data and save it to database first.</p>
+            </div>
+
+            <div v-if="loadingReports" style="padding: var(--space-xl); text-align: center; background: white; border-radius: var(--radius-sm);">
+              <span class="loading-spinner"></span>
+              <p style="margin-top: var(--space-md); color: var(--gray-600);">Loading saved reports...</p>
+            </div>
+          </div>
+
+          <!-- ACCOUNT MAPPINGS VIEW -->
+          <div v-if="activeView === 'accounts'">
+            <!-- Header -->
+            <div class="pulsation-header">
+              <h1 class="page-title">
+                <i class="fas fa-building"></i> Account Mappings Management
+              </h1>
+              <p class="page-subtitle">
+                Manage domain-to-account mappings for consolidated reporting
+              </p>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="classification-stats" v-if="accountStats">
+              <div class="stat-card stat-green">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fas fa-link"></i>
+                  </div>
+                </div>
+                <div class="stat-card-title">Total Mappings</div>
+                <div class="stat-card-value">{{ accountStats.total_mappings }}</div>
+                <div class="stat-card-label">Domain → Account</div>
+              </div>
+
+              <div class="stat-card stat-yellow">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fas fa-building"></i>
+                  </div>
+                </div>
+                <div class="stat-card-title">Total Accounts</div>
+                <div class="stat-card-value">{{ accountStats.total_accounts }}</div>
+                <div class="stat-card-label">Unique Customers</div>
+              </div>
+            </div>
+
+            <!-- Control Panel -->
+            <div class="pulsation-control-panel">
+              <div class="date-range-form" style="justify-content: space-between;">
+                <!-- Search -->
+                <div class="form-group" style="flex: 1; max-width: 400px;">
+                  <label class="form-label"><i class="fas fa-search"></i> Search</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    v-model="accountSearchQuery"
+                    @input="searchAccountMappings"
+                    placeholder="Search domain or account..."
+                  >
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: var(--space-md); align-items: flex-end;">
+                  <button class="btn btn-secondary" @click="showAddMappingModal = true">
+                    <i class="fas fa-plus"></i> Add Mapping
+                  </button>
+                  <button class="btn btn-secondary" @click="importCSV">
+                    <i class="fas fa-file-import"></i> Import CSV
+                  </button>
+                  <button class="btn btn-secondary" @click="exportCSV">
+                    <i class="fas fa-file-export"></i> Export CSV
+                  </button>
+                  <button class="btn btn-primary" @click="loadAccountMappings">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mappings Table -->
+            <div class="tab-content active" style="display: block;">
+              <h3>Domain-Account Mappings</h3>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Sending Domain</th>
+                      <th>Account Name</th>
+                      <th>IsAffiliate</th>
+                      <th>Notes</th>
+                      <th>Created</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-if="accountMappingsLoading">
+                      <td colspan="7" style="text-align: center; padding: var(--space-xl);">
+                        <span class="loading-spinner"></span> Loading...
+                      </td>
+                    </tr>
+                    <tr v-else-if="accountMappings.length === 0">
+                      <td colspan="7" style="text-align: center; padding: var(--space-xl); color: var(--gray-600);">
+                        No mappings found
+                      </td>
+                    </tr>
+                    <tr v-else v-for="mapping in accountMappings" :key="mapping.id">
+                      <td>{{ mapping.id }}</td>
+                      <td><strong>{{ mapping.sending_domain }}</strong></td>
+                      <td>{{ mapping.account_name }}</td>
+                      <td>
+                        <span class="badge" :style="mapping.is_affiliate ? 'background: var(--green-100); color: var(--green-700);' : 'background: var(--gray-100); color: var(--gray-700);'">
+                          {{ mapping.is_affiliate ? 'Yes' : 'No' }}
+                        </span>
+                      </td>
+                      <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
+                        {{ mapping.notes || '-' }}
+                      </td>
+                      <td>{{ formatDate(mapping.created_at) }}</td>
+                      <td>
+                        <button
+                          class="btn btn-secondary"
+                          style="height: 32px; padding: 0 var(--space-md); font-size: 12px; margin-right: var(--space-xs);"
+                          @click="editMapping(mapping)"
+                        >
+                          <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button
+                          class="btn btn-secondary"
+                          style="height: 32px; padding: 0 var(--space-md); font-size: 12px; background: var(--red-600); color: white;"
+                          @click="deleteMapping(mapping.id)"
+                        >
+                          <i class="fas fa-trash"></i> Delete
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Pagination -->
+              <div style="margin-top: var(--space-lg); text-align: center; color: var(--gray-700);">
+                Showing {{ accountMappings.length }} of {{ accountMappingsTotal }} mappings
+              </div>
+            </div>
+          </div>
+
+          <!-- Add/Edit Mapping Modal -->
+          <div v-if="showAddMappingModal || showEditMappingModal" class="modal-overlay" @click.self="closeModals">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h3>{{ showEditMappingModal ? 'Edit Mapping' : 'Add New Mapping' }}</h3>
+                <button class="modal-close" @click="closeModals">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+
+              <div class="modal-body">
+                <div class="form-group">
+                  <label class="form-label">Sending Domain *</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    v-model="mappingForm.sending_domain"
+                    placeholder="example.com"
+                    :disabled="showEditMappingModal"
+                  >
+                </div>
+
+                <div class="form-group" style="margin-top: var(--space-md);">
+                  <label class="form-label">Account Name *</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    v-model="mappingForm.account_name"
+                    placeholder="Acme Corporation"
+                  >
+                </div>
+
+                <div class="form-group" style="margin-top: var(--space-md);">
+                  <label class="form-label" style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+                    <input
+                      type="checkbox"
+                      v-model="mappingForm.is_affiliate"
+                      style="width: 18px; height: 18px; cursor: pointer;"
+                    >
+                    <span>IsAffiliate</span>
+                  </label>
+                  <small style="color: var(--gray-600); margin-top: 4px; display: block;">
+                    Check if this is an affiliate domain
+                  </small>
+                </div>
+
+                <div class="form-group" style="margin-top: var(--space-md);">
+                  <label class="form-label">Notes (Optional)</label>
+                  <textarea
+                    class="form-input"
+                    v-model="mappingForm.notes"
+                    placeholder="Additional notes..."
+                    rows="3"
+                    style="resize: vertical;"
+                  ></textarea>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-secondary" @click="closeModals">Cancel</button>
+                <button
+                  class="btn btn-primary"
+                  @click="showEditMappingModal ? updateMapping() : createMapping()"
+                  :disabled="!mappingForm.sending_domain || !mappingForm.account_name"
+                >
+                  <i :class="showEditMappingModal ? 'fas fa-save' : 'fas fa-plus'"></i>
+                  {{ showEditMappingModal ? 'Update' : 'Create' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Account Info Section (ESP Integration) -->
+          <div v-if="activeView === 'accountInfo'">
+            <!-- Header -->
+            <div class="pulsation-header">
+              <h1 class="page-title">
+                <i class="fas fa-server"></i> Account Info - ESP Integration
+              </h1>
+              <p class="page-subtitle">
+                Real-time account information from Mailgun, Sparkpost, and Sendgrid
+              </p>
+            </div>
+
+            <!-- Control Panel -->
+            <div class="pulsation-control-panel" style="margin-bottom: var(--space-lg);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div v-if="accountInfo" style="font-size: 13px; color: var(--gray-600);">
+                  <i class="fas fa-clock"></i> Last updated: {{ new Date(accountInfo.last_updated).toLocaleString() }}
+                  <span v-if="accountInfo.cached" style="margin-left: 12px;">
+                    <i class="fas fa-database"></i> Cached (expires in {{ Math.floor(accountInfo.cache_expires_in / 60) }}m)
+                  </span>
+                </div>
+
+                <div style="display: flex; gap: 12px;">
+                  <button
+                    class="btn btn-default btn-sm"
+                    @click="clearAccountInfoFilters"
+                    v-if="accountInfo"
+                  >
+                    <i class="fas fa-filter"></i>
+                    Clear Filters
+                  </button>
+
+                  <button
+                    class="btn btn-primary btn-sm"
+                    @click="fetchAccountInfo(false)"
+                    :disabled="accountInfoLoading"
+                  >
+                    <span v-if="accountInfoLoading" class="loading-spinner" style="width: 14px; height: 14px;"></span>
+                    <i v-else class="fas fa-sync-alt"></i>
+                    {{ accountInfoLoading ? 'Loading...' : 'Refresh' }}
+                  </button>
+
+                  <button
+                    class="btn btn-default btn-sm"
+                    @click="clearAccountInfoCache"
+                    :disabled="accountInfoLoading"
+                  >
+                    <i class="fas fa-trash-alt"></i>
+                    Clear Cache
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Error Display -->
+            <div v-if="accountInfoError" class="alert alert-danger" style="margin-bottom: var(--space-lg);">
+              <i class="fas fa-exclamation-circle"></i> {{ accountInfoError }}
+            </div>
+
+            <!-- API Errors Display -->
+            <div v-if="accountInfo && (accountInfo.errors.mailgun || accountInfo.errors.sparkpost || accountInfo.errors.sendgrid)" class="alert alert-warning" style="margin-bottom: var(--space-lg);">
+              <strong><i class="fas fa-exclamation-triangle"></i> API Warnings:</strong>
+              <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                <li v-if="accountInfo.errors.mailgun">Mailgun: {{ accountInfo.errors.mailgun }}</li>
+                <li v-if="accountInfo.errors.sparkpost">Sparkpost: {{ accountInfo.errors.sparkpost }}</li>
+                <li v-if="accountInfo.errors.sendgrid">Sendgrid: {{ accountInfo.errors.sendgrid }}</li>
+              </ul>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="accountInfoLoading && !accountInfo" style="text-align: center; padding: 60px 20px; background: white; border-radius: var(--radius-sm);">
+              <div class="loading-spinner" style="width: 40px; height: 40px; margin: 0 auto 20px;"></div>
+              <p style="color: var(--gray-600); font-size: 14px;">Fetching data from ESPs...</p>
+            </div>
+
+            <!-- Data Table -->
+            <div v-if="accountInfo && accountInfo.data && accountInfo.data.length > 0" class="data-section">
+              <div class="table-wrapper" style="max-height: 600px; overflow-y: auto;">
+                <table class="data-table" style="font-size: 13px;">
+                  <thead>
+                    <tr>
+                      <th>ESP</th>
+                      <th>Region</th>
+                      <th>Domain</th>
+                      <th>Account Name</th>
+                      <th>IP Address</th>
+                      <th>Subaccount/Subuser</th>
+                      <th>IP Pool</th>
+                      <th>Status</th>
+                      <th>Verified</th>
+                      <th>Created Date</th>
+                    </tr>
+                    <!-- Filter Row -->
+                    <tr style="background: var(--gray-50);">
+                      <th style="padding: 6px 8px;">
+                        <input
+                          type="text"
+                          v-model="accountInfoFilters.esp"
+                          placeholder="Filter..."
+                          style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid var(--gray-300); border-radius: 3px;"
+                        >
+                      </th>
+                      <th style="padding: 6px 8px;">
+                        <input
+                          type="text"
+                          v-model="accountInfoFilters.region"
+                          placeholder="Filter..."
+                          style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid var(--gray-300); border-radius: 3px;"
+                        >
+                      </th>
+                      <th style="padding: 6px 8px;">
+                        <input
+                          type="text"
+                          v-model="accountInfoFilters.domain"
+                          placeholder="Filter domain..."
+                          style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid var(--gray-300); border-radius: 3px;"
+                        >
+                      </th>
+                      <th style="padding: 6px 8px;">
+                        <input
+                          type="text"
+                          v-model="accountInfoFilters.account_name"
+                          placeholder="Filter account..."
+                          style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid var(--gray-300); border-radius: 3px;"
+                        >
+                      </th>
+                      <th style="padding: 6px 8px;">
+                        <input
+                          type="text"
+                          v-model="accountInfoFilters.ip_addresses"
+                          placeholder="Filter IP..."
+                          style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid var(--gray-300); border-radius: 3px;"
+                        >
+                      </th>
+                      <th style="padding: 6px 8px;">
+                        <input
+                          type="text"
+                          v-model="accountInfoFilters.subaccount"
+                          placeholder="Filter..."
+                          style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid var(--gray-300); border-radius: 3px;"
+                        >
+                      </th>
+                      <th style="padding: 6px 8px;">
+                        <input
+                          type="text"
+                          v-model="accountInfoFilters.ip_pool"
+                          placeholder="Filter..."
+                          style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid var(--gray-300); border-radius: 3px;"
+                        >
+                      </th>
+                      <th style="padding: 6px 8px;">
+                        <input
+                          type="text"
+                          v-model="accountInfoFilters.status"
+                          placeholder="Filter..."
+                          style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid var(--gray-300); border-radius: 3px;"
+                        >
+                      </th>
+                      <th style="padding: 6px 8px;">
+                        <input
+                          type="text"
+                          v-model="accountInfoFilters.verified"
+                          placeholder="yes/no"
+                          style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid var(--gray-300); border-radius: 3px;"
+                        >
+                      </th>
+                      <th style="padding: 6px 8px;">
+                        <input
+                          type="text"
+                          v-model="accountInfoFilters.created_at"
+                          placeholder="Filter..."
+                          style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid var(--gray-300); border-radius: 3px;"
+                        >
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(item, index) in filteredAccountInfo" :key="index">
+                      <td>
+                        <span class="badge" :style="
+                          item.esp === 'Mailgun' ? 'background: var(--red-100); color: var(--red-700);' :
+                          item.esp === 'Sparkpost' ? 'background: var(--orange-100); color: var(--orange-700);' :
+                          'background: var(--blue-100); color: var(--blue-700);'
+                        ">
+                          {{ item.esp }}
+                        </span>
+                      </td>
+                      <td>
+                        <span v-if="item.region !== 'N/A'" class="badge" style="background: var(--gray-100); color: var(--gray-700); font-size: 11px;">
+                          {{ item.region }}
+                        </span>
+                        <span v-else style="color: var(--gray-400);">-</span>
+                      </td>
+                      <td style="font-weight: 500; font-family: monospace;">{{ item.domain }}</td>
+                      <td>
+                        <span v-if="item.account_name !== 'Unmapped'" style="font-weight: 500; color: var(--blue-700);">
+                          {{ item.account_name }}
+                        </span>
+                        <span v-else style="color: var(--gray-400); font-style: italic;">
+                          Unmapped
+                        </span>
+                      </td>
+                      <td style="font-size: 12px; font-family: monospace; color: var(--gray-700);">
+                        {{ item.ip_addresses }}
+                      </td>
+                      <td>{{ item.subaccount }}</td>
+                      <td style="font-size: 12px;">{{ item.ip_pool }}</td>
+                      <td>
+                        <span class="badge" :style="
+                          item.status === 'active' || item.status === 'Active' ? 'background: var(--green-100); color: var(--green-700);' :
+                          'background: var(--yellow-100); color: var(--yellow-700);'
+                        ">
+                          {{ item.status }}
+                        </span>
+                      </td>
+                      <td style="text-align: center;">
+                        <i v-if="item.verified" class="fas fa-check-circle" style="color: var(--green-600);"></i>
+                        <i v-else class="fas fa-times-circle" style="color: var(--gray-400);"></i>
+                      </td>
+                      <td style="font-size: 12px; color: var(--gray-600);">{{ item.created_at }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Summary Stats -->
+              <div style="margin-top: var(--space-md); padding: var(--space-md); background: var(--gray-50); border-radius: var(--radius-sm); font-size: 13px; color: var(--gray-700);">
+                <strong>Showing:</strong> {{ filteredAccountInfo.length }} of {{ accountInfo.total_records }} records
+                <span v-if="filteredAccountInfo.length < accountInfo.total_records" style="margin-left: 12px; color: var(--blue-600);">
+                  <i class="fas fa-filter"></i> Filtered
+                </span>
+              </div>
+
+              <!-- No Results After Filtering -->
+              <div v-if="filteredAccountInfo.length === 0" style="margin-top: var(--space-md); padding: var(--space-xl); text-align: center; background: white; border-radius: var(--radius-sm); border: 2px dashed var(--gray-300);">
+                <i class="fas fa-search" style="font-size: 32px; color: var(--gray-400); margin-bottom: 12px;"></i>
+                <p style="color: var(--gray-600); margin: 0 0 12px 0;">No records match your filters</p>
+                <button class="btn btn-sm btn-default" @click="clearAccountInfoFilters">
+                  <i class="fas fa-times"></i> Clear All Filters
+                </button>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div v-if="accountInfo && accountInfo.data && accountInfo.data.length === 0" style="text-align: center; padding: 60px 20px; background: white; border-radius: var(--radius-sm);">
+              <i class="fas fa-inbox" style="font-size: 48px; color: var(--gray-300); margin-bottom: 20px;"></i>
+              <p style="color: var(--gray-600); font-size: 16px; margin: 0;">No account data found from any ESP</p>
+            </div>
+          </div>
+
+          <!-- Send Email Modal -->
+          <div v-if="showSendEmailModal" class="modal-overlay" @click.self="closeSendEmailModal">
+            <div class="modal-content" style="max-width: 600px;">
+              <div class="modal-header">
+                <h3>📧 Send MBR Report via Email</h3>
+                <button class="modal-close" @click="closeSendEmailModal">&times;</button>
+              </div>
+
+              <div class="modal-body">
+                <div class="form-group">
+                  <label class="form-label">Recipients *</label>
+                  <div style="border: 1px solid var(--gray-400); border-radius: var(--radius-sm); padding: var(--space-sm); max-height: 150px; overflow-y: auto; background: white;">
+                    <div v-if="emailRecipients.length === 0" style="color: var(--gray-600); padding: var(--space-md); text-align: center;">
+                      <i class="fas fa-inbox"></i> No recipients added yet.
+                      <a href="#" @click.prevent="openManageRecipientsModal" style="color: var(--blue-600);">Add recipients</a>
+                    </div>
+                    <label v-for="recipient in emailRecipients" :key="recipient.id" style="display: flex; align-items: center; padding: 6px; cursor: pointer; hover: background: var(--gray-100);">
+                      <input
+                        type="checkbox"
+                        :value="recipient.email"
+                        v-model="selectedRecipients"
+                        style="margin-right: var(--space-sm);"
+                      >
+                      <span><strong>{{ recipient.name }}</strong> ({{ recipient.email }})</span>
+                    </label>
+                  </div>
+                  <small style="color: var(--gray-600); margin-top: 4px; display: block;">
+                    Selected: {{ selectedRecipients.length }} recipient(s)
+                  </small>
+                </div>
+
+                <div class="form-group" style="margin-top: var(--space-md);">
+                  <label class="form-label">Subject *</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    v-model="emailForm.subject"
+                    placeholder="Email subject..."
+                  >
+                </div>
+
+                <div class="form-group" style="margin-top: var(--space-md);">
+                  <label class="form-label">Message (Optional)</label>
+                  <textarea
+                    class="form-input"
+                    v-model="emailForm.body"
+                    placeholder="Email body (HTML supported)..."
+                    rows="6"
+                    style="resize: vertical; font-family: monospace; font-size: 12px;"
+                  ></textarea>
+                  <small style="color: var(--gray-600);">HTML formatting is supported</small>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-secondary" @click="closeSendEmailModal">Cancel</button>
+                <button
+                  class="btn btn-primary"
+                  @click="sendReportEmail"
+                  :disabled="selectedRecipients.length === 0 || !emailForm.subject || sendingEmail"
+                >
+                  <span v-if="sendingEmail" class="loading-spinner"></span>
+                  <i v-else class="fas fa-paper-plane"></i>
+                  {{ sendingEmail ? 'Sending...' : 'Send Email' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manage Recipients Modal -->
+          <div v-if="showManageRecipientsModal" class="modal-overlay" @click.self="closeManageRecipientsModal">
+            <div class="modal-content" style="max-width: 800px;">
+              <div class="modal-header">
+                <h3>👥 Manage Email Recipients</h3>
+                <button class="modal-close" @click="closeManageRecipientsModal">&times;</button>
+              </div>
+
+              <div class="modal-body">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+                  <p style="color: var(--gray-700);">Total: {{ emailRecipients.length }} recipient(s)</p>
+                  <button class="btn btn-primary" @click="openAddRecipientModal">
+                    <i class="fas fa-plus"></i> Add Recipient
+                  </button>
+                </div>
+
+                <div v-if="emailRecipients.length > 0" class="table-wrapper">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="recipient in emailRecipients" :key="recipient.id">
+                        <td><strong>{{ recipient.name }}</strong></td>
+                        <td>{{ recipient.email }}</td>
+                        <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
+                          {{ recipient.notes || '-' }}
+                        </td>
+                        <td>
+                          <button class="btn btn-sm btn-secondary" @click="editRecipient(recipient)" style="margin-right: 4px;">
+                            <i class="fas fa-edit"></i> Edit
+                          </button>
+                          <button class="btn btn-sm btn-secondary" @click="deleteRecipient(recipient.id)" style="color: var(--red-600);">
+                            <i class="fas fa-trash"></i> Delete
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div v-else style="padding: var(--space-xl); text-align: center; color: var(--gray-600);">
+                  <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: var(--space-md); opacity: 0.5;"></i>
+                  <p>No recipients added yet. Click "Add Recipient" to get started.</p>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-secondary" @click="closeManageRecipientsModal">Close</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add/Edit Recipient Modal -->
+          <div v-if="showAddRecipientModal || showEditRecipientModal" class="modal-overlay" @click.self="closeRecipientModals">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h3>{{ showEditRecipientModal ? 'Edit Recipient' : 'Add New Recipient' }}</h3>
+                <button class="modal-close" @click="closeRecipientModals">&times;</button>
+              </div>
+
+              <div class="modal-body">
+                <div class="form-group">
+                  <label class="form-label">Name *</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    v-model="recipientForm.name"
+                    placeholder="John Doe"
+                  >
+                </div>
+
+                <div class="form-group" style="margin-top: var(--space-md);">
+                  <label class="form-label">Email *</label>
+                  <input
+                    type="email"
+                    class="form-input"
+                    v-model="recipientForm.email"
+                    placeholder="john.doe@example.com"
+                    :disabled="showEditRecipientModal"
+                  >
+                </div>
+
+                <div class="form-group" style="margin-top: var(--space-md);">
+                  <label class="form-label">Notes (Optional)</label>
+                  <textarea
+                    class="form-input"
+                    v-model="recipientForm.notes"
+                    placeholder="Additional notes..."
+                    rows="3"
+                    style="resize: vertical;"
+                  ></textarea>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-secondary" @click="closeRecipientModals">Cancel</button>
+                <button
+                  class="btn btn-primary"
+                  @click="showEditRecipientModal ? updateRecipient() : createRecipient()"
+                  :disabled="!recipientForm.name || !recipientForm.email"
+                >
+                  <i :class="showEditRecipientModal ? 'fas fa-save' : 'fas fa-plus'"></i>
+                  {{ showEditRecipientModal ? 'Update' : 'Create' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Vue 3 -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- App Scripts -->
+  <script src="js/api.js?v=RESTORED"></script>
+  <script src="js/app.js?v=RESTORED"></script>
+</body>
+</html>
