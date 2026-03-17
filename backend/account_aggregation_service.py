@@ -18,8 +18,9 @@ def add_account_column(df: pd.DataFrame) -> pd.DataFrame:
 
     # Map each domain to its account
     df['Account'] = df['From_domain'].apply(
-        lambda domain: get_account_for_domain(domain) or 'Unmapped'
+        lambda domain: get_account_for_domain(domain) if domain and isinstance(domain, str) else 'Unmapped'
     )
+    df['Account'] = df['Account'].fillna('Unmapped')
 
     return df
 

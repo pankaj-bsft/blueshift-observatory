@@ -204,6 +204,8 @@ def get_mapping_by_id(mapping_id: int) -> Optional[Dict]:
 
 def get_account_for_domain(domain: str) -> Optional[str]:
     """Get account name for a given domain"""
+    if not domain or not isinstance(domain, str):
+        return None
     conn = get_db_connection()
     cursor = conn.cursor()
 

@@ -259,20 +259,27 @@ def collect_mailgun_bounces(date: str = None) -> Dict:
         }
 
         try:
-            response = requests.get(
-                url,
-                auth=('api', MAILGUN_API_KEY),
-                params=params,
-                timeout=30
-            )
+            page_url = url
+            page_params = params
+            total_domain_bounces = 0
+            seen_pages = set()
 
-            if response.status_code == 200:
+            while True:
+                response = requests.get(
+                    page_url,
+                    auth=('api', MAILGUN_API_KEY),
+                    params=page_params,
+                    timeout=30
+                )
+
+                if response.status_code != 200:
+                    break
+
                 data = response.json()
                 items = data.get('items', [])
 
                 if items:
-                    domains_with_bounces += 1
-                    print(f'  Domain {idx}/{len(mailgun_domains)}: {domain} - {len(items)} bounces')
+                    total_domain_bounces += len(items)
 
                 for item in items:
                     # Extract bounce details
@@ -304,6 +311,20 @@ def collect_mailgun_bounces(date: str = None) -> Dict:
                     }
 
                     all_bounces.append(bounce)
+
+                next_url = data.get('paging', {}).get('next')
+                if not next_url:
+                    break
+                if next_url in seen_pages:
+                    break
+
+                seen_pages.add(next_url)
+                page_url = next_url
+                page_params = None
+
+            if total_domain_bounces > 0:
+                domains_with_bounces += 1
+                print(f'  Domain {idx}/{len(mailgun_domains)}: {domain} - {total_domain_bounces} bounces')
 
         except Exception as e:
             print(f"Error collecting Mailgun bounces for {domain}: {str(e)}")
