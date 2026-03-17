@@ -287,6 +287,72 @@ def get_report_statistics() -> Dict:
     }
 
 
+def get_monthly_sent_by_esp(limit: int = 12) -> Dict:
+    """Return monthly sent totals by ESP from stored MBR reports."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, report_data, month, year, created_at
+        FROM mbr_reports
+        WHERE report_type = "domain"
+          AND month IS NOT NULL
+          AND year IS NOT NULL
+        ORDER BY year DESC, month DESC, created_at DESC
+    ''')
+    rows = cursor.fetchall()
+    conn.close()
+
+    seen = set()
+    records = []
+    for row in rows:
+        key = (row['year'], row['month'])
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            report_data = json.loads(row['report_data'])
+        except Exception:
+            continue
+
+        esp_data = report_data.get('esp_data', {})
+        def _get_sent(esp_name: str) -> float:
+            combined = (esp_data.get(esp_name) or {}).get('combined_summary') or {}
+            return float(combined.get('Total_Sent', 0))
+
+        records.append({
+            'year': row['year'],
+            'month': row['month'],
+            'sparkpost': _get_sent('Sparkpost'),
+            'mailgun': _get_sent('Mailgun'),
+            'sendgrid': _get_sent('Sendgrid')
+        })
+
+        if len(records) >= limit:
+            break
+
+    # Sort oldest -> newest for charting
+    records.sort(key=lambda r: (r['year'], r['month']))
+
+    labels = []
+    sp = []
+    mg = []
+    sg = []
+    for r in records:
+        labels.append(datetime(r['year'], r['month'], 1).strftime('%b %y'))
+        sp.append(r['sparkpost'])
+        mg.append(r['mailgun'])
+        sg.append(r['sendgrid'])
+
+    return {
+        'labels': labels,
+        'series': {
+            'Sparkpost': sp,
+            'Mailgun': mg,
+            'Sendgrid': sg
+        }
+    }
+
+
 # Initialize database on module import
 if __name__ != '__main__':
     try:

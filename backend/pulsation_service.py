@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple
 import os
 from druid_service import execute_druid_query, calculate_metrics
 from config import DRUID_US_BROKER, DRUID_EU_BROKER
+from account_mapping_service import get_all_mappings
 
 # Database path
 DB_PATH = '/Users/pankaj/pani/data/deliverability_history.db'
@@ -88,9 +89,26 @@ def classify_row(delivery_rate, spam_rate):
     return 'Unclassified'
 
 
+def _attach_account_name(df: pd.DataFrame) -> pd.DataFrame:
+    """Attach account_name to dataframe based on From_domain."""
+    if df.empty or 'From_domain' not in df.columns:
+        df['account_name'] = 'Unmapped'
+        return df
+
+    try:
+        mappings = get_all_mappings(limit=100000).get('mappings', [])
+        mapping_dict = {m.get('sending_domain', '').lower(): m.get('account_name', '') for m in mappings}
+    except Exception:
+        mapping_dict = {}
+
+    df['account_name'] = df['From_domain'].astype(str).str.lower().map(mapping_dict).fillna('Unmapped')
+    return df
+
+
 def process_pulsation_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """Process and calculate all metrics for Pulsation data"""
     df['From_domain'] = df['From_domain'].fillna('').astype(str).str.strip().str.lower()
+
 
     num_cols = ['Sent', 'Delivered', 'Bounces', 'Soft_bounce_count', 'Unique_soft_bounce', 'Spam_report', 'Unsubscribe']
     for c in num_cols:
@@ -109,6 +127,8 @@ def process_pulsation_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         (df['spam_rate'] * 100) * 0.4 +
         (df['bounce_rate'] * 100) * 0.2
     )
+
+    df = _attach_account_name(df)
 
     return df
 
@@ -227,6 +247,7 @@ def query_date_range(start_date: datetime, end_date: datetime) -> pd.DataFrame:
     """
     df = pd.read_sql_query(query, conn, params=(start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')))
     conn.close()
+    df = _attach_account_name(df)
     return df
 
 
@@ -252,6 +273,54 @@ def get_domain_timeseries(from_domain: str, days: int = 30) -> pd.DataFrame:
     return df
 
 
+def get_account_timeseries(account_name: str, days: int = 30) -> pd.DataFrame:
+    """Get time-series data for a specific account"""
+    cutoff_date = (datetime.utcnow().date() - timedelta(days=days)).strftime('%Y-%m-%d')
+    conn = sqlite3.connect(DB_PATH)
+    query = """
+        SELECT
+            report_date,
+            from_domain,
+            SUM(sent) as sent,
+            SUM(delivered) as delivered,
+            SUM(spam_report) as spam_report,
+            SUM(bounces) as bounces
+        FROM daily_metrics
+        WHERE report_date >= ?
+        GROUP BY report_date, from_domain
+        ORDER BY report_date
+    """
+    df = pd.read_sql_query(query, conn, params=(cutoff_date,))
+    conn.close()
+
+    if df.empty:
+        return df
+
+    df.rename(columns={"from_domain": "From_domain"}, inplace=True)
+    df = _attach_account_name(df)
+
+    if account_name.lower() == 'unmapped':
+        df = df[df['account_name'].str.lower() == 'unmapped']
+    else:
+        df = df[df['account_name'].str.lower() == account_name.lower()]
+
+    if df.empty:
+        return df
+
+    grouped = df.groupby('report_date', as_index=False).agg({
+        'sent': 'sum',
+        'delivered': 'sum',
+        'spam_report': 'sum',
+        'bounces': 'sum'
+    })
+
+    grouped['delivery_rate'] = grouped.apply(lambda r: round(pct(r['delivered'], r['sent']), 2), axis=1)
+    grouped['spam_rate'] = grouped.apply(lambda r: round(pct(r['spam_report'], r['delivered']), 4), axis=1)
+    grouped['bounce_rate'] = grouped.apply(lambda r: round(pct(r['bounces'], r['sent']), 4), axis=1)
+
+    return grouped
+
+
 def get_available_dates() -> List[str]:
     """Get list of dates with data"""
     conn = sqlite3.connect(DB_PATH)
@@ -260,3 +329,96 @@ def get_available_dates() -> List[str]:
     dates = [row[0] for row in cursor.fetchall()]
     conn.close()
     return dates
+
+
+def _safe_pct(n, d, decimals=2):
+    return round(0.0 if not d else (n / d) * 100.0, decimals)
+
+
+def _aggregate_metrics(df: pd.DataFrame, group_key: str) -> pd.DataFrame:
+    grouped = df.groupby(group_key, dropna=False).agg({
+        'Sent': 'sum',
+        'Delivered': 'sum',
+        'Bounces': 'sum',
+        'Soft_bounce_count': 'sum',
+        'Spam_report': 'sum',
+        'Unsubscribe': 'sum'
+    }).reset_index()
+
+    grouped['delivery_rate'] = grouped.apply(lambda r: _safe_pct(r['Delivered'], r['Sent'], 2), axis=1)
+    grouped['bounce_rate'] = grouped.apply(lambda r: _safe_pct(r['Bounces'], r['Sent'], 4), axis=1)
+    grouped['spam_rate'] = grouped.apply(lambda r: _safe_pct(r['Spam_report'], r['Delivered'], 4), axis=1)
+    grouped['unsub_rate'] = grouped.apply(lambda r: _safe_pct(r['Unsubscribe'], r['Delivered'], 4), axis=1)
+    grouped['soft_bounce_pct'] = grouped.apply(lambda r: _safe_pct(r['Soft_bounce_count'], r['Sent'], 4), axis=1)
+    return grouped
+
+
+def _find_anomalies(df: pd.DataFrame, name_key: str) -> List[Dict]:
+    anomalies = []
+    for _, row in df.iterrows():
+        sent = row.get('Sent', 0) or 0
+        if sent < 10000:
+            continue
+        delivery_rate = row.get('delivery_rate', 0) or 0
+        bounce_rate = row.get('bounce_rate', 0) or 0
+        spam_rate = row.get('spam_rate', 0) or 0
+
+        if delivery_rate == 0:
+            anomalies.append({'reason': 'Zero delivery', name_key: row[name_key], **row.to_dict()})
+        if delivery_rate > 100:
+            anomalies.append({'reason': 'Delivery >100%', name_key: row[name_key], **row.to_dict()})
+        if spam_rate >= 0.2:
+            anomalies.append({'reason': 'High spam rate', name_key: row[name_key], **row.to_dict()})
+        if bounce_rate >= 2:
+            anomalies.append({'reason': 'High bounce rate', name_key: row[name_key], **row.to_dict()})
+
+    return anomalies
+
+
+def get_pulsation_summary(start_date: datetime, end_date: datetime) -> Optional[Dict]:
+    df_all = query_date_range(start_date, end_date)
+    if df_all.empty:
+        return None
+
+    df_all = df_all[df_all['Sent'] > 0].copy()
+
+    overall = {
+        'sent': int(df_all['Sent'].sum()),
+        'delivered': int(df_all['Delivered'].sum()),
+        'bounces': int(df_all['Bounces'].sum()),
+        'soft_bounces': int(df_all['Soft_bounce_count'].sum()),
+        'spam_reports': int(df_all['Spam_report'].sum()),
+        'unsubscribes': int(df_all['Unsubscribe'].sum())
+    }
+    overall['delivery_rate'] = _safe_pct(overall['delivered'], overall['sent'], 2)
+    overall['bounce_rate'] = _safe_pct(overall['bounces'], overall['sent'], 4)
+    overall['spam_rate'] = _safe_pct(overall['spam_reports'], overall['delivered'], 4)
+    overall['unsub_rate'] = _safe_pct(overall['unsubscribes'], overall['delivered'], 4)
+    overall['soft_bounce_pct'] = _safe_pct(overall['soft_bounces'], overall['sent'], 4)
+
+    esp_summary = _aggregate_metrics(df_all, 'ESP').sort_values('Sent', ascending=False)
+    domain_summary = _aggregate_metrics(df_all, 'From_domain').sort_values('Sent', ascending=False)
+
+    df_all['account_name'] = df_all.get('account_name', 'Unmapped').fillna('Unmapped')
+    account_summary = _aggregate_metrics(df_all, 'account_name').sort_values('Sent', ascending=False)
+
+    domain_anomalies = _find_anomalies(domain_summary, 'From_domain')
+    account_anomalies = _find_anomalies(account_summary, 'account_name')
+
+    domain_high_spam = domain_summary[
+        (domain_summary['Sent'] >= 10000) & (domain_summary['spam_rate'] >= 0.2)
+    ].sort_values('spam_rate', ascending=False)
+    account_high_spam = account_summary[
+        (account_summary['Sent'] >= 10000) & (account_summary['spam_rate'] >= 0.2)
+    ].sort_values('spam_rate', ascending=False)
+
+    return {
+        'overall': overall,
+        'esp_summary': esp_summary.to_dict('records'),
+        'domain_top10': domain_summary.head(10).to_dict('records'),
+        'account_top10': account_summary.head(10).to_dict('records'),
+        'domain_anomalies': domain_anomalies,
+        'account_anomalies': account_anomalies,
+        'domain_high_spam': domain_high_spam.to_dict('records'),
+        'account_high_spam': account_high_spam.to_dict('records')
+    }

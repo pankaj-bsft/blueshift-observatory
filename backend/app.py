@@ -5,6 +5,8 @@ from pydantic import BaseModel
 from datetime import datetime
 import io
 from typing import Dict, Optional, List
+from contextlib import asynccontextmanager
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from druid_service import (
     fetch_region_data,
@@ -23,7 +25,9 @@ from pulsation_service import (
     cleanup_old_data,
     query_date_range,
     get_domain_timeseries,
-    get_available_dates
+    get_account_timeseries,
+    get_available_dates,
+    get_pulsation_summary
 )
 from datetime import timedelta
 import pandas as pd
@@ -38,6 +42,10 @@ from account_mapping_service import (
     import_csv_to_database,
     export_database_to_csv,
     get_account_statistics
+)
+from rails_mapping_service import (
+    get_rails_mappings,
+    get_rails_mapping_stats
 )
 from account_aggregation_service import (
     add_account_column,
@@ -85,6 +93,7 @@ from gpt_analytics_service import (
 )
 from bounce_analytics_service import (
     collect_all_esps,
+    collect_mailgun_bounces,
     get_bounces,
     get_sending_domains,
     cleanup_old_data as cleanup_bounce_data
@@ -102,7 +111,8 @@ from mbr_storage_service import (
     get_report_by_id,
     get_all_reports,
     delete_report,
-    get_report_statistics
+    get_report_statistics,
+    get_monthly_sent_by_esp
 )
 from mom_service import (
     add_mom_to_domain_data,
@@ -122,7 +132,23 @@ from esp_integration_service import (
     clear_cache
 )
 
-app = FastAPI(title='MBR Deliverability Dashboard')
+def run_daily_mailgun_collection():
+    print(f'[Scheduler] Running daily Mailgun bounce collection...')
+    result = collect_mailgun_bounces()
+    print(f'[Scheduler] Done: {result}')
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(run_daily_mailgun_collection, 'cron', hour=2, minute=0)
+    scheduler.start()
+    print('[Scheduler] Daily Mailgun collection scheduled at 2:00 AM')
+    yield
+    scheduler.shutdown()
+
+
+app = FastAPI(title='MBR Deliverability Dashboard', lifespan=lifespan)
 
 # CORS middleware
 app.add_middleware(
@@ -267,7 +293,7 @@ async def export_pdf(date_range: DateRange):
         }
 
         # Generate PDF file with both domain and account data
-        pdf_data = export_to_pdf(esp_data, df_combined, date_range.from_date, date_range.to_date, account_data)
+        pdf_data = await export_to_pdf(esp_data, df_combined, date_range.from_date, date_range.to_date, account_data)
 
         # Return as downloadable file
         filename = f"mbr_deliverability_report_{date_range.from_date}_to_{date_range.to_date}.pdf"
@@ -448,6 +474,45 @@ async def query_pulsation_data(view: PulsationViewType):
         raise HTTPException(status_code=500, detail=f'Error querying data: {str(e)}')
 
 
+@app.post('/api/pulsation/summary')
+async def pulsation_summary(view: PulsationViewType):
+    """Return a narrative summary payload for Pulsation"""
+    try:
+        today = datetime.utcnow().date()
+
+        if view.view_type == 'yesterday':
+            start_date = today - timedelta(days=1)
+            end_date = today
+        elif view.view_type == '7day':
+            start_date = today - timedelta(days=7)
+            end_date = today
+        elif view.view_type == '30day':
+            start_date = today - timedelta(days=30)
+            end_date = today
+        else:
+            raise HTTPException(status_code=400, detail='Invalid view_type. Must be yesterday, 7day, or 30day')
+
+        summary = get_pulsation_summary(start_date, end_date)
+        if not summary:
+            return {
+                'status': 'no_data',
+                'message': 'No data available for the selected period',
+                'view_type': view.view_type
+            }
+
+        return {
+            'status': 'success',
+            'view_type': view.view_type,
+            'date_range': {
+                'start': start_date.strftime('%Y-%m-%d'),
+                'end': end_date.strftime('%Y-%m-%d')
+            },
+            **summary
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching Pulsation summary: {str(e)}')
+
+
 @app.get('/api/pulsation/domain-timeseries/{domain}')
 async def get_domain_chart_data(domain: str, days: int = 30):
     """Get time-series data for a specific domain"""
@@ -476,6 +541,36 @@ async def get_domain_chart_data(domain: str, days: int = 30):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error fetching timeseries: {str(e)}')
+
+
+@app.get('/api/pulsation/account-timeseries/{account_name}')
+async def get_account_chart_data(account_name: str, days: int = 30):
+    """Get time-series data for a specific account"""
+    try:
+        df = get_account_timeseries(account_name, days)
+
+        if df.empty:
+            return {
+                'status': 'no_data',
+                'account_name': account_name,
+                'data': []
+            }
+
+        return {
+            'status': 'success',
+            'account_name': account_name,
+            'data': {
+                'dates': df['report_date'].tolist(),
+                'sent': df['sent'].tolist(),
+                'delivered': df['delivered'].tolist(),
+                'delivery_rate': df['delivery_rate'].tolist(),
+                'spam_rate': df['spam_rate'].tolist(),
+                'bounce_rate': df['bounce_rate'].tolist()
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching account timeseries: {str(e)}')
 
 
 @app.get('/api/pulsation/available-dates')
@@ -527,6 +622,20 @@ async def get_mapping_statistics():
         raise HTTPException(status_code=500, detail=f'Error fetching statistics: {str(e)}')
 
 
+@app.get('/api/account-mappings-rails/statistics')
+async def get_mapping_statistics_rails():
+    """Get statistics about mappings (Rails source)"""
+    try:
+        stats = get_rails_mapping_stats()
+        return {
+            'status': 'success',
+            'source': 'rails',
+            **stats
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching statistics: {str(e)}')
+
+
 @app.get('/api/account-mappings')
 async def get_mappings(search: str = '', limit: int = 1000, offset: int = 0):
     """Get all account mappings with optional search"""
@@ -539,6 +648,19 @@ async def get_mappings(search: str = '', limit: int = 1000, offset: int = 0):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error fetching mappings: {str(e)}')
 
+
+@app.get('/api/account-mappings-rails')
+async def get_mappings_rails(search: str = '', limit: int = 1000, offset: int = 0):
+    """Get all account mappings (Rails source)"""
+    try:
+        result = get_rails_mappings(search, limit, offset)
+        return {
+            'status': 'success',
+            'source': 'rails',
+            **result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching mappings: {str(e)}')
 
 @app.get('/api/account-mappings/{mapping_id}')
 async def get_mapping(mapping_id: int):
@@ -853,6 +975,19 @@ async def get_reports_stats():
         raise HTTPException(status_code=500, detail=f'Error fetching statistics: {str(e)}')
 
 
+@app.get('/api/mbr/monthly-sent')
+async def get_monthly_sent(limit: int = 12):
+    """Get monthly sent totals by ESP for charting"""
+    try:
+        data = get_monthly_sent_by_esp(limit)
+        return {
+            'status': 'success',
+            **data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching monthly sent data: {str(e)}')
+
+
 # -------------------------
 # Email Recipients Endpoints
 # -------------------------
@@ -1016,7 +1151,7 @@ async def send_report_via_email(request: SendEmailRequest):
         }
 
         # Generate PDF
-        pdf_data = export_to_pdf(esp_data, df_combined, request.from_date, request.to_date, account_data)
+        pdf_data = await export_to_pdf(esp_data, df_combined, request.from_date, request.to_date, account_data)
         pdf_filename = f"mbr_deliverability_report_{request.from_date}_to_{request.to_date}.pdf"
 
         # Send email
@@ -1528,6 +1663,40 @@ async def collect_gpt_data_endpoint(days_back: int = 120, background_tasks: Back
 
 
 # Bounce Analytics Endpoints
+@app.post('/api/bounces/collect-yesterday')
+async def collect_bounces_yesterday():
+    """Collect yesterday's Mailgun bounce data and store in database"""
+    try:
+        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        result = collect_mailgun_bounces(yesterday)
+        return {
+            'status': 'success',
+            'message': f'Collected and stored Mailgun bounce data for {yesterday}',
+            'date': yesterday,
+            'bounces_collected': result.get('bounces_collected', 0)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error collecting bounces: {str(e)}')
+
+
+@app.post('/api/bounces/collect-date')
+async def collect_bounces_custom_date(date: str = Query(...)):
+    """Collect Mailgun bounce data for a custom date and store in database"""
+    try:
+        datetime.strptime(date, '%Y-%m-%d')  # validate format
+        result = collect_mailgun_bounces(date)
+        return {
+            'status': 'success',
+            'message': f'Collected and stored Mailgun bounce data for {date}',
+            'date': date,
+            'bounces_collected': result.get('bounces_collected', 0)
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail='Invalid date format. Use YYYY-MM-DD')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error collecting bounces: {str(e)}')
+
+
 @app.post('/api/bounces/collect')
 async def collect_bounces_endpoint(date: Optional[str] = None):
     """
@@ -1541,60 +1710,6 @@ async def collect_bounces_endpoint(date: Optional[str] = None):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error collecting bounces: {str(e)}')
-
-
-@app.get('/api/bounces/{esp}')
-async def get_bounces_endpoint(
-    esp: str,
-    start_date: str,
-    end_date: str,
-    sending_domain: Optional[str] = None
-):
-    """
-    Get bounce events for a specific ESP
-
-    Path params:
-        esp: 'Mailgun', 'Sparkpost', or 'Sendgrid'
-
-    Query params:
-        start_date: Start date (YYYY-MM-DD)
-        end_date: End date (YYYY-MM-DD)
-        sending_domain: Filter by sending domain (optional)
-    """
-    try:
-        # Validate ESP
-        valid_esps = ['Mailgun', 'Sparkpost', 'Sendgrid']
-        if esp not in valid_esps:
-            raise HTTPException(status_code=400, detail=f'Invalid ESP. Must be one of: {valid_esps}')
-
-        bounces = get_bounces(esp, start_date, end_date, sending_domain)
-        return {'bounces': bounces, 'total': len(bounces)}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Error fetching bounces: {str(e)}')
-
-
-@app.get('/api/bounces/{esp}/domains')
-async def get_sending_domains_endpoint(esp: str):
-    """
-    Get list of unique sending domains for an ESP
-
-    Path params:
-        esp: 'Mailgun', 'Sparkpost', or 'Sendgrid'
-    """
-    try:
-        # Validate ESP
-        valid_esps = ['Mailgun', 'Sparkpost', 'Sendgrid']
-        if esp not in valid_esps:
-            raise HTTPException(status_code=400, detail=f'Invalid ESP. Must be one of: {valid_esps}')
-
-        domains = get_sending_domains(esp)
-        return {'domains': domains}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Error fetching domains: {str(e)}')
 
 
 @app.get('/api/bounces/export-csv')
@@ -1661,6 +1776,60 @@ async def export_bounces_csv_endpoint(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error exporting bounces: {str(e)}')
+
+
+@app.get('/api/bounces/{esp}')
+async def get_bounces_endpoint(
+    esp: str,
+    start_date: str,
+    end_date: str,
+    sending_domain: Optional[str] = None
+):
+    """
+    Get bounce events for a specific ESP
+
+    Path params:
+        esp: 'Mailgun', 'Sparkpost', or 'Sendgrid'
+
+    Query params:
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        sending_domain: Filter by sending domain (optional)
+    """
+    try:
+        # Validate ESP
+        valid_esps = ['Mailgun', 'Sparkpost', 'Sendgrid']
+        if esp not in valid_esps:
+            raise HTTPException(status_code=400, detail=f'Invalid ESP. Must be one of: {valid_esps}')
+
+        bounces = get_bounces(esp, start_date, end_date, sending_domain)
+        return {'bounces': bounces, 'total': len(bounces)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching bounces: {str(e)}')
+
+
+@app.get('/api/bounces/{esp}/domains')
+async def get_sending_domains_endpoint(esp: str):
+    """
+    Get list of unique sending domains for an ESP
+
+    Path params:
+        esp: 'Mailgun', 'Sparkpost', or 'Sendgrid'
+    """
+    try:
+        # Validate ESP
+        valid_esps = ['Mailgun', 'Sparkpost', 'Sendgrid']
+        if esp not in valid_esps:
+            raise HTTPException(status_code=400, detail=f'Invalid ESP. Must be one of: {valid_esps}')
+
+        domains = get_sending_domains(esp)
+        return {'domains': domains}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching domains: {str(e)}')
 
 
 # -------------------------
