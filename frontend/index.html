@@ -551,6 +551,35 @@
       gap: 12px;
     }
 
+    /* Spamhaus dots */
+    .spamhaus-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+      background: #cbd5e1;
+    }
+
+    .spamhaus-dot.listed {
+      background: #ef4444;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+    }
+
+    .spamhaus-dot.clean {
+      background: #10b981;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+    }
+
+    .spamhaus-row-listed td:first-child {
+      position: relative;
+    }
+
+    .spamhaus-row-listed {
+      background: #fef2f2;
+    }
+
     /* Data Table */
     .table-wrapper {
       overflow-x: auto;
@@ -1299,6 +1328,20 @@
               </div>
 
               <div>
+                <h4 class="summary-title">Spamhaus Listing Summary</h4>
+                <ul class="summary-list">
+                  <li v-if="!pulsationSummary.spamhaus_summary || !pulsationSummary.spamhaus_summary.length">
+                    No listed domains found for this period.
+                  </li>
+                  <li v-for="item in pulsationSummary.spamhaus_summary" :key="item.domain">
+                    <b>{{ item.domain }}</b> — Listed since <b>{{ item.first_listed_date || 'Unknown' }}</b>,
+                    <b>{{ item.consecutive_days_listed }}</b> consecutive day(s).
+                    Yesterday: <b>{{ item.yesterday_status }}</b>.
+                  </li>
+                </ul>
+              </div>
+
+              <div>
                 <h4 class="summary-title">Top 10 Senders — Domains</h4>
                 <div class="table-wrapper">
                   <table class="data-table">
@@ -1451,13 +1494,14 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(row, idx) in filteredOverallData" :key="idx" :class="getRowClass(row.classification)">
+                  <tr v-for="(row, idx) in filteredOverallData" :key="idx" :class="[getRowClass(row.classification), getSpamhausRowClass(row.From_domain)]">
                     <td>
                       <span class="badge" :class="row.Region === 'US' ? 'badge-region-us' : 'badge-region-eu'">
                         {{ row.Region === 'US' ? '🇺🇸' : '🇪🇺' }} {{ row.Region }}
                       </span>
                     </td>
                     <td>
+                      <span class="spamhaus-dot" :class="getSpamhausStatus(row.From_domain)"></span>
                       <span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span>
                     </td>
                     <td>{{ row.account_name || 'Unmapped' }}</td>
@@ -1526,9 +1570,12 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(row, idx) in filteredLowDeliveryData" :key="idx" :class="getRowClass(row.classification)">
+                  <tr v-for="(row, idx) in filteredLowDeliveryData" :key="idx" :class="[getRowClass(row.classification), getSpamhausRowClass(row.From_domain)]">
                     <td><span class="badge" :class="row.Region === 'US' ? 'badge-region-us' : 'badge-region-eu'">{{ row.Region === 'US' ? '🇺🇸' : '🇪🇺' }} {{ row.Region }}</span></td>
-                    <td><span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span></td>
+                    <td>
+                      <span class="spamhaus-dot" :class="getSpamhausStatus(row.From_domain)"></span>
+                      <span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span>
+                    </td>
                     <td>{{ row.account_name || 'Unmapped' }}</td>
                     <td><span class="badge" :class="getESPBadgeClass(row.ESP)">{{ row.ESP }}</span></td>
                     <td class="text-mono">{{ formatNumber(row.Sent) }}</td>
@@ -1572,9 +1619,12 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(row, idx) in filteredSpamData" :key="idx" :class="getRowClass(row.classification)">
+                  <tr v-for="(row, idx) in filteredSpamData" :key="idx" :class="[getRowClass(row.classification), getSpamhausRowClass(row.From_domain)]">
                     <td><span class="badge" :class="row.Region === 'US' ? 'badge-region-us' : 'badge-region-eu'">{{ row.Region === 'US' ? '🇺🇸' : '🇪🇺' }} {{ row.Region }}</span></td>
-                    <td><span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span></td>
+                    <td>
+                      <span class="spamhaus-dot" :class="getSpamhausStatus(row.From_domain)"></span>
+                      <span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span>
+                    </td>
                     <td>{{ row.account_name || 'Unmapped' }}</td>
                     <td><span class="badge" :class="getESPBadgeClass(row.ESP)">{{ row.ESP }}</span></td>
                     <td class="text-mono">{{ formatNumber(row.Sent) }}</td>
@@ -1618,9 +1668,12 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(row, idx) in filteredBounceData" :key="idx" :class="getRowClass(row.classification)">
+                  <tr v-for="(row, idx) in filteredBounceData" :key="idx" :class="[getRowClass(row.classification), getSpamhausRowClass(row.From_domain)]">
                     <td><span class="badge" :class="row.Region === 'US' ? 'badge-region-us' : 'badge-region-eu'">{{ row.Region === 'US' ? '🇺🇸' : '🇪🇺' }} {{ row.Region }}</span></td>
-                    <td><span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span></td>
+                    <td>
+                      <span class="spamhaus-dot" :class="getSpamhausStatus(row.From_domain)"></span>
+                      <span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span>
+                    </td>
                     <td>{{ row.account_name || 'Unmapped' }}</td>
                     <td><span class="badge" :class="getESPBadgeClass(row.ESP)">{{ row.ESP }}</span></td>
                     <td class="text-mono">{{ formatNumber(row.Sent) }}</td>
@@ -1664,9 +1717,12 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(row, idx) in filteredRiskData" :key="idx" :class="getRowClass(row.classification)">
+                  <tr v-for="(row, idx) in filteredRiskData" :key="idx" :class="[getRowClass(row.classification), getSpamhausRowClass(row.From_domain)]">
                     <td><span class="badge" :class="row.Region === 'US' ? 'badge-region-us' : 'badge-region-eu'">{{ row.Region === 'US' ? '🇺🇸' : '🇪🇺' }} {{ row.Region }}</span></td>
-                    <td><span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span></td>
+                    <td>
+                      <span class="spamhaus-dot" :class="getSpamhausStatus(row.From_domain)"></span>
+                      <span class="domain-link" @click="viewDomainCharts(row.From_domain)">{{ row.From_domain }}</span>
+                    </td>
                     <td>{{ row.account_name || 'Unmapped' }}</td>
                     <td><span class="badge" :class="getESPBadgeClass(row.ESP)">{{ row.ESP }}</span></td>
                     <td class="text-mono">{{ formatNumber(row.Sent) }}</td>
@@ -1747,6 +1803,10 @@
                 <div class="chart-container">
                   <h4>Spam Rate (%)</h4>
                   <canvas ref="chartSpamRate"></canvas>
+                </div>
+                <div class="chart-container">
+                  <h4>Spamhaus Listing Trend</h4>
+                  <canvas ref="chartSpamhaus"></canvas>
                 </div>
               </div>
             </div>
@@ -3655,7 +3715,7 @@
                     </div>
                     <div>
                       <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: white;">Reputation Changes</h3>
-                      <p style="margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.8);">Since yesterday</p>
+                      <p style="margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.8);">Past 7 days</p>
                     </div>
                   </div>
                   <button @click="showGPTNotifications = false" style="background: rgba(255, 255, 255, 0.15); border: none; color: white; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; transition: all 0.2s; font-size: 18px; font-weight: 600;" onmouseover="this.style.background='rgba(255, 255, 255, 0.25)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.15)'">×</button>
@@ -3759,7 +3819,7 @@
                     </svg>
                   </div>
                   <p style="font-size: 15px; font-weight: 600; color: #1e293b; margin: 0 0 6px 0;">All Clear!</p>
-                  <p style="font-size: 13px; color: #64748b; margin: 0;">No reputation changes detected since yesterday</p>
+                  <p style="font-size: 13px; color: #64748b; margin: 0;">No reputation changes detected in the past 7 days</p>
                 </div>
               </div>
             </div>
@@ -3945,7 +4005,7 @@
                 </div>
                 <div>
                   <h3 style="font-size: 17px; font-weight: 700; color: #1e293b; margin: 0 0 4px 0;">Reputation Changes Detected</h3>
-                  <p style="font-size: 13px; color: #64748b; margin: 0;">{{ gptEnhancedChanges.length }} domain(s) had reputation changes since yesterday</p>
+                  <p style="font-size: 13px; color: #64748b; margin: 0;">{{ gptEnhancedChanges.length }} domain(s) had reputation changes in the past 7 days</p>
                 </div>
               </div>
 
@@ -5192,6 +5252,8 @@
           pulsationSummaryOpen: false,
           pulsationSummaryLoading: false,
           pulsationSummary: null,
+          spamhausStatusMap: {},
+          spamhausStatusLoading: false,
           selectedAccount: '',
           sortColumn: null,
           sortOrder: 'asc',
@@ -5749,6 +5811,7 @@
               this.pulsationData = result;
               // Trigger animation for stat cards
               this.animateStatCards();
+              this.fetchSpamhausStatus();
               if (this.pulsationSummaryOpen) {
                 await this.fetchPulsationSummary();
               }
@@ -5798,6 +5861,35 @@
           if (this.pulsationSummaryOpen) {
             this.fetchPulsationSummary();
           }
+        },
+        async fetchSpamhausStatus() {
+          this.spamhausStatusLoading = true;
+          try {
+            const response = await fetch(`${this.API_BASE}/api/pulsation/spamhaus-status`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ view_type: this.pulsationViewType })
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+              this.spamhausStatusMap = result.statuses || {};
+            } else {
+              this.spamhausStatusMap = {};
+            }
+          } catch (err) {
+            console.error('Spamhaus status error:', err);
+            this.spamhausStatusMap = {};
+          } finally {
+            this.spamhausStatusLoading = false;
+          }
+        },
+        getSpamhausStatus(domain) {
+          if (!domain) return 'unknown';
+          const key = (domain || '').toLowerCase();
+          return this.spamhausStatusMap[key] || 'unknown';
+        },
+        getSpamhausRowClass(domain) {
+          return this.getSpamhausStatus(domain) === 'listed' ? 'spamhaus-row-listed' : '';
         },
         getAnomaliesByReason(list, reason) {
           if (!list || !list.length) return [];
@@ -5955,6 +6047,22 @@
                 this.renderChart('chartDeliveryRate', result.data.dates, result.data.delivery_rate, 'Delivery Rate (%)', '#f39c12');
                 this.renderChart('chartSpamRate', result.data.dates, result.data.spam_rate, 'Spam Rate (%)', '#e74c3c');
               });
+
+              const spamhausEndpoint = mode === 'account'
+                ? `/api/pulsation/spamhaus-trend/account/${encodeURIComponent(target)}`
+                : `/api/pulsation/spamhaus-trend/domain/${encodeURIComponent(target)}`;
+
+              const spamhausResponse = await fetch(`${this.API_BASE}${spamhausEndpoint}?days=${this.chartDays}`);
+              const spamhausResult = await spamhausResponse.json();
+              if (spamhausResult.status === 'success' && spamhausResult.data) {
+                const labels = spamhausResult.data.dates || [];
+                const values = mode === 'account'
+                  ? (spamhausResult.data.listed_count || [])
+                  : (spamhausResult.data.status || []);
+                this.$nextTick(() => {
+                  this.renderChart('chartSpamhaus', labels, values, 'Spamhaus Listed', '#8b5cf6');
+                });
+              }
             } else {
               this.chartData = null;
               this.showToast('info', 'No Chart Data', `No chart data available for this ${mode}`);
@@ -8224,7 +8332,7 @@
             this.gptOverviewTable = tableResult.domains || [];
 
             // Load enhanced reputation changes
-            const changesResponse = await fetch(`${this.API_BASE}/api/gpt/enhanced-changes`);
+            const changesResponse = await fetch(`${this.API_BASE}/api/gpt/enhanced-changes?days_back=7`);
             if (!changesResponse.ok) throw new Error('Failed to fetch enhanced changes');
             const changesResult = await changesResponse.json();
             this.gptEnhancedChanges = changesResult.changes || [];

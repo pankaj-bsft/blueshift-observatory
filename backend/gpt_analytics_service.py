@@ -559,120 +559,91 @@ def get_all_domains_latest() -> List[Dict]:
     return data
 
 
-def get_enhanced_reputation_changes(days_back: int = 2) -> List[Dict]:
+def get_enhanced_reputation_changes(days_back: int = 7) -> List[Dict]:
     """
     Get domains with reputation changes (both IP and Domain)
-    Compares most recent data vs data from days_back days ago
-    Default: compares last 2 days of available data for each domain
+    Detects any changes within the last N days (default 7).
+    Returns the most recent change per domain in that window.
     """
     conn = sqlite3.connect(GPT_DB_PATH)
     cursor = conn.cursor()
 
-    # Get the two most recent dates with data for each domain
     cutoff_date = (datetime.utcnow() - timedelta(days=days_back)).strftime('%Y-%m-%d')
 
-    # Get the two most recent records for each domain
     cursor.execute('''
-        WITH ranked_data AS (
-            SELECT
-                domain,
-                reputation,
-                reputation_value,
-                ip_reputation,
-                spam_rate,
-                data_date,
-                ROW_NUMBER() OVER (PARTITION BY domain ORDER BY data_date DESC) as rn
-            FROM gpt_data
-            WHERE data_date >= ?
-        ),
-        recent AS (
-            SELECT * FROM ranked_data WHERE rn = 1
-        ),
-        previous AS (
-            SELECT * FROM ranked_data WHERE rn = 2
-        )
         SELECT
-            r.domain,
-            r.reputation as recent_domain_rep,
-            r.reputation_value as recent_domain_val,
-            r.ip_reputation as recent_ip_rep,
-            r.spam_rate as recent_spam,
-            r.data_date as recent_date,
-            p.reputation as prev_domain_rep,
-            p.reputation_value as prev_domain_val,
-            p.ip_reputation as prev_ip_rep,
-            p.spam_rate as prev_spam,
-            p.data_date as prev_date
-        FROM recent r
-        LEFT JOIN previous p ON r.domain = p.domain
-        WHERE p.domain IS NOT NULL
+            domain,
+            reputation,
+            reputation_value,
+            ip_reputation,
+            spam_rate,
+            data_date
+        FROM gpt_data
+        WHERE data_date >= ?
+        ORDER BY domain, data_date ASC
     ''', (cutoff_date,))
 
     rows = cursor.fetchall()
     conn.close()
 
     changes = []
+    current_domain = None
+    prev = None
+    last_change = None
 
     for row in rows:
-        domain = row[0]
-        recent_domain_rep = row[1]
-        recent_domain_val = row[2] or 0
-        recent_ip_rep = row[3]
-        recent_spam = row[4] or 0
-        recent_date = row[5]
-        prev_domain_rep = row[6]
-        prev_domain_val = row[7] or 0
-        prev_ip_rep = row[8]
-        prev_spam = row[9] or 0
-        prev_date = row[10]
+        domain, rep, rep_val, ip_rep, spam_rate, data_date = row
 
-        has_change = False
-        change_type = 'stable'
-        messages = []
+        if domain != current_domain:
+            if last_change:
+                changes.append(last_change)
+            current_domain = domain
+            prev = None
+            last_change = None
 
-        # Check domain reputation change
-        if prev_domain_rep and recent_domain_rep != prev_domain_rep:
-            has_change = True
-            if recent_domain_val < prev_domain_val:
-                change_type = 'degraded'
-                messages.append(f'Domain reputation dropped from {prev_domain_rep} to {recent_domain_rep}')
-            else:
-                if change_type != 'degraded':
-                    change_type = 'improved'
-                messages.append(f'Domain reputation improved from {prev_domain_rep} to {recent_domain_rep}')
+        if prev:
+            prev_rep, prev_val, prev_ip, prev_spam, prev_date = prev
+            rep_changed = prev_rep and rep and prev_rep != rep
+            ip_changed = prev_ip and ip_rep and prev_ip != ip_rep
 
-        # Check IP reputation change (compare JSON strings)
-        if prev_ip_rep and recent_ip_rep and prev_ip_rep != recent_ip_rep:
-            has_change = True
-            messages.append(f'IP reputation changed (check details)')
-            if change_type == 'stable':
+            if rep_changed or ip_changed:
                 change_type = 'ip_changed'
+                messages = []
 
-        # Check spam rate increase
-        if prev_spam > 0 and recent_spam > prev_spam * 1.5:
-            has_change = True
-            messages.append(f'Spam rate increased from {prev_spam:.1f}% to {recent_spam:.1f}%')
-            if change_type == 'stable':
-                change_type = 'spam_increase'
+                if rep_changed:
+                    if (rep_val or 0) < (prev_val or 0):
+                        change_type = 'degraded'
+                        messages.append(f'Domain reputation dropped from {prev_rep} to {rep}')
+                    else:
+                        change_type = 'improved'
+                        messages.append(f'Domain reputation improved from {prev_rep} to {rep}')
 
-        if has_change:
-            # Combine all messages into one
-            message = ' | '.join(messages)
+                if ip_changed:
+                    messages.append('IP reputation changed (check details)')
+                    if change_type == 'ip_changed' and not rep_changed:
+                        change_type = 'ip_changed'
 
-            changes.append({
-                'domain': domain,
-                'change_type': change_type,
-                'message': message,
-                'messages': messages,
-                'recent_date': recent_date,
-                'prev_date': prev_date,
-                'recent_domain_reputation': recent_domain_rep,
-                'prev_domain_reputation': prev_domain_rep,
-                'recent_ip_reputation': recent_ip_rep,
-                'prev_ip_reputation': prev_ip_rep,
-                'recent_spam_rate': round(recent_spam, 2),
-                'prev_spam_rate': round(prev_spam, 2)
-            })
+                message = ' | '.join(messages)
+                last_change = {
+                    'domain': domain,
+                    'change_type': change_type,
+                    'message': message,
+                    'messages': messages,
+                    'recent_date': data_date,
+                    'prev_date': prev_date,
+                    'recent_domain_reputation': rep,
+                    'prev_domain_reputation': prev_rep,
+                    'recent_ip_reputation': ip_rep,
+                    'prev_ip_reputation': prev_ip,
+                    'recent_spam_rate': round(spam_rate or 0, 2),
+                    'prev_spam_rate': round(prev_spam or 0, 2),
+                    'previous_reputation': prev_rep
+                }
+
+        prev = (rep, rep_val, ip_rep, spam_rate, data_date)
+
+    if last_change:
+        changes.append(last_change)
 
     return changes
 

@@ -6,6 +6,7 @@ import os
 from druid_service import execute_druid_query, calculate_metrics
 from config import DRUID_US_BROKER, DRUID_EU_BROKER
 from account_mapping_service import get_all_mappings
+from spamhaus_service import get_spamhaus_listing_summary, ensure_daily_refresh
 
 # Database path
 DB_PATH = '/Users/pankaj/pani/data/deliverability_history.db'
@@ -412,6 +413,10 @@ def get_pulsation_summary(start_date: datetime, end_date: datetime) -> Optional[
         (account_summary['Sent'] >= 10000) & (account_summary['spam_rate'] >= 0.2)
     ].sort_values('spam_rate', ascending=False)
 
+    domains = domain_summary['From_domain'].tolist()
+    ensure_daily_refresh(domains)
+    spamhaus_summary = get_spamhaus_listing_summary(domains)
+
     return {
         'overall': overall,
         'esp_summary': esp_summary.to_dict('records'),
@@ -420,5 +425,6 @@ def get_pulsation_summary(start_date: datetime, end_date: datetime) -> Optional[
         'domain_anomalies': domain_anomalies,
         'account_anomalies': account_anomalies,
         'domain_high_spam': domain_high_spam.to_dict('records'),
-        'account_high_spam': account_high_spam.to_dict('records')
+        'account_high_spam': account_high_spam.to_dict('records'),
+        'spamhaus_summary': spamhaus_summary
     }

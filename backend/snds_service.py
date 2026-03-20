@@ -9,8 +9,8 @@ from typing import Dict, List, Optional
 import xml.etree.ElementTree as ET
 
 # SNDS API Configuration
-SNDS_DATA_URL = "https://sendersupport.olc.protection.outlook.com/snds/data/?key=bc7c2e2e-23ba-4689-a338-c23c18590abd"
-SNDS_IP_STATUS_URL = "https://sendersupport.olc.protection.outlook.com/snds/ipStatus/?key=bc7c2e2e-23ba-4689-a338-c23c18590abd"
+SNDS_DATA_URL = "https://sendersupport.olc.protection.outlook.com/snds/data/?key=9bf7cec9-4cf2-466f-924e-6c54b4ebbd5e"
+SNDS_IP_STATUS_URL = "https://sendersupport.olc.protection.outlook.com/snds/ipStatus/?key=9bf7cec9-4cf2-466f-924e-6c54b4ebbd5e"
 
 # Database path
 SNDS_DB_PATH = '/Users/pankaj/pani/data/snds_data.db'

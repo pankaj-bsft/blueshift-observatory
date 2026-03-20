@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from datetime import datetime
+import os
+import subprocess
 import io
 from typing import Dict, Optional, List
 from contextlib import asynccontextmanager
@@ -28,6 +30,15 @@ from pulsation_service import (
     get_account_timeseries,
     get_available_dates,
     get_pulsation_summary
+)
+from spamhaus_service import (
+    get_recent_domains,
+    refresh_spamhaus_cache,
+    ensure_daily_refresh,
+    get_spamhaus_status_map,
+    get_spamhaus_history,
+    get_spamhaus_account_trend as get_spamhaus_account_trend_data,
+    get_domains_needing_refresh
 )
 from datetime import timedelta
 import pandas as pd
@@ -138,12 +149,21 @@ def run_daily_mailgun_collection():
     print(f'[Scheduler] Done: {result}')
 
 
+def run_daily_spamhaus_refresh():
+    print('[Scheduler] Running daily Spamhaus refresh...')
+    domains = get_recent_domains(30)
+    refresh_spamhaus_cache(domains)
+    print(f'[Scheduler] Done: refreshed {len(domains)} domains')
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler = BackgroundScheduler()
     scheduler.add_job(run_daily_mailgun_collection, 'cron', hour=2, minute=0)
+    scheduler.add_job(run_daily_spamhaus_refresh, 'cron', hour=3, minute=15)
     scheduler.start()
     print('[Scheduler] Daily Mailgun collection scheduled at 2:00 AM')
+    print('[Scheduler] Daily Spamhaus refresh scheduled at 3:15 AM')
     yield
     scheduler.shutdown()
 
@@ -163,6 +183,23 @@ app.add_middleware(
 class DateRange(BaseModel):
     from_date: str
     to_date: str
+
+
+SYNC_SCRIPT_PATH = os.environ.get(
+    'BLUESHIFT_SYNC_SCRIPT',
+    '/Users/pankaj/pani/blueshift_observatory/sync_ec2_dbs.sh'
+)
+
+
+def trigger_ec2_sync() -> bool:
+    """Trigger EC2 DB sync if the local sync script is available."""
+    if not (os.path.isfile(SYNC_SCRIPT_PATH) and os.access(SYNC_SCRIPT_PATH, os.X_OK)):
+        return False
+    try:
+        subprocess.Popen([SYNC_SCRIPT_PATH], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except Exception:
+        return False
 
 
 @app.get('/')
@@ -356,11 +393,14 @@ async def collect_yesterday_data():
         # Cleanup old data
         cleanup_old_data()
 
+        sync_triggered = trigger_ec2_sync()
+
         return {
             'status': 'success',
             'message': f'Collected and stored data for {yesterday_str}',
             'date': yesterday_str,
-            'rows_inserted': len(df_yesterday)
+            'rows_inserted': len(df_yesterday),
+            'sync_triggered': sync_triggered
         }
 
     except Exception as e:
@@ -398,11 +438,14 @@ async def collect_custom_date(date: str = Query(...)):
         # Cleanup old data
         cleanup_old_data()
 
+        sync_triggered = trigger_ec2_sync()
+
         return {
             'status': 'success',
             'message': f'Collected and stored data for {target_date_str}',
             'date': target_date_str,
-            'rows_inserted': len(df_target)
+            'rows_inserted': len(df_target),
+            'sync_triggered': sync_triggered
         }
 
     except ValueError as ve:
@@ -585,6 +628,73 @@ async def get_pulsation_dates():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error fetching dates: {str(e)}')
+
+
+@app.post('/api/pulsation/spamhaus-status')
+async def get_spamhaus_status(view: PulsationViewType, background_tasks: BackgroundTasks):
+    """Get Spamhaus status map for domains in the selected view."""
+    try:
+        today = datetime.utcnow().date()
+        if view.view_type == 'yesterday':
+            start_date = today - timedelta(days=1)
+            end_date = today
+        elif view.view_type == '7day':
+            start_date = today - timedelta(days=7)
+            end_date = today
+        elif view.view_type == '30day':
+            start_date = today - timedelta(days=30)
+            end_date = today
+        else:
+            raise HTTPException(status_code=400, detail='Invalid view_type. Must be yesterday, 7day, or 30day')
+
+        df_all = query_date_range(start_date, end_date)
+        domains = sorted([d for d in df_all['From_domain'].unique() if d])
+
+        needs_refresh = get_domains_needing_refresh(domains)
+        if needs_refresh:
+            background_tasks.add_task(refresh_spamhaus_cache, needs_refresh)
+
+        status_map = get_spamhaus_status_map(domains)
+
+        return {
+            'status': 'success',
+            'view_type': view.view_type,
+            'date_range': {
+                'start': start_date.strftime('%Y-%m-%d'),
+                'end': end_date.strftime('%Y-%m-%d')
+            },
+            'statuses': status_map
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching Spamhaus status: {str(e)}')
+
+
+@app.get('/api/pulsation/spamhaus-trend/domain/{domain}')
+async def get_spamhaus_domain_trend(domain: str, days: int = 30):
+    """Get Spamhaus listing trend for a domain."""
+    try:
+        data = get_spamhaus_history(domain, days)
+        return {
+            'status': 'success',
+            'domain': domain,
+            'data': data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching Spamhaus trend: {str(e)}')
+
+
+@app.get('/api/pulsation/spamhaus-trend/account/{account_name}')
+async def get_spamhaus_account_trend_endpoint(account_name: str, days: int = 30):
+    """Get Spamhaus listing trend for an account."""
+    try:
+        data = get_spamhaus_account_trend_data(account_name, days)
+        return {
+            'status': 'success',
+            'account_name': account_name,
+            'data': data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching Spamhaus account trend: {str(e)}')
 
 
 # -------------------------
@@ -909,6 +1019,7 @@ async def save_report(request: SaveReportRequest):
             request.report_data,
             request.overwrite
         )
+        result['sync_triggered'] = trigger_ec2_sync()
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error saving report: {str(e)}')
@@ -1584,13 +1695,13 @@ async def get_gpt_overview_table_endpoint():
 
 
 @app.get('/api/gpt/enhanced-changes')
-async def get_gpt_enhanced_changes_endpoint():
+async def get_gpt_enhanced_changes_endpoint(days_back: int = 7):
     """
     Get enhanced reputation changes (both IP and Domain)
-    Compares yesterday vs day before
+    Detects changes within the last N days (default 7)
     """
     try:
-        changes = get_enhanced_reputation_changes()
+        changes = get_enhanced_reputation_changes(days_back)
         return {'changes': changes, 'total': len(changes)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error fetching enhanced changes: {str(e)}')
