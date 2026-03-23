@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -16,7 +16,7 @@ from druid_service import (
     aggregate_region_summary,
     get_top10_overall
 )
-from export_service import export_to_excel, export_to_pdf
+from export_service import export_to_excel, export_to_pdf, export_eml_analysis_pdf
 from config import DRUID_US_BROKER, DRUID_EU_BROKER
 from pulsation_service import (
     init_pulsation_database,
@@ -115,6 +115,15 @@ from industry_updates_service import (
     get_updates as get_industry_updates,
     get_sources as get_industry_sources,
     cleanup_old_updates
+)
+from eml_analysis_service import (
+    init_eml_database,
+    cleanup_old_records as cleanup_eml_records,
+    analyze_eml,
+    save_eml_file,
+    save_analysis,
+    get_report as get_eml_report,
+    debug_extract_links
 )
 from mbr_storage_service import (
     check_report_exists,
@@ -1944,6 +1953,87 @@ async def get_sending_domains_endpoint(esp: str):
 
 
 # -------------------------
+# -------------------------
+# Deliverability Analysis Endpoints
+# -------------------------
+
+MAX_EML_SIZE_BYTES = 500 * 1024
+
+
+@app.post('/api/deliverability-analysis/upload-eml')
+async def upload_eml(file: UploadFile = File(...)):
+    '''Upload and analyze a .eml file'''
+    try:
+        if not file.filename or not file.filename.lower().endswith('.eml'):
+            raise HTTPException(status_code=400, detail='Only .eml files are allowed')
+
+        content = await file.read()
+        if len(content) > MAX_EML_SIZE_BYTES:
+            raise HTTPException(status_code=400, detail='File too large (max 500KB)')
+
+        init_eml_database()
+        cleanup_eml_records()
+
+        eml_path = save_eml_file(file.filename, content)
+        analysis = analyze_eml(content)
+        email_id = save_analysis(file.filename, eml_path, analysis)
+        report = get_eml_report(email_id)
+
+        return {
+            'status': 'success',
+            'report': report
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error analyzing .eml: {str(e)}')
+
+
+
+@app.post('/api/deliverability-analysis/debug-links')
+async def debug_eml_links(file: UploadFile = File(...)):
+    try:
+        if not file.filename or not file.filename.lower().endswith('.eml'):
+            raise HTTPException(status_code=400, detail='Only .eml files are allowed')
+        content = await file.read()
+        if len(content) > MAX_EML_SIZE_BYTES:
+            raise HTTPException(status_code=400, detail='File too large (max 500KB)')
+        data = debug_extract_links(content)
+        return { 'status': 'success', 'data': data }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error debugging links: {str(e)}')
+
+
+@app.get('/api/deliverability-analysis/report/{email_id}')
+async def get_eml_report_endpoint(email_id: int):
+    '''Get deliverability analysis report'''
+    report = get_eml_report(email_id)
+    if not report:
+        raise HTTPException(status_code=404, detail='Report not found')
+    return {
+        'status': 'success',
+        'report': report
+    }
+
+
+@app.get('/api/deliverability-analysis/report/{email_id}/pdf')
+async def export_eml_report_pdf(email_id: int):
+    '''Export deliverability analysis report as PDF'''
+    report = get_eml_report(email_id)
+    if not report:
+        raise HTTPException(status_code=404, detail='Report not found')
+
+    pdf_data = export_eml_analysis_pdf(report)
+    filename = f"deliverability_analysis_{email_id}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_data),
+        media_type='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename={filename}'}
+    )
+
+
 # Industry Updates Endpoints
 # -------------------------
 

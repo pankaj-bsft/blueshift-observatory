@@ -1067,6 +1067,73 @@
         grid-template-columns: 1fr;
       }
     }
+
+    .da-wrap { padding: 4px; }
+    .da-section { margin-bottom: 14px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #fff; }
+    .da-sec-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; user-select: none; }
+    .da-sec-header:hover { background: #f8fafc; }
+    .da-sec-title { font-size: 14px; font-weight: 600; color: #0f172a; flex: 1; }
+    .da-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+    .da-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .da-items { display: none; padding: 0 14px 12px; }
+    .da-items.open { display: block; }
+    .da-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #eef2f7; }
+    .da-item:last-child { border-bottom: none; }
+    .da-item-name { font-size: 13px; font-weight: 600; color: #0f172a; min-width: 200px; }
+    .da-item-desc { font-size: 12px; color: #475569; line-height: 1.5; }
+    .da-arrow { font-size: 11px; color: #94a3b8; transition: transform .2s; }
+    .da-arrow.open { transform: rotate(90deg); }
+    
+
+    .da-char-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .da-char { font-size: 11px; padding: 3px 6px; border-radius: 6px; background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+    .da-char.hidden { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+    .da-char code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    
+
+    .eml-signal-wrap { padding: 12px 0 0; }
+    .eml-signal-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #0f172a; }
+    .eml-signal-summary { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .eml-signal-card { flex: 1; min-width: 100px; padding: 8px 12px; border-radius: 10px; text-align: center; }
+    .eml-signal-card .num { font-size: 20px; font-weight: 600; }
+    .eml-signal-card .lbl { font-size: 10px; margin-top: 2px; }
+    .eml-signal-pos  { background: #e6f4ea; color: #2d7a3a; }
+    .eml-signal-neu  { background: #fef9e7; color: #7a5c00; }
+    .eml-signal-neg  { background: #fff0e6; color: #b54c00; }
+    .eml-signal-str  { background: #fce8e8; color: #a32d2d; }
+
+    .eml-signal-controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+    .eml-signal-controls input { flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; outline: none; }
+    .eml-signal-filter-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .eml-fbtn { padding: 4px 10px; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; font-size: 11px; cursor: pointer; color: #475569; transition: all .15s; }
+    .eml-fbtn.active { border-color: transparent; color: #fff; }
+    .eml-fbtn[data-f="all"].active    { background: #334155; }
+    .eml-fbtn[data-f="pos"].active    { background: #2d7a3a; }
+    .eml-fbtn[data-f="neutral"].active { background: #7a5c00; }
+    .eml-fbtn[data-f="neg"].active    { background: #b54c00; }
+    .eml-fbtn[data-f="strong"].active { background: #a32d2d; }
+
+    .eml-signal-table { width: 100%; border-collapse: collapse; }
+    .eml-signal-table thead tr { border-bottom: 1px solid #e2e8f0; }
+    .eml-signal-table th { text-align: left; padding: 8px 10px; font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; cursor: pointer; user-select: none; }
+    .eml-signal-table th:hover { color: #334155; }
+    .eml-signal-table th .sort-icon { margin-left: 4px; opacity: .4; }
+    .eml-signal-table th.sorted .sort-icon { opacity: 1; }
+    .eml-signal-table td { padding: 8px 10px; border-bottom: 1px solid #eef2f7; vertical-align: middle; font-family: inherit; }
+    .eml-signal-table tr:last-child td { border-bottom: none; }
+    .eml-signal-table tr:hover td { background: #f8fafc; }
+
+    .eml-signal-cat { font-weight: 600; color: #0f172a; font-family: inherit; font-size: 12px; }
+    .eml-signal-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .signal { font-family: inherit; color: #475569; font-size: 12px; line-height: 1.5; }
+    .eml-pill-pos { background: #e6f4ea; color: #2d7a3a; }
+    .eml-pill-neutral { background: #fef9e7; color: #7a5c00; }
+    .eml-pill-medneg { background: #fff0e6; color: #b54c00; }
+    .eml-pill-strongneg { background: #fce8e8; color: #a32d2d; }
+    .eml-pill-slightneg { background: #f5f0fb; color: #5b3e9e; }
+
+    .eml-signal-empty { text-align: center; padding: 24px; color: #94a3b8; font-size: 13px; }
+    
   </style>
 </head>
 <body>
@@ -4627,7 +4694,308 @@
           </div>
         </div>
 
+        <!-- Deliverability Analysis Page -->
+        <div v-if="activePage === 'deliverability-analysis'">
+          <div class="page-header">
+            <div class="page-header-orb-1"></div>
+            <div class="page-header-orb-2"></div>
+            <div class="page-header-content">
+              <div class="page-header-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+                  <path d="M12 2l9 4v6c0 5-3.8 9.7-9 10-5.2-.3-9-5-9-10V6l9-4z"/>
+                  <path d="M8 12h8"/>
+                  <path d="M8 16h5"/>
+                </svg>
+              </div>
+              <div>
+                <h1 class="page-header-title">Deliverability Analysis</h1>
+                <p class="page-header-subtitle">Upload .eml files to analyze authentication, content risks, and link quality.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-section" style="margin-bottom: 20px;">
+            <div class="da-sec-header" style="cursor: default;">
+              <div class="da-dot" style="background:#A32D2D"></div>
+              <span class="da-sec-title">Deliverability Analysis</span>
+              <span class="da-badge" style="background:#FCEBEB;color:#A32D2D">Upload</span>
+            </div>
+            <div class="da-items open">
+              <div class="da-item">
+                <div class="da-item-name">.eml file</div>
+                <div class="da-item-desc">
+                  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <div style="display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 6px 10px; height: 44px; min-width: 280px; box-shadow: inset 0 1px 2px rgba(15,23,42,0.04);">
+                      <input id="emlUploadInput" type="file" accept=".eml" @change="handleEmlFileSelect" style="display: none;" />
+                      <label for="emlUploadInput" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px; border-radius: 8px;">Choose file</label>
+                      <span style="font-size: 13px; color: #64748b; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {{ (emlAnalysisFile && emlAnalysisFile.name) ? emlAnalysisFile.name : 'No file chosen' }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="da-item">
+                <div class="da-item-name">Actions</div>
+                <div class="da-item-desc">
+                  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn btn-primary" @click="uploadEmlFile" :disabled="emlAnalysisLoading" style="height: 40px;">
+                      <span v-if="emlAnalysisLoading">⏳</span>
+                      <span v-else>📤</span>
+                      {{ emlAnalysisLoading ? 'Analyzing...' : 'Upload & Analyze' }}
+                    </button>
+                    <button v-if="emlAnalysisReport" class="btn btn-success" @click="exportEmlReportPdf" style="height: 40px;">📄 Export PDF</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="emlAnalysisError" style="margin: 10px 14px 12px; color: #dc2626; font-size: 13px;">{{ emlAnalysisError }}</div>
+          </div>
+
+          <div v-if="emlAnalysisReport" class="da-wrap">
+            <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('auth')">
+                <div class="da-dot" style="background:#A32D2D"></div>
+                <span class="da-sec-title">1. Authentication &amp; DNS</span>
+                <span class="da-badge" style="background:#FCEBEB;color:#A32D2D">Critical</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.auth }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.auth }">
+                <div class="da-item"><div class="da-item-name">SPF result</div><div class="da-item-desc">{{ (emlAnalysisReport.authentication.spf || 'unknown').toUpperCase() }} — check <code>Received-SPF</code> header and alignment with From domain.</div></div>
+                <div class="da-item"><div class="da-item-name">DKIM result</div><div class="da-item-desc">{{ (emlAnalysisReport.authentication.dkim || 'unknown').toUpperCase() }} — verify selector and signing domain (d=).</div></div>
+                <div class="da-item"><div class="da-item-name">DMARC result</div><div class="da-item-desc">{{ (emlAnalysisReport.authentication.dmarc || 'unknown').toUpperCase() }} — policy + alignment status.</div></div>
+                <div class="da-item"><div class="da-item-name">List-Unsubscribe header</div><div class="da-item-desc">{{ emlAnalysisReport.metrics?.list_unsubscribe_header ? 'Present' : 'Missing' }} — RFC 8058 one‑click preferred.</div></div>
+              </div>
+            </div>
+
+            <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('routing')">
+                <div class="da-dot" style="background:#854F0B"></div>
+                <span class="da-sec-title">2. Envelope &amp; Routing Headers</span>
+                <span class="da-badge" style="background:#FAEEDA;color:#854F0B">Important</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.routing }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.routing }">
+                <div class="da-item"><div class="da-item-name">Return-Path</div><div class="da-item-desc">{{ emlAnalysisReport.from_address }} vs {{ emlAnalysisReport.reply_to || '—' }} — check for mismatches.</div></div>
+                <div class="da-item"><div class="da-item-name">Received chain</div><div class="da-item-desc">Review hop delays for throttling or unexpected relays.</div></div>
+                <div class="da-item"><div class="da-item-name">Sending IP</div><div class="da-item-desc">Extract from first untrusted <code>Received</code> hop. Validate PTR/rDNS.</div></div>
+              </div>
+            </div>
+
+            <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('identity')">
+                <div class="da-dot" style="background:#185FA5"></div>
+                <span class="da-sec-title">3. From / Sender Identity</span>
+                <span class="da-badge" style="background:#E6F1FB;color:#185FA5">Identity</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.identity }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.identity }">
+                <div class="da-item"><div class="da-item-name">From: header</div><div class="da-item-desc">{{ emlAnalysisReport.from_address }} — check name/domain coherence.</div></div>
+                <div class="da-item"><div class="da-item-name">Reply-To mismatch</div><div class="da-item-desc">{{ emlAnalysisReport.reply_to || '—' }} — cross‑domain Reply‑To is risky.</div></div>
+              </div>
+            </div>
+
+            <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('structure')">
+                <div class="da-dot" style="background:#0F6E56"></div>
+                <span class="da-sec-title">4. Message Headers (Structural)</span>
+                <span class="da-badge" style="background:#E1F5EE;color:#0F6E56">Structure</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.structure }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.structure }">
+                <div class="da-item"><div class="da-item-name">Subject line</div><div class="da-item-desc">Issues: {{ (emlAnalysisReport.metrics?.subject_issues || []).length }} • Hidden chars: {{ (emlAnalysisReport.metrics?.subject_hidden_chars || []).length }}</div></div>
+                <div class="da-item"><div class="da-item-name">Preheader</div><div class="da-item-desc">Hidden chars: {{ (emlAnalysisReport.metrics?.preheader_hidden_chars || []).length }}</div></div>
+                <div class="da-item"><div class="da-item-name">List headers</div><div class="da-item-desc">List‑Unsubscribe: {{ emlAnalysisReport.metrics?.list_unsubscribe_header ? 'Yes' : 'No' }}</div></div>
+
+                <div class="da-item"><div class="da-item-name">Subject character map</div><div class="da-item-desc">
+                  <div>Hidden chars: <strong>{{ (emlAnalysisReport.metrics?.subject_hidden_chars || []).length }}</strong> • Total chars: <strong>{{ (emlAnalysisReport.metrics?.subject_char_map || []).length }}</strong></div>
+                  <div class="da-char-list">
+                    <span v-for="(ch, idx) in (emlAnalysisReport.metrics?.subject_char_map || []).slice(0, 120)" :key="'s'+idx" class="da-char" :class="{ hidden: ch.hidden }" :title="`${ch.codepoint} ${ch.name} (index ${ch.index})`">
+                      <code>{{ ch.hidden ? '␣' : ch.char }}</code>
+                    </span>
+                  </div>
+                </div></div>
+                <div class="da-item"><div class="da-item-name">Preheader</div><div class="da-item-desc">
+                  <div>{{ emlAnalysisReport.metrics?.preheader || '—' }}</div>
+                  <div style="margin-top:6px;">Hidden chars: <strong>{{ (emlAnalysisReport.metrics?.preheader_hidden_chars || []).length }}</strong> • Total chars: <strong>{{ (emlAnalysisReport.metrics?.preheader_char_map || []).length }}</strong></div>
+                  <div class="da-char-list">
+                    <span v-for="(ch, idx) in (emlAnalysisReport.metrics?.preheader_char_map || []).slice(0, 120)" :key="'p'+idx" class="da-char" :class="{ hidden: ch.hidden }" :title="`${ch.codepoint} ${ch.name} (index ${ch.index})`">
+                      <code>{{ ch.hidden ? '␣' : ch.char }}</code>
+                    </span>
+                  </div>
+                </div></div>
+
+              </div>
+            </div>
+
+            <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('content')">
+                <div class="da-dot" style="background:#3B6D11"></div>
+                <span class="da-sec-title">5. Content Analysis</span>
+                <span class="da-badge" style="background:#EAF3DE;color:#3B6D11">Content</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.content }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.content }">
+                <div class="da-item"><div class="da-item-name">Spam keywords</div><div class="da-item-desc">Hits: {{ (emlAnalysisReport.metrics?.spam_keyword_hits || []).length }}</div></div>
+                <div class="da-item"><div class="da-item-name">Hidden characters</div><div class="da-item-desc">Count: {{ emlAnalysisReport.metrics?.hidden_char_count || 0 }}</div></div>
+                <div class="da-item"><div class="da-item-name">Image/Text ratio</div><div class="da-item-desc">{{ emlAnalysisReport.metrics?.image_text_ratio ? emlAnalysisReport.metrics.image_text_ratio.toFixed(2) : '—' }}</div></div>
+                <div class="da-item"><div class="da-item-name">Unsubscribe link</div><div class="da-item-desc">{{ emlAnalysisReport.metrics?.has_unsubscribe ? 'Yes' : 'No' }}</div></div>
+              </div>
+            </div>
+
+            <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('links')">
+                <div class="da-dot" style="background:#533AB7"></div>
+                <span class="da-sec-title">6. Link &amp; URL Analysis</span>
+                <span class="da-badge" style="background:#EEEDFE;color:#533AB7">URLs</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.links }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.links }">
+                <div class="da-item"><div class="da-item-name">Links found</div><div class="da-item-desc">{{ emlAnalysisReport.metrics?.link_count || 0 }} total, {{ emlAnalysisReport.metrics?.unique_link_domains || 0 }} unique domains.</div></div>
+                <div class="da-item"><div class="da-item-name">Broken links</div><div class="da-item-desc">{{ (emlAnalysisReport.metrics?.broken_links || []).length }}</div></div>
+                <div class="da-item"><div class="da-item-name">Non‑HTTPS links</div><div class="da-item-desc">{{ (emlAnalysisReport.metrics?.non_https_links || []).length }}</div></div>
+                <div class="da-item"><div class="da-item-name">From vs landing domain</div><div class="da-item-desc">{{ emlAnalysisReport.metrics?.domain_alignment_issue ? 'Mismatch' : 'Aligned' }}</div></div>
+                <div class="da-item"><div class="da-item-name">Tracking redirects</div><div class="da-item-desc">
+                  <div v-if="(emlAnalysisReport.metrics?.redirect_domains || []).length">
+                    <div v-for="(r, idx) in emlAnalysisReport.metrics.redirect_domains" :key="'rd'+idx">{{ r.tracking_domain }} → {{ r.final_domain || 'unknown' }}</div>
+                  </div>
+                  <div v-else>None detected</div>
+                </div></div>
+              </div>
+            </div>
+
+            <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('mime')">
+                <div class="da-dot" style="background:#993C1D"></div>
+                <span class="da-sec-title">7. Attachment &amp; MIME</span>
+                <span class="da-badge" style="background:#FAECE7;color:#993C1D">MIME</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.mime }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.mime }">
+                <div class="da-item"><div class="da-item-name">Attachments</div><div class="da-item-desc">{{ emlAnalysisReport.metrics?.attachments_count || 0 }}</div></div>
+              </div>
+            </div>
+
+            <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('infra')">
+                <div class="da-dot" style="background:#3B3489"></div>
+                <span class="da-sec-title">8. ESP &amp; Infrastructure Signals</span>
+                <span class="da-badge" style="background:#EEEDFE;color:#3B3489">ESP</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.infra }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.infra }">
+                <div class="da-item"><div class="da-item-name">TLS in transit</div><div class="da-item-desc">Check Received headers for ESMTPS/TLS indicators.</div></div>
+              </div>
+            </div>
+
+            <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('compliance')">
+                <div class="da-dot" style="background:#994F11"></div>
+                <span class="da-sec-title">9. Compliance &amp; Opt-in Signals</span>
+                <span class="da-badge" style="background:#FAEEDA;color:#994F11">Compliance</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.compliance }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.compliance }">
+                <div class="da-item"><div class="da-item-name">Unsubscribe mechanism</div><div class="da-item-desc">{{ emlAnalysisReport.metrics?.has_unsubscribe ? 'Present' : 'Missing' }}</div></div>
+                <div class="da-item"><div class="da-item-name">List headers</div><div class="da-item-desc">{{ emlAnalysisReport.metrics?.list_unsubscribe_header ? 'Present' : 'Missing' }}</div></div>
+              </div>
+            </div>
+
+            <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('misc')">
+                <div class="da-dot" style="background:#888780"></div>
+                <span class="da-sec-title">10. Tiny / Often‑missed Checks</span>
+                <span class="da-badge" style="background:#F1EFE8;color:#5F5E5A">Misc</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.misc }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.misc }">
+                <div class="da-item"><div class="da-item-name">Hidden text</div><div class="da-item-desc">
+                  <div>Hidden characters (total): <strong>{{ emlAnalysisReport.metrics?.hidden_char_count || 0 }}</strong></div>
+                  <div v-if="(emlAnalysisReport.metrics?.subject_hidden_chars || []).length" style="margin-top:6px;">
+                    <div style="font-weight:600; font-size:12px;">Subject</div>
+                    <div class="da-char-list">
+                      <span v-for="(ch, idx) in (emlAnalysisReport.metrics?.subject_hidden_chars || [])" :key="'hs'+idx" class="da-char hidden" :title="`${ch.codepoint} ${ch.name} (index ${ch.index})`">
+                        <code>{{ ch.codepoint }}</code>
+                      </span>
+                    </div>
+                  </div>
+                  <div v-if="(emlAnalysisReport.metrics?.body_hidden_chars || []).length" style="margin-top:6px;">
+                    <div style="font-weight:600; font-size:12px;">Body</div>
+                    <div class="da-char-list">
+                      <span v-for="(ch, idx) in (emlAnalysisReport.metrics?.body_hidden_chars || [])" :key="'hb'+idx" class="da-char hidden" :title="`${ch.codepoint} ${ch.name} (index ${ch.index})`">
+                        <code>{{ ch.codepoint }}</code>
+                      </span>
+                    </div>
+                  </div>
+                  <div v-if="(emlAnalysisReport.metrics?.preheader_hidden_chars || []).length" style="margin-top:6px;">
+                    <div style="font-weight:600; font-size:12px;">Preheader</div>
+                    <div class="da-char-list">
+                      <span v-for="(ch, idx) in (emlAnalysisReport.metrics?.preheader_hidden_chars || [])" :key="'hp'+idx" class="da-char hidden" :title="`${ch.codepoint} ${ch.name} (index ${ch.index})`">
+                        <code>{{ ch.codepoint }}</code>
+                      </span>
+                    </div>
+                  </div>
+                  <div v-if="!(emlAnalysisReport.metrics?.subject_hidden_chars || []).length && !(emlAnalysisReport.metrics?.preheader_hidden_chars || []).length && !(emlAnalysisReport.metrics?.body_hidden_chars || []).length" style="margin-top:6px; color:#94a3b8;">No hidden characters detected in subject, preheader, or body.</div>
+                </div></div>
+              </div>
+            </div>
+
+            <div class="da-section" style="margin-top: 16px;">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('signalScore')">
+                <div class="da-dot" style="background:#533AB7"></div>
+                <span class="da-sec-title">ISP Signal Scoring — EML Analysis</span>
+                <span class="da-badge" style="background:#EEEDFE;color:#533AB7">Summary</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.signalScore }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.signalScore }">
+                <div class="eml-signal-wrap">
+
+                  <div class="eml-signal-summary">
+                    <div class="eml-signal-card eml-signal-pos"><div class="num">{{ emlSignalCounts.pos }}</div><div class="lbl">👍 Positive</div></div>
+                    <div class="eml-signal-card eml-signal-neu"><div class="num">{{ emlSignalCounts.neutral }}</div><div class="lbl">⚠️ Neutral</div></div>
+                    <div class="eml-signal-card eml-signal-neg"><div class="num">{{ emlSignalCounts.neg }}</div><div class="lbl">⚠️ Negative</div></div>
+                    <div class="eml-signal-card eml-signal-str"><div class="num">{{ emlSignalCounts.strong }}</div><div class="lbl">🚨 Strong Neg</div></div>
+                  </div>
+
+                  <div class="eml-signal-controls">
+                    <input type="text" v-model="emlSignalSearch" placeholder="Search signals...">
+                    <div class="eml-signal-filter-btns">
+                      <button class="eml-fbtn" :class="{ active: emlSignalFilter === 'all' }" data-f="all" @click="setEmlSignalFilter('all')">All</button>
+                      <button class="eml-fbtn" :class="{ active: emlSignalFilter === 'pos' }" data-f="pos" @click="setEmlSignalFilter('pos')">👍 Positive</button>
+                      <button class="eml-fbtn" :class="{ active: emlSignalFilter === 'neutral' }" data-f="neutral" @click="setEmlSignalFilter('neutral')">⚠️ Neutral</button>
+                      <button class="eml-fbtn" :class="{ active: emlSignalFilter === 'neg' }" data-f="neg" @click="setEmlSignalFilter('neg')">⚠️ Negative</button>
+                      <button class="eml-fbtn" :class="{ active: emlSignalFilter === 'strong' }" data-f="strong" @click="setEmlSignalFilter('strong')">🚨 Strong Neg</button>
+                    </div>
+                  </div>
+
+                  <table class="eml-signal-table">
+                    <thead>
+                      <tr>
+                        <th :class="{ sorted: emlSignalSortCol === 'cat' }" @click="sortEmlSignals('cat')">Signal Category <span class="sort-icon">↕</span></th>
+                        <th :class="{ sorted: emlSignalSortCol === 'signal' }" @click="sortEmlSignals('signal')">What Gmail Sees <span class="sort-icon">↕</span></th>
+                        <th :class="{ sorted: emlSignalSortCol === 'score' }" @click="sortEmlSignals('score')">Score Impact <span class="sort-icon">↕</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-if="!emlSignalSorted.length"><td colspan="3" class="eml-signal-empty">No matching signals</td></tr>
+                      <tr v-for="(row, idx) in emlSignalSorted" :key="idx">
+                        <td class="eml-signal-cat">{{ row.cat }}</td>
+                        <td class="signal">{{ row.signal }}</td>
+                        <td><span class="eml-signal-pill" :class="emlSignalPillClass[row.score]">{{ row.label }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="card-section" style="padding: 24px; text-align: center; color: #64748b;">Upload a .eml file to see the full deliverability checklist.</div>
+        </div>
+
         <!-- Industry Updates Page -->
+
         <div v-if="activePage === 'updates'">
           <!-- Page Header -->
           <div class="page-header">
@@ -4786,7 +5154,7 @@
         </div>
 
         <!-- Placeholder for other pages -->
-        <div v-if="activePage !== 'pulsation' && activePage !== 'mbr' && activePage !== 'mappings' && activePage !== 'info' && activePage !== 'snds' && activePage !== 'gpt' && activePage !== 'bounces' && activePage !== 'updates'" style="text-align: center; padding: 60px 20px;">
+        <div v-if="activePage !== 'pulsation' && activePage !== 'mbr' && activePage !== 'mappings' && activePage !== 'mappings_rails' && activePage !== 'deliverability-analysis' && activePage !== 'info' && activePage !== 'snds' && activePage !== 'gpt' && activePage !== 'bounces' && activePage !== 'updates'" style="text-align: center; padding: 60px 20px;">
           <div style="font-size: 48px; margin-bottom: 16px;">🚧</div>
           <h3 style="font-size: 18px; color: #1e293b; margin-bottom: 8px;">Page Under Construction</h3>
           <p style="font-size: 14px; color: #64748b;">This page will be available soon with the premium design</p>
@@ -5237,6 +5605,7 @@
             { key: 'snds', label: 'SNDS', icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>' },
             { key: 'gpt', label: 'GPT', icon: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8l6 4 6-4"/>' },
             { key: 'bounces', label: 'Bounce Analytics', icon: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>' },
+            { key: 'deliverability-analysis', label: 'Deliverability Analysis', icon: '<path d="M12 2l9 4v6c0 5-3.8 9.7-9 10-5.2-.3-9-5-9-10V6l9-4z"/><path d="M8 12h8"/><path d="M8 16h5"/>' },
             { key: 'updates', label: 'Industry Updates', icon: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>' }
           ],
 
@@ -5486,7 +5855,49 @@
           industrySourceType: '',
           industrySeverity: '',
           industryDays: 30,
-          industryLoading: false
+          industryLoading: false,
+
+          // Deliverability Analysis (EML) State
+          emlAnalysisFile: null,
+          emlAnalysisLoading: false,
+          emlAnalysisError: null,
+          emlAnalysisReport: null,
+          emlAnalysisFilename: '',
+          deliverabilitySectionsOpen: { auth: true, routing: false, identity: false, structure: false, content: true, links: false, mime: false, infra: false, compliance: false, misc: false, signalScore: false },
+          emlSignalSearch: '',
+          emlSignalFilter: 'all',
+          emlSignalSortCol: null,
+          emlSignalSortDir: 1,
+          emlSignalPillClass: { pos: 'eml-pill-pos', neutral: 'eml-pill-neutral', medneg: 'eml-pill-medneg', strongneg: 'eml-pill-strongneg', slightneg: 'eml-pill-slightneg' },
+          emlSignalRows: [
+            { cat: 'Authentication', signal: 'SPF/DKIM/DMARC pass', score: 'pos', label: '👍 Positive' },
+            { cat: 'Sending Infra', signal: 'Known ESP infrastructure', score: 'pos', label: '👍 Positive' },
+            { cat: 'Compliance Signals', signal: 'One-click unsubscribe present', score: 'pos', label: '👍 Positive' },
+            { cat: 'Footer Completeness', signal: 'Physical address + unsubscribe present', score: 'pos', label: '👍 Positive' },
+            { cat: 'Header Consistency', signal: 'From/Reply-To aligned', score: 'pos', label: '👍 Positive' },
+            { cat: 'IP Reputation (historical)', signal: 'No immediate red flag, but variable', score: 'neutral', label: '⚠️ Neutral' },
+            { cat: 'Domain Reputation', signal: 'Neutral to slightly risky domain pattern', score: 'medneg', label: '⚠️ Medium Negative' },
+            { cat: 'HTML Cleanliness', signal: 'Hidden/obfuscated elements present', score: 'medneg', label: '⚠️ Medium Negative' },
+            { cat: 'Text-to-HTML Ratio', signal: 'Heavily HTML-driven CTA', score: 'slightneg', label: '⚠️ Slight Negative' },
+            { cat: 'Brand Consistency', signal: 'Multiple domain references', score: 'medneg', label: '⚠️ Negative' },
+            { cat: 'Link Trust', signal: 'Redirect + domain mismatch', score: 'medneg', label: '⚠️ Negative' },
+            { cat: 'Tracking Density', signal: 'High tracking parameters', score: 'slightneg', label: '⚠️ Slight Negative' },
+            { cat: 'CTA Aggressiveness', signal: 'Strong CTA repetition', score: 'medneg', label: '⚠️ Medium Negative' },
+            { cat: 'Keyword Risk', signal: 'Financial/benefit phrasing', score: 'medneg', label: '⚠️ Medium Negative' },
+            { cat: 'Engagement Prediction', signal: 'Broad targeting, low personalization', score: 'medneg', label: '⚠️ Medium Negative' },
+            { cat: 'List Quality Signal (inferred)', signal: 'Likely low-quality acquisition', score: 'medneg', label: '⚠️ Medium Negative' },
+            { cat: 'Frequency Pattern (inferred)', signal: 'Likely batch/bulk send', score: 'slightneg', label: '⚠️ Slight Negative' },
+            { cat: 'Content Originality', signal: 'Template/affiliate-style content', score: 'medneg', label: '⚠️ Medium Negative' },
+            { cat: 'Visual Rendering Stability', signal: 'Standard, not highly optimized', score: 'slightneg', label: '⚠️ Slight Negative' },
+            { cat: 'Reply Behavior Signal', signal: 'No strong reply incentive', score: 'slightneg', label: '⚠️ Slight Negative' },
+            { cat: 'Inbox Interaction Prediction', signal: 'Low reply/forward likelihood', score: 'medneg', label: '⚠️ Medium Negative' },
+            { cat: 'Historical User Interaction', signal: 'Likely low engagement pattern', score: 'medneg', label: '⚠️ Medium Negative' },
+            { cat: 'Content Integrity', signal: 'Heavy unicode obfuscation', score: 'strongneg', label: '🚨 Strong Negative' },
+            { cat: 'Preheader Behavior', signal: 'Stuffed with invisible chars', score: 'strongneg', label: '🚨 Strong Negative' },
+            { cat: 'User Trust Signals', signal: 'Name mismatch or confusion', score: 'strongneg', label: '🚨 Negative' },
+            { cat: 'Spam Pattern Match', signal: 'Financial hook phrasing', score: 'strongneg', label: '🚨 Strong Negative' },
+            { cat: 'Personalization Quality', signal: 'Generic or incorrect personalization', score: 'strongneg', label: '🚨 Negative' }
+          ]
         };
       },
       computed: {
@@ -5631,7 +6042,143 @@
           console.log(`📊 currentTabData for tab '${this.sndsActiveTab}':`, data.length, 'records');
           return data;
         },
+        emlSignalRowsComputed() {
+          const report = this.emlAnalysisReport || null;
+          if (!report) return this.emlSignalRows || [];
+          const auth = report.authentication || {};
+          const metrics = report.metrics || {};
+          const issues = report.issues || [];
+
+          const rows = [];
+
+          const spfPass = (auth.spf || '').toLowerCase() === 'pass';
+          const dkimPass = (auth.dkim || '').toLowerCase() === 'pass';
+          const dmarcPass = (auth.dmarc || '').toLowerCase() === 'pass';
+          rows.push({
+            cat: 'Authentication',
+            signal: `SPF ${auth.spf || 'unknown'}, DKIM ${auth.dkim || 'unknown'}, DMARC ${auth.dmarc || 'unknown'}`,
+            score: (spfPass && dkimPass && dmarcPass) ? 'pos' : 'strongneg',
+            label: (spfPass && dkimPass && dmarcPass) ? '👍 Positive' : '🚨 Strong Negative'
+          });
+
+          rows.push({
+            cat: 'Compliance Signals',
+            signal: metrics.list_unsubscribe_header ? 'List-Unsubscribe header present' : 'List-Unsubscribe header missing',
+            score: metrics.list_unsubscribe_header ? 'pos' : 'strongneg',
+            label: metrics.list_unsubscribe_header ? '👍 Positive' : '🚨 Strong Negative'
+          });
+          rows.push({
+            cat: 'Compliance Signals',
+            signal: metrics.has_unsubscribe ? 'Unsubscribe link present' : 'Unsubscribe link missing',
+            score: metrics.has_unsubscribe ? 'pos' : 'strongneg',
+            label: metrics.has_unsubscribe ? '👍 Positive' : '🚨 Strong Negative'
+          });
+
+          const hiddenCount = metrics.hidden_char_count || 0;
+          rows.push({
+            cat: 'Content Integrity',
+            signal: hiddenCount > 0 ? `Hidden characters detected (${hiddenCount})` : 'No hidden characters detected',
+            score: hiddenCount > 0 ? 'strongneg' : 'pos',
+            label: hiddenCount > 0 ? '🚨 Strong Negative' : '👍 Positive'
+          });
+
+          const spamHits = (metrics.spam_keyword_hits || []).length;
+          rows.push({
+            cat: 'Keyword Risk',
+            signal: spamHits > 0 ? `Spam-like keywords detected (${spamHits})` : 'No spam keywords detected',
+            score: spamHits > 0 ? 'medneg' : 'pos',
+            label: spamHits > 0 ? '⚠️ Medium Negative' : '👍 Positive'
+          });
+
+          rows.push({
+            cat: 'Content Balance',
+            signal: metrics.image_text_ratio ? `Image/Text ratio ${metrics.image_text_ratio.toFixed(2)}` : 'Image/Text ratio unavailable',
+            score: (metrics.image_text_ratio && metrics.image_text_ratio > 2.5) ? 'slightneg' : 'neutral',
+            label: (metrics.image_text_ratio && metrics.image_text_ratio > 2.5) ? '⚠️ Slight Negative' : '⚠️ Neutral'
+          });
+
+          const redirectCount = (metrics.redirect_domains || []).length;
+          rows.push({
+            cat: 'Link Trust',
+            signal: redirectCount ? `Tracking redirects detected (${redirectCount})` : 'No tracking redirects detected',
+            score: redirectCount ? 'medneg' : 'pos',
+            label: redirectCount ? '⚠️ Negative' : '👍 Positive'
+          });
+          rows.push({
+            cat: 'Brand Consistency',
+            signal: metrics.domain_alignment_issue ? 'From vs landing domains mismatch' : 'From vs landing domains aligned',
+            score: metrics.domain_alignment_issue ? 'medneg' : 'pos',
+            label: metrics.domain_alignment_issue ? '⚠️ Negative' : '👍 Positive'
+          });
+          rows.push({
+            cat: 'Link Hygiene',
+            signal: (metrics.non_https_links || []).length ? 'Non-HTTPS links present' : 'All links are HTTPS',
+            score: (metrics.non_https_links || []).length ? 'medneg' : 'pos',
+            label: (metrics.non_https_links || []).length ? '⚠️ Medium Negative' : '👍 Positive'
+          });
+          rows.push({
+            cat: 'Link Hygiene',
+            signal: (metrics.broken_links || []).length ? 'Broken links detected' : 'No broken links detected',
+            score: (metrics.broken_links || []).length ? 'medneg' : 'pos',
+            label: (metrics.broken_links || []).length ? '⚠️ Medium Negative' : '👍 Positive'
+          });
+
+          const headerIssue = (issues || []).some(i => (i || '').toLowerCase().includes('header'));
+          rows.push({
+            cat: 'Header Consistency',
+            signal: headerIssue ? 'Header inconsistencies detected' : 'Headers look consistent',
+            score: headerIssue ? 'medneg' : 'pos',
+            label: headerIssue ? '⚠️ Medium Negative' : '👍 Positive'
+          });
+
+          if (report.risk_level) {
+            rows.push({
+              cat: 'Overall Risk',
+              signal: `Deliverability risk: ${report.risk_level}`,
+              score: report.risk_level === 'High' ? 'strongneg' : (report.risk_level === 'Medium' ? 'medneg' : 'pos'),
+              label: report.risk_level === 'High' ? '🚨 Strong Negative' : (report.risk_level === 'Medium' ? '⚠️ Medium Negative' : '👍 Positive')
+            });
+          }
+
+          return rows;
+        },
         // Filtered Account Info
+        emlSignalCounts() {
+          const counts = { pos: 0, neutral: 0, neg: 0, strong: 0 };
+          (this.emlSignalRowsComputed || []).forEach(r => {
+            if (r.score === 'pos') counts.pos += 1;
+            else if (r.score === 'neutral') counts.neutral += 1;
+            else if (r.score === 'strongneg') counts.strong += 1;
+            else counts.neg += 1;
+          });
+          return counts;
+        },
+        emlSignalFiltered() {
+          const q = (this.emlSignalSearch || '').toLowerCase();
+          return (this.emlSignalRowsComputed || []).filter(r => {
+            const matchF = this.emlSignalFilter === 'all'
+              || (this.emlSignalFilter === 'pos' && r.score === 'pos')
+              || (this.emlSignalFilter === 'neutral' && r.score === 'neutral')
+              || (this.emlSignalFilter === 'neg' && ['medneg','slightneg'].includes(r.score))
+              || (this.emlSignalFilter === 'strong' && r.score === 'strongneg');
+            const matchQ = !q || r.cat.toLowerCase().includes(q) || r.signal.toLowerCase().includes(q) || r.label.toLowerCase().includes(q);
+            return matchF && matchQ;
+          });
+        },
+        emlSignalSorted() {
+          let data = [...(this.emlSignalFiltered || [])];
+          if (this.emlSignalSortCol) {
+            const scoreOrder = { pos: 0, neutral: 1, slightneg: 2, medneg: 3, strongneg: 4 };
+            data.sort((a, b) => {
+              const va = this.emlSignalSortCol === 'score' ? scoreOrder[a.score] : a[this.emlSignalSortCol].toLowerCase();
+              const vb = this.emlSignalSortCol === 'score' ? scoreOrder[b.score] : b[this.emlSignalSortCol].toLowerCase();
+              if (va < vb) return -this.emlSignalSortDir;
+              if (va > vb) return this.emlSignalSortDir;
+              return 0;
+            });
+          }
+          return data;
+        },
         filteredAccountInfo() {
           if (!this.accountInfo || !this.accountInfo.data) return [];
 
@@ -5775,7 +6322,125 @@
           return stats;
         }
       },
+
       methods: {
+        toggleDeliverabilitySection(key) {
+          this.deliverabilitySectionsOpen = this.deliverabilitySectionsOpen || { auth: true, routing: false, identity: false, structure: false, content: true, links: false, mime: false, infra: false, compliance: false, misc: false, signalScore: false };
+          this.deliverabilitySectionsOpen[key] = !this.deliverabilitySectionsOpen[key];
+        },
+        setEmlSignalFilter(filter) {
+          this.emlSignalFilter = filter;
+        },
+        sortEmlSignals(col) {
+          if (this.emlSignalSortCol === col) {
+            this.emlSignalSortDir *= -1;
+          } else {
+            this.emlSignalSortCol = col;
+            this.emlSignalSortDir = 1;
+          }
+        },
+        // =============================
+        // Deliverability Analysis (EML)
+        // =============================
+        handleEmlFileSelect(event) {
+          const file = event.target.files && event.target.files[0] ? event.target.files[0] : null;
+          this.emlAnalysisFile = file;
+          this.emlAnalysisError = null;
+        },
+
+        async uploadEmlFile() {
+          if (!this.emlAnalysisFile) {
+            this.showToast('warning', 'File Required', 'Please select a .eml file to analyze');
+            return;
+          }
+
+          const filename = this.emlAnalysisFile.name || '';
+          if (!filename.toLowerCase().endsWith('.eml')) {
+            this.emlAnalysisError = 'Only .eml files are allowed.';
+            return;
+          }
+
+          if (this.emlAnalysisFile.size > 500 * 1024) {
+            this.emlAnalysisError = 'File too large. Max size is 500KB.';
+            return;
+          }
+
+          this.emlAnalysisLoading = true;
+          this.emlAnalysisError = null;
+
+          try {
+            const formData = new FormData();
+            formData.append('file', this.emlAnalysisFile);
+
+            const response = await fetch(`${this.API_BASE}/api/deliverability-analysis/upload-eml`, {
+              method: 'POST',
+              body: formData
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(errorText || 'Failed to analyze .eml file');
+            }
+
+            const result = await response.json();
+            this.emlAnalysisReport = result.report || null;
+            this.showToast('success', 'Analysis Complete', 'Deliverability report generated');
+          } catch (error) {
+            console.error('EML analysis error:', error);
+            this.emlAnalysisError = error.message || 'Failed to analyze .eml file.';
+            this.showToast('error', 'Analysis Failed', this.emlAnalysisError);
+          } finally {
+            this.emlAnalysisLoading = false;
+          }
+        },
+
+        async exportEmlReportPdf() {
+          if (!this.emlAnalysisReport || !this.emlAnalysisReport.email_id) {
+            return;
+          }
+
+          try {
+            const response = await fetch(`${this.API_BASE}/api/deliverability-analysis/report/${this.emlAnalysisReport.email_id}/pdf`);
+            if (!response.ok) {
+              throw new Error('Failed to export PDF');
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `deliverability_analysis_${this.emlAnalysisReport.email_id}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+          } catch (error) {
+            console.error('PDF export error:', error);
+            this.showToast('error', 'Export Failed', error.message || 'Failed to export PDF');
+          }
+        },
+
+        getAuthBadgeStyle(status) {
+          const value = (status || '').toLowerCase();
+          if (value === 'pass') {
+            return { background: '#dcfce7', color: '#166534', fontSize: '11px', fontWeight: '700' };
+          }
+          if (value === 'fail') {
+            return { background: '#fee2e2', color: '#991b1b', fontSize: '11px', fontWeight: '700' };
+          }
+          if (value === 'present') {
+            return { background: '#e0f2fe', color: '#0369a1', fontSize: '11px', fontWeight: '700' };
+          }
+          return { background: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700' };
+        },
+
+        formatBytes(bytes) {
+          if (!bytes && bytes !== 0) return '0 B';
+          if (bytes < 1024) return `${bytes} B`;
+          if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+          return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        },
+
         async fetchPulsationData() {
           this.pulsationLoading = true;
           // Reset filters

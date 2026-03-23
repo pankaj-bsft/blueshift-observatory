@@ -1069,3 +1069,149 @@ async def export_to_pdf(esp_data: Dict, df_combined: pd.DataFrame, from_date: st
     except Exception as e:
         print(f"HTML PDF export failed: {e}. Falling back to ReportLab.")
         return export_to_pdf_reportlab(esp_data, df_combined, from_date, to_date, account_data)
+
+
+def export_eml_analysis_pdf(report: Dict) -> bytes:
+    '''Export deliverability analysis report to PDF.'''
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'EmlTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=BRAND["navy"],
+        spaceAfter=12
+    )
+    subtitle_style = ParagraphStyle(
+        'EmlSubtitle',
+        parent=styles['BodyText'],
+        fontSize=10,
+        textColor=BRAND["slate"],
+        spaceAfter=6
+    )
+    body_style = ParagraphStyle(
+        'EmlBody',
+        parent=styles['BodyText'],
+        fontSize=10,
+        textColor=BRAND["slate"],
+        leading=14
+    )
+
+    elements = []
+    elements.append(Paragraph('Deliverability Analysis Report', title_style))
+    elements.append(Paragraph(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}", subtitle_style))
+    elements.append(Spacer(1, 0.15 * inch))
+
+    # Metadata section
+    elements.extend(create_section_header('Email Metadata'))
+    meta_data = [
+        ['Filename', report.get('filename') or ''],
+        ['Subject', report.get('subject') or ''],
+        ['From', report.get('from_address') or ''],
+        ['To', report.get('to_address') or ''],
+        ['Uploaded', report.get('upload_time') or '']
+    ]
+    meta_table = Table(meta_data, colWidths=[1.5 * inch, 5.0 * inch])
+    meta_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["slate_light"]),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [BRAND["row_alt_2"], BRAND["row_alt"]])
+    ]))
+    elements.append(meta_table)
+    elements.append(Spacer(1, 0.2 * inch))
+
+    # Score and authentication
+    elements.extend(create_section_header('Score & Authentication'))
+    auth = report.get('authentication') or {}
+    metrics = report.get('metrics') or {}
+    score_rows = [
+        ['Deliverability Score', str(report.get('score', 0))],
+        ['Risk Level', report.get('risk_level') or ''],
+        ['SPF', auth.get('spf', 'unknown')],
+        ['DKIM', auth.get('dkim', 'unknown')],
+        ['DMARC', auth.get('dmarc', 'unknown')],
+        ['Spam Keyword Hits', str(len(metrics.get('spam_keyword_hits', [])))],
+        ['Hidden Characters', str(metrics.get('hidden_char_count', 0))],
+        ['Links Found', str(metrics.get('link_count', 0))],
+        ['Unique Link Domains', str(metrics.get('unique_link_domains', 0))],
+        ['Attachments', str(metrics.get('attachments_count', 0))],
+        ['Subject Issues', str(len(metrics.get('subject_issues', [])))],
+        ['Image/Text Ratio', f"{metrics.get('image_text_ratio'):.2f}" if metrics.get('image_text_ratio') is not None else '—'],
+        ['Unsubscribe Link', 'Yes' if metrics.get('has_unsubscribe') else 'No'],
+        ['List-Unsubscribe Header', 'Yes' if metrics.get('list_unsubscribe_header') else 'No'],
+        ['Broken Links', str(len(metrics.get('broken_links', [])))],
+        ['Non-HTTPS Links', str(len(metrics.get('non_https_links', [])))]
+    ]
+    score_table = Table(score_rows, colWidths=[2.5 * inch, 4.0 * inch])
+    score_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["slate_light"]),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [BRAND["row_alt_2"], BRAND["row_alt"]])
+    ]))
+    elements.append(score_table)
+    elements.append(Spacer(1, 0.2 * inch))
+
+    # Issues
+    elements.extend(create_section_header('Detected Issues'))
+    issues = report.get('issues') or []
+    if issues:
+        for issue in issues:
+            elements.append(Paragraph(f"• {issue}", body_style))
+    else:
+        elements.append(Paragraph('No issues detected.', body_style))
+    elements.append(Spacer(1, 0.2 * inch))
+
+    # Recommendations
+    elements.extend(create_section_header('Recommendations'))
+    recs = report.get('recommendations') or []
+    if recs:
+        for rec in recs:
+            elements.append(Paragraph(f"• {rec}", body_style))
+    else:
+        elements.append(Paragraph('No recommendations.', body_style))
+    elements.append(Spacer(1, 0.2 * inch))
+
+    # Attachments
+    elements.extend(create_section_header('Attachments'))
+    attachments = report.get('attachments') or []
+    if attachments:
+        att_rows = [['Filename', 'Content Type', 'Size (bytes)']]
+        for att in attachments:
+            att_rows.append([
+                att.get('filename', ''),
+                att.get('content_type', ''),
+                str(att.get('size_bytes', ''))
+            ])
+        att_table = Table(att_rows, colWidths=[3.0 * inch, 2.0 * inch, 1.5 * inch])
+        att_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), BRAND["table_header"]),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('GRID', (0, 0), (-1, -1), 0.4, BRAND["slate_light"]),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRAND["row_alt_2"], BRAND["row_alt"]])
+        ]))
+        elements.append(att_table)
+    else:
+        elements.append(Paragraph('No attachments found.', body_style))
+
+    doc.build(elements, canvasmaker=NumberedCanvas)
+    buffer.seek(0)
+    return buffer.getvalue()
