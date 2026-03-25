@@ -29,7 +29,8 @@ from pulsation_service import (
     get_domain_timeseries,
     get_account_timeseries,
     get_available_dates,
-    get_pulsation_summary
+    get_pulsation_summary,
+    get_daily_summary
 )
 from spamhaus_service import (
     get_recent_domains,
@@ -637,6 +638,31 @@ async def get_pulsation_dates():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error fetching dates: {str(e)}')
+
+
+@app.get('/api/pulsation/daily-summary')
+async def get_pulsation_daily_summary(mode: str = 'daily', days: int = 30):
+    """
+    Get aggregated pulsation data grouped by day/week/month.
+    Query params:
+        mode: 'daily' | 'weekly' | 'monthly'
+        days: 7 | 30 | 60 | 90 | 365
+    Returns both all-domains and classdojo-excluded datasets.
+    """
+    try:
+        if mode not in ['daily', 'weekly', 'monthly']:
+            raise HTTPException(status_code=400, detail='Invalid mode. Must be daily, weekly, or monthly')
+        if days not in [7, 30, 60, 90, 365]:
+            raise HTTPException(status_code=400, detail='Invalid days. Must be 7, 30, 60, 90, or 365')
+        result = get_daily_summary(mode, days)
+        return {
+            'status': 'success',
+            **result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching daily summary: {str(e)}')
 
 
 @app.post('/api/pulsation/spamhaus-status')

@@ -1530,6 +1530,9 @@
             <button class="tab" :class="{ active: pulsationTab === 'risk' }" @click="pulsationTab = 'risk'">
               Top 20 Risk
             </button>
+            <button class="tab" :class="{ active: pulsationTab === 'daily_summary' }" @click="pulsationTab = 'daily_summary'; loadDailySummary()">
+              Daily Summary
+            </button>
             <button class="tab" :class="{ active: pulsationTab === 'charts' }" @click="pulsationTab = 'charts'">
               Trend
             </button>
@@ -1804,6 +1807,93 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- Daily Summary Tab -->
+          <div v-if="pulsationTab === 'daily_summary'" class="card-section">
+            <div class="card-header">
+              <h3 class="card-title">Daily Summary</h3>
+              <span class="card-meta" v-if="dailySummaryData?.range_start">
+                {{ dailySummaryData.range_start }} → {{ dailySummaryData.range_end }}
+              </span>
+            </div>
+
+            <div style="padding: 16px 24px 0; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+              <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Range:</label>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryRangeDays === 7 }" @click="setDailySummaryRange(7)">7d</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryRangeDays === 30 }" @click="setDailySummaryRange(30)">30d</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryRangeDays === 60 }" @click="setDailySummaryRange(60)">60d</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryRangeDays === 90 }" @click="setDailySummaryRange(90)">90d</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryRangeDays === 365 }" @click="setDailySummaryRange(365)">365d</button>
+                </div>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Aggregation:</label>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryMode === 'daily' }" @click="switchDailySummaryMode('daily')">Daily</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryMode === 'weekly' }" @click="switchDailySummaryMode('weekly')">Weekly</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryMode === 'monthly' }" @click="switchDailySummaryMode('monthly')">Monthly</button>
+                </div>
+              </div>
+
+              <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b;">
+                  <input type="checkbox" v-model="dailySummaryExcludeClassdojo" @change="toggleDailySummaryExclude" />
+                  Exclude classdojo.com from Delivery Rate
+                </label>
+              </div>
+            </div>
+
+            <div style="padding: 16px 24px 0;">
+              <div v-if="dailySummaryLoading" class="summary-empty">Loading daily summary...</div>
+              <div v-else-if="!dailySummaryData || !getDailySummaryRows().length" class="summary-empty">No summary data for the selected range.</div>
+              <div v-else class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Sent</th>
+                      <th>Delivered</th>
+                      <th>Bounces</th>
+                      <th>Spam</th>
+                      <th>Unsubs</th>
+                      <th>Delivery %</th>
+                      <th>Bounce %</th>
+                      <th>Spam %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in getDailySummaryRows()" :key="row.period">
+                      <td>{{ row.period }}</td>
+                      <td class="text-mono">{{ formatNumber(row.total_sent) }}</td>
+                      <td class="text-mono">{{ formatNumber(row.total_delivered) }}</td>
+                      <td class="text-mono">{{ formatNumber(row.total_bounces) }}</td>
+                      <td class="text-mono">{{ formatNumber(row.total_spam) }}</td>
+                      <td class="text-mono">{{ formatNumber(row.total_unsub) }}</td>
+                      <td class="text-mono">{{ formatRate(row.delivery_rate) }}%</td>
+                      <td class="text-mono">{{ formatRate(row.bounce_rate) }}%</td>
+                      <td class="text-mono">{{ formatRate(row.spam_rate) }}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="padding: 24px;">
+              <div class="chart-grid">
+                <div class="chart-container">
+                  <h4>Sent Volume</h4>
+                  <canvas ref="dailySummarySentChart"></canvas>
+                </div>
+                <div class="chart-container">
+                  <h4>Delivery Rate (%)</h4>
+                  <canvas ref="dailySummaryDeliveryRateChart"></canvas>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -5619,6 +5709,12 @@
           pulsationAccountFilter: '',
           pulsationTrendMode: 'domain',
           pulsationSummaryOpen: false,
+          // Daily Summary
+          dailySummaryMode: 'daily',
+          dailySummaryRangeDays: 30,
+          dailySummaryExcludeClassdojo: true,
+          dailySummaryData: null,
+          dailySummaryLoading: false,
           pulsationSummaryLoading: false,
           pulsationSummary: null,
           spamhausStatusMap: {},
@@ -6785,6 +6881,60 @@
             }
           });
         },
+        // Daily Summary
+        async loadDailySummary() {
+          this.dailySummaryLoading = true;
+          try {
+            const response = await fetch(`${this.API_BASE}/api/pulsation/daily-summary?mode=${this.dailySummaryMode}&days=${this.dailySummaryRangeDays}`);
+            const result = await response.json();
+            if (result.status === 'success') {
+              this.dailySummaryData = result;
+              this.$nextTick(() => {
+                this.renderDailySummaryCharts();
+              });
+            } else {
+              this.showToast('error', 'Load Failed', result.detail || 'Failed to load daily summary');
+            }
+          } catch (err) {
+            this.showToast('error', 'Load Error', 'Error loading daily summary: ' + err.message);
+          } finally {
+            this.dailySummaryLoading = false;
+          }
+        },
+
+        switchDailySummaryMode(mode) {
+          this.dailySummaryMode = mode;
+          this.loadDailySummary();
+        },
+
+        setDailySummaryRange(days) {
+          this.dailySummaryRangeDays = days;
+          this.loadDailySummary();
+        },
+
+        toggleDailySummaryExclude() {
+          this.renderDailySummaryCharts();
+        },
+
+        getDailySummaryRows() {
+          if (!this.dailySummaryData) return [];
+          return this.dailySummaryExcludeClassdojo
+            ? (this.dailySummaryData.excluding_classdojo || [])
+            : (this.dailySummaryData.all || []);
+        },
+
+        renderDailySummaryCharts() {
+          if (!this.dailySummaryData) return;
+          const allData = this.dailySummaryData.all || [];
+          const exclData = this.dailySummaryData.excluding_classdojo || [];
+          const labels = allData.map(d => d.period);
+          const sentSeries = allData.map(d => d.total_sent || 0);
+          const deliverySeries = (this.dailySummaryExcludeClassdojo ? exclData : allData).map(d => d.delivery_rate || 0);
+
+          this.renderChart('dailySummarySentChart', labels, sentSeries, 'Total Sent', '#3b82f6');
+          this.renderChart('dailySummaryDeliveryRateChart', labels, deliverySeries, 'Delivery Rate (%)', '#10b981');
+        },
+
         formatNumber(num) {
           if (num === null || num === undefined) return '0';
           return new Intl.NumberFormat().format(num);
