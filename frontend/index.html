@@ -7886,7 +7886,7 @@
             console.log('📊 Account stats:', this.accountStats);
 
             // Fetch mappings
-            const mappingsResponse = await fetch(`${this.API_BASE}/api/account-mappings`);
+            const mappingsResponse = await fetch(`${this.API_BASE}/api/account-mappings?limit=5000`);
             const mappingsResult = await mappingsResponse.json();
             console.log('📋 Mappings result:', mappingsResult);
 
@@ -7920,7 +7920,7 @@
               total_accounts: statsResult.total_accounts || 0
             };
 
-            const mappingsResponse = await fetch(`${this.API_BASE}/api/account-mappings-rails`);
+            const mappingsResponse = await fetch(`${this.API_BASE}/api/account-mappings-rails?limit=5000`);
             const mappingsResult = await mappingsResponse.json();
 
             if (mappingsResult.status === 'success') {
