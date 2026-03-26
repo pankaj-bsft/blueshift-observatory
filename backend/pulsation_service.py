@@ -252,7 +252,7 @@ def query_date_range(start_date: datetime, end_date: datetime) -> pd.DataFrame:
     return df
 
 
-def get_domain_timeseries(from_domain: str, days: int = 30) -> pd.DataFrame:
+def get_domain_timeseries(from_domain: str, days: int = 30, mode: str = "daily") -> pd.DataFrame:
     """Get time-series data for a specific domain"""
     cutoff_date = (datetime.utcnow().date() - timedelta(days=days)).strftime('%Y-%m-%d')
     conn = sqlite3.connect(DB_PATH)
@@ -261,6 +261,8 @@ def get_domain_timeseries(from_domain: str, days: int = 30) -> pd.DataFrame:
             report_date,
             SUM(sent) as sent,
             SUM(delivered) as delivered,
+            SUM(spam_report) as spam_report,
+            SUM(bounces) as bounces,
             CASE WHEN SUM(sent) > 0 THEN ROUND(100.0 * SUM(delivered) / SUM(sent), 2) ELSE 0 END as delivery_rate,
             CASE WHEN SUM(delivered) > 0 THEN ROUND(100.0 * SUM(spam_report) / SUM(delivered), 4) ELSE 0 END as spam_rate,
             CASE WHEN SUM(sent) > 0 THEN ROUND(100.0 * SUM(bounces) / SUM(sent), 4) ELSE 0 END as bounce_rate
@@ -271,10 +273,11 @@ def get_domain_timeseries(from_domain: str, days: int = 30) -> pd.DataFrame:
     """
     df = pd.read_sql_query(query, conn, params=(from_domain, cutoff_date))
     conn.close()
+    df = _aggregate_timeseries(df, mode)
     return df
 
 
-def get_account_timeseries(account_name: str, days: int = 30) -> pd.DataFrame:
+def get_account_timeseries(account_name: str, days: int = 30, mode: str = "daily") -> pd.DataFrame:
     """Get time-series data for a specific account"""
     cutoff_date = (datetime.utcnow().date() - timedelta(days=days)).strftime('%Y-%m-%d')
     conn = sqlite3.connect(DB_PATH)
@@ -319,6 +322,44 @@ def get_account_timeseries(account_name: str, days: int = 30) -> pd.DataFrame:
     grouped['spam_rate'] = grouped.apply(lambda r: round(pct(r['spam_report'], r['delivered']), 4), axis=1)
     grouped['bounce_rate'] = grouped.apply(lambda r: round(pct(r['bounces'], r['sent']), 4), axis=1)
 
+    grouped = _aggregate_timeseries(grouped, mode)
+    return grouped
+
+
+
+
+
+def _aggregate_timeseries(df: pd.DataFrame, mode: str) -> pd.DataFrame:
+    if df is None or df.empty:
+        return df
+    mode = (mode or 'daily').lower()
+    if mode == 'daily':
+        return df
+
+    df = df.copy()
+    df['report_date'] = pd.to_datetime(df['report_date'], errors='coerce')
+    df = df.dropna(subset=['report_date'])
+    if df.empty:
+        return df
+
+    if mode == 'weekly':
+        df['period'] = df['report_date'].dt.strftime('%Y-W%W')
+    elif mode == 'monthly':
+        df['period'] = df['report_date'].dt.strftime('%Y-%m')
+    else:
+        return df
+
+    grouped = df.groupby('period', as_index=False).agg({
+        'sent': 'sum',
+        'delivered': 'sum',
+        'spam_report': 'sum',
+        'bounces': 'sum'
+    })
+
+    grouped['delivery_rate'] = grouped.apply(lambda r: round(pct(r['delivered'], r['sent']), 2), axis=1)
+    grouped['spam_rate'] = grouped.apply(lambda r: round(pct(r['spam_report'], r['delivered']), 4), axis=1)
+    grouped['bounce_rate'] = grouped.apply(lambda r: round(pct(r['bounces'], r['sent']), 4), axis=1)
+    grouped.rename(columns={'period': 'report_date'}, inplace=True)
     return grouped
 
 

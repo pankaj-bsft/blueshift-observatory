@@ -567,10 +567,10 @@ async def pulsation_summary(view: PulsationViewType):
 
 
 @app.get('/api/pulsation/domain-timeseries/{domain}')
-async def get_domain_chart_data(domain: str, days: int = 30):
+async def get_domain_chart_data(domain: str, days: int = 30, mode: str = 'daily'):
     """Get time-series data for a specific domain"""
     try:
-        df = get_domain_timeseries(domain, days)
+        df = get_domain_timeseries(domain, days, mode)
 
         if df.empty:
             return {
@@ -597,10 +597,10 @@ async def get_domain_chart_data(domain: str, days: int = 30):
 
 
 @app.get('/api/pulsation/account-timeseries/{account_name}')
-async def get_account_chart_data(account_name: str, days: int = 30):
+async def get_account_chart_data(account_name: str, days: int = 30, mode: str = 'daily'):
     """Get time-series data for a specific account"""
     try:
-        df = get_account_timeseries(account_name, days)
+        df = get_account_timeseries(account_name, days, mode)
 
         if df.empty:
             return {

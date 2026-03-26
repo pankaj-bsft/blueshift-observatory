@@ -1927,6 +1927,12 @@
                   </div>
                 </div>
                 <div>
+                  <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Aggregation:</label>
+                  <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                    <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendAggregation === 'daily' }" @click="pulsationTrendAggregation='daily'; loadTrendCharts()">Daily</button>
+                    <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendAggregation === 'weekly' }" @click="pulsationTrendAggregation='weekly'; loadTrendCharts()">Weekly</button>
+                    <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendAggregation === 'monthly' }" @click="pulsationTrendAggregation='monthly'; loadTrendCharts()">Monthly</button>
+                  </div>
                   <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Time Period:</label>
                   <select class="date-input" v-model="chartDays" @change="loadTrendCharts" :disabled="pulsationTrendMode === 'domain' ? !selectedDomain : !selectedAccount" style="width: 100%;">
                     <option :value="7">Last 7 Days</option>
@@ -4867,9 +4873,9 @@
                 <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.routing }">▶</span>
               </div>
               <div class="da-items" :class="{ open: deliverabilitySectionsOpen.routing }">
-                <div class="da-item"><div class="da-item-name">Return-Path</div><div class="da-item-desc">{{ emlAnalysisReport.from_address }} vs {{ emlAnalysisReport.reply_to || '—' }} — check for mismatches.</div></div>
-                <div class="da-item"><div class="da-item-name">Received chain</div><div class="da-item-desc">Review hop delays for throttling or unexpected relays.</div></div>
-                <div class="da-item"><div class="da-item-name">Sending IP</div><div class="da-item-desc">Extract from first untrusted <code>Received</code> hop. Validate PTR/rDNS.</div></div>
+                <div class="da-item"><div class="da-item-name">Return-Path</div><div class="da-item-desc">{{ emlAnalysisReport.return_path || '—' }} vs {{ emlAnalysisReport.from_address || '—' }} — {{ (emlAnalysisReport.return_path && emlAnalysisReport.from_address && emlAnalysisReport.return_path.split('@')[1] !== emlAnalysisReport.from_address.split('@')[1]) ? 'Mismatch' : 'Aligned' }}.</div></div>
+                <div class="da-item"><div class="da-item-name">Received chain</div><div class="da-item-desc">{{ emlAnalysisReport.received_hop_count || 0 }} hop(s) — review hop delays for throttling or unexpected relays.</div></div>
+                <div class="da-item"><div class="da-item-name">Sending IP</div><div class="da-item-desc">{{ emlAnalysisReport.sending_ip || emlAnalysisReport.metrics?.sending_ip || '—' }} — {{ emlAnalysisReport.rdns_note || emlAnalysisReport.metrics?.rdns_note || 'PTR/rDNS unknown' }}.</div></div>
               </div>
             </div>
 
@@ -5703,6 +5709,7 @@
           pulsationLoading: false,
           pulsationData: null,
           pulsationTab: 'overall',
+          pulsationTrendAggregation: 'daily',
           pulsationViewType: 'yesterday',
           pulsationCustomCollectDate: '',
           pulsationDomainFilter: '',
@@ -6795,7 +6802,7 @@
               ? `/api/pulsation/account-timeseries/${encodeURIComponent(target)}`
               : `/api/pulsation/domain-timeseries/${encodeURIComponent(target)}`;
 
-            const response = await fetch(`${this.API_BASE}${endpoint}?days=${this.chartDays}`);
+            const response = await fetch(`${this.API_BASE}${endpoint}?days=${this.chartDays}&mode=${this.pulsationTrendAggregation}`);
             const result = await response.json();
 
             if (result.status === 'success' && result.data) {
