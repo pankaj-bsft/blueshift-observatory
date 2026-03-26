@@ -1,3 +1,4 @@
+from data_paths import data_path
 """
 MBR Storage Service
 Stores MBR reports (domain and account level) in SQLite for historical tracking
@@ -8,7 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 
-DB_PATH = '/Users/pankaj/pani/data/mbr_reports.db'
+DB_PATH = data_path('mbr_reports.db')
 
 
 def detect_month_year(from_date: str, to_date: str, duration_days: int) -> Tuple[Optional[int], Optional[int]]:

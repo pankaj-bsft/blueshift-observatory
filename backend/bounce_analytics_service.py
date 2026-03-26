@@ -1,3 +1,4 @@
+from data_paths import data_path
 """
 Bounce Analytics Service
 Collects and analyzes email bounce data from Mailgun, SparkPost, and SendGrid
@@ -13,7 +14,7 @@ from config import (
     SENDGRID_API_KEY, SENDGRID_BASE_URL
 )
 
-DB_PATH = '/Users/pankaj/pani/data/bounce_analytics.db'
+DB_PATH = data_path('bounce_analytics.db')
 
 # ISP Domain Mapping
 ISP_MAPPING = {

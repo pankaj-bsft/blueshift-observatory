@@ -1,3 +1,4 @@
+from data_paths import data_path
 """
 Email Service
 Manages email recipients and sends MBR reports via SendGrid
@@ -24,7 +25,7 @@ SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
 FROM_EMAIL = 'Pankaj@deliverability.getblueshift.com'
 REPLY_TO_EMAIL = 'pankaj.kumar@getblueshift.com'
 
-DB_PATH = '/Users/pankaj/pani/data/account_mappings.db'
+DB_PATH = data_path('account_mappings.db')
 
 
 def get_db_connection():

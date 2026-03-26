@@ -7,9 +7,10 @@ from druid_service import execute_druid_query, calculate_metrics
 from config import DRUID_US_BROKER, DRUID_EU_BROKER
 from account_mapping_service import get_all_mappings
 from spamhaus_service import get_spamhaus_listing_summary, ensure_daily_refresh
+from data_paths import data_path
 
 # Database path
-DB_PATH = '/Users/pankaj/pani/data/deliverability_history.db'
+DB_PATH = data_path('deliverability_history.db')
 RETENTION_DAYS = 365
 
 # Druid query template for Pulsation

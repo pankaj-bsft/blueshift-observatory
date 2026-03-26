@@ -3,6 +3,7 @@ EML Deliverability Analysis Service
 """
 import os
 import re
+import socket
 import sqlite3
 import json
 import unicodedata
@@ -148,6 +149,7 @@ def _parse_eml(content: bytes) -> Dict:
     auth_results = msg.get_all('Authentication-Results', [])
     received_spf = msg.get_all('Received-SPF', [])
     dkim_sig = msg.get_all('DKIM-Signature', [])
+    received_headers = msg.get_all('Received', [])
 
     text_body = ''
     html_body = ''
@@ -191,6 +193,7 @@ def _parse_eml(content: bytes) -> Dict:
         'auth_results': auth_results,
         'received_spf': received_spf,
         'dkim_signature': dkim_sig,
+        'received_headers': received_headers,
         'text_body': text_body or '',
         'html_body': html_body or '',
         'attachments': attachments
@@ -214,6 +217,66 @@ def _extract_auth_results(parsed: Dict) -> Dict:
         dkim = 'present'
 
     return {'spf': spf, 'dkim': dkim, 'dmarc': dmarc}
+
+
+
+
+
+def _extract_sending_ip(parsed: dict) -> str:
+    received_headers = parsed.get('received_headers') or []
+    # First hop is usually the last Received header
+    for header in reversed(received_headers):
+        if not header:
+            continue
+        match = re.search(r'\[(\d{1,3}(?:\.\d{1,3}){3})\]', header)
+        if match:
+            return match.group(1)
+        match = re.search(r'(\d{1,3}(?:\.\d{1,3}){3})', header)
+        if match:
+            return match.group(1)
+
+    # Fall back to Received-SPF / raw headers
+    for spf in (parsed.get('received_spf') or []):
+        match = re.search(r'client-ip=([0-9.]+)', spf)
+        if match:
+            return match.group(1)
+
+    raw = parsed.get('raw_content_text') or ''
+    for rx in [r'client-ip=([0-9.]+)', r'x-originating-ip[: ]*\[?([0-9.]+)\]?', r'\[(\d{1,3}(?:\.\d{1,3}){3})\]']:
+        match = re.search(rx, raw)
+        if match:
+            return match.group(1)
+
+    return ''
+
+
+def _check_rdns(ip: str) -> dict:
+    if not ip:
+        return {
+            'rdns_hostname': '',
+            'rdns_valid': False,
+            'rdns_note': 'No sending IP found'
+        }
+    try:
+        host, _, _ = socket.gethostbyaddr(ip)
+    except Exception as e:
+        return {
+            'rdns_hostname': '',
+            'rdns_valid': False,
+            'rdns_note': f'PTR lookup failed ({e.__class__.__name__})'
+        }
+    # Forward-confirmed reverse DNS (FCrDNS)
+    try:
+        addrs = {info[4][0] for info in socket.getaddrinfo(host, None)}
+        valid = ip in addrs
+    except Exception:
+        valid = False
+    note = 'Valid PTR/rDNS' if valid else 'PTR found but forward lookup mismatch'
+    return {
+        'rdns_hostname': host,
+        'rdns_valid': valid,
+        'rdns_note': note
+    }
 
 
 def _detect_spam_keywords(text: str) -> List[str]:
@@ -484,6 +547,8 @@ def analyze_eml(content: bytes) -> Dict:
     redirect_domains = _detect_redirect_domains(links)
     domain_alignment_issue = _domain_alignment_issue(parsed.get('from_address'), [r.get('final_domain') for r in redirect_domains if r.get('final_domain')] or links)
     header_issues = _analyze_headers(parsed)
+    sending_ip = _extract_sending_ip(parsed)
+    rdns_info = _check_rdns(sending_ip)
     personalization = _personalization_issues(combined_text)
     subject_issues = _subject_quality(parsed.get('subject') or '')
     img_ratio = _image_text_ratio(parsed.get('html_body') or '', parsed.get('text_body') or '')
@@ -610,7 +675,14 @@ def analyze_eml(content: bytes) -> Dict:
         'subject_hidden_chars': subject_chars['hidden_chars'],
         'preheader_char_map': preheader_chars['char_map'],
         'preheader_hidden_chars': preheader_chars['hidden_chars'],
-        'body_hidden_chars': body_chars['hidden_chars']
+        'body_hidden_chars': body_chars['hidden_chars'],
+        'return_path': parsed.get('return_path'),
+        'reply_to': parsed.get('reply_to'),
+        'received_hop_count': len(parsed.get('received_headers') or []),
+        'sending_ip': sending_ip,
+        'rdns_hostname': rdns_info.get('rdns_hostname'),
+        'rdns_valid': rdns_info.get('rdns_valid'),
+        'rdns_note': rdns_info.get('rdns_note')
     }
 
     return {

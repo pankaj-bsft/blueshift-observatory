@@ -4,10 +4,11 @@ import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import logging
+from data_paths import data_path
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = '/Users/pankaj/pani/data/industry_updates.db'
+DB_PATH = data_path('industry_updates.db')
 
 # Trusted RSS feed sources
 RSS_SOURCES = {

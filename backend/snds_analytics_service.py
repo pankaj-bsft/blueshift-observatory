@@ -1,3 +1,4 @@
+from data_paths import data_path
 """
 SNDS Analytics Service
 Provides aggregations, trends, and analytics for SNDS data
@@ -7,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from collections import defaultdict
 
-SNDS_DB_PATH = '/Users/pankaj/pani/data/snds_data.db'
+SNDS_DB_PATH = data_path('snds_data.db')
 
 
 def get_time_period_dates(period: str) -> tuple:

@@ -1,3 +1,4 @@
+from data_paths import data_path
 """
 ESP Integration Service
 Fetches account info (domains, IPs, subaccounts, pools) from Mailgun, Sparkpost, and Sendgrid
@@ -16,7 +17,7 @@ from config import (
 )
 
 # Account mappings database path
-ACCOUNT_MAPPINGS_DB = '/Users/pankaj/pani/data/account_mappings.db'
+ACCOUNT_MAPPINGS_DB = data_path('account_mappings.db')
 
 # Cache storage
 _cache = {

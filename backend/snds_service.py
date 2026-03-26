@@ -1,3 +1,4 @@
+from data_paths import data_path
 """
 Microsoft SNDS (Smart Network Data Services) Integration
 Fetches IP reputation, spam rates, and traffic data from Microsoft
@@ -13,7 +14,7 @@ SNDS_DATA_URL = "https://sendersupport.olc.protection.outlook.com/snds/data/?key
 SNDS_IP_STATUS_URL = "https://sendersupport.olc.protection.outlook.com/snds/ipStatus/?key=9bf7cec9-4cf2-466f-924e-6c54b4ebbd5e"
 
 # Database path
-SNDS_DB_PATH = '/Users/pankaj/pani/data/snds_data.db'
+SNDS_DB_PATH = data_path('snds_data.db')
 
 
 def init_snds_database():

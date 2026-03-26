@@ -2,10 +2,11 @@ import sqlite3
 import socket
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
+from data_paths import data_path
 
 from account_mapping_service import get_all_mappings
 
-DB_PATH = '/Users/pankaj/pani/data/deliverability_history.db'
+DB_PATH = data_path('deliverability_history.db')
 SPAMHAUS_ZONE = 'wb5dvc223dyd64f5tsbrtxqytm.dbl.dq.spamhaus.net'
 RETENTION_DAYS = 365
 LOOKUP_TIMEOUT = 2

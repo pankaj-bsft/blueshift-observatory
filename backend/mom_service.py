@@ -1,3 +1,4 @@
+from data_paths import data_path
 """
 MoM (Month-over-Month) Service
 Calculates send volume changes by comparing current period with previous period
@@ -8,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 
-DB_PATH = '/Users/pankaj/pani/data/mbr_reports.db'
+DB_PATH = data_path('mbr_reports.db')
 
 
 def get_previous_month_range(from_date: str, to_date: str) -> tuple:

@@ -1,3 +1,4 @@
+from data_paths import data_path
 """
 Google Postmaster Tools (GPT) Analytics Service
 Provides aggregations, trends, and insights from GPT data
@@ -7,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import json
 
-GPT_DB_PATH = '/Users/pankaj/pani/data/gpt_data.db'
+GPT_DB_PATH = data_path('gpt_data.db')
 
 
 def get_overview_stats(days: int = 30) -> Dict:
@@ -418,7 +419,7 @@ def get_yesterday_overview() -> List[Dict]:
     cursor = conn.cursor()
 
     # Attach account mappings database
-    cursor.execute("ATTACH DATABASE '/Users/pankaj/pani/data/account_mappings.db' AS mappings")
+    cursor.execute(f"ATTACH DATABASE '{data_path('account_mappings.db')}' AS mappings")
 
     # Get latest data for each domain with account name (subquery finds max date per domain)
     cursor.execute('''
@@ -493,7 +494,7 @@ def get_all_domains_latest() -> List[Dict]:
     cursor = conn.cursor()
 
     # Attach account mappings database
-    cursor.execute("ATTACH DATABASE '/Users/pankaj/pani/data/account_mappings.db' AS mappings")
+    cursor.execute(f"ATTACH DATABASE '{data_path('account_mappings.db')}' AS mappings")
 
     cursor.execute('''
         SELECT

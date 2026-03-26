@@ -1,3 +1,4 @@
+from data_paths import data_path
 """
 Account Mapping Service
 Manages domain-to-account mappings with SQLite backend
@@ -9,7 +10,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 
 
-DB_PATH = '/Users/pankaj/pani/data/account_mappings.db'
+DB_PATH = data_path('account_mappings.db')
 CSV_PATH = '/Users/pankaj/pani/data/domain_account_mapping.csv'
 
 

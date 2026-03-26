@@ -1,3 +1,4 @@
+from data_paths import data_path
 """
 Google Postmaster Tools (GPT) Service
 Handles OAuth 2.0 authentication and data collection from Google Postmaster API
@@ -14,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database path
-GPT_DB_PATH = '/Users/pankaj/pani/data/gpt_data.db'
+GPT_DB_PATH = data_path('gpt_data.db')
 
 # OAuth 2.0 Configuration (loaded from environment)
 CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
