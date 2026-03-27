@@ -4998,7 +4998,51 @@
               </div>
             </div>
 
+            
             <div class="da-section">
+              <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('blocklist')">
+                <div class="da-dot" style="background:#0f172a"></div>
+                <span class="da-sec-title">11. Blocklist Checks</span>
+                <span class="da-badge" style="background:#e2e8f0;color:#0f172a">Blocklists</span>
+                <span class="da-arrow" :class="{ open: deliverabilitySectionsOpen.blocklist }">▶</span>
+              </div>
+              <div class="da-items" :class="{ open: deliverabilitySectionsOpen.blocklist }">
+                <div class="da-item"><div class="da-item-name">Sending IP</div><div class="da-item-desc">
+                  <div v-if="emlAnalysisReport.metrics?.blocklist?.sending_ip?.value">
+                    <div><strong>{{ emlAnalysisReport.metrics.blocklist.sending_ip.value }}</strong></div>
+                    <div style="font-size:11px;color:#64748b;">Spamhaus: {{ emlAnalysisReport.metrics?.blocklist?.sending_ip?.results?.spamhaus?.listed ? 'Listed' : (emlAnalysisReport.metrics?.blocklist?.sending_ip?.results?.spamhaus ? 'Clean' : 'Unknown') }} · Barracuda: {{ emlAnalysisReport.metrics?.blocklist?.sending_ip?.results?.barracuda?.listed ? 'Listed' : (emlAnalysisReport.metrics?.blocklist?.sending_ip?.results?.barracuda ? 'Clean' : 'Unknown') }} · SORBS: {{ emlAnalysisReport.metrics?.blocklist?.sending_ip?.results?.sorbs?.listed ? 'Listed' : (emlAnalysisReport.metrics?.blocklist?.sending_ip?.results?.sorbs ? 'Clean' : 'Unknown') }}</div>
+                  </div>
+                  <div v-else>—</div>
+                </div></div>
+                <div class="da-item"><div class="da-item-name">Sending domain</div><div class="da-item-desc">
+                  <div v-if="emlAnalysisReport.metrics?.blocklist?.sending_domain?.value">
+                    <div><strong>{{ emlAnalysisReport.metrics.blocklist.sending_domain.value }}</strong></div>
+                    <div style="font-size:11px;color:#64748b;">Spamhaus: {{ emlAnalysisReport.metrics?.blocklist?.sending_domain?.results?.spamhaus?.listed ? 'Listed' : (emlAnalysisReport.metrics?.blocklist?.sending_domain?.results?.spamhaus ? 'Clean' : 'Unknown') }} · Barracuda: {{ emlAnalysisReport.metrics?.blocklist?.sending_domain?.results?.barracuda?.listed ? 'Listed' : (emlAnalysisReport.metrics?.blocklist?.sending_domain?.results?.barracuda ? 'Clean' : 'Unknown') }} · SORBS: {{ emlAnalysisReport.metrics?.blocklist?.sending_domain?.results?.sorbs?.listed ? 'Listed' : (emlAnalysisReport.metrics?.blocklist?.sending_domain?.results?.sorbs ? 'Clean' : 'Unknown') }}</div>
+                  </div>
+                  <div v-else>—</div>
+                </div></div>
+                <div class="da-item"><div class="da-item-name">Link domains</div><div class="da-item-desc">
+                  <div v-if="(emlAnalysisReport.metrics?.blocklist?.link_domains || []).length">
+                    <div v-for="(d, idx) in (emlAnalysisReport.metrics?.blocklist?.link_domains || []).slice(0,6)" :key="'bl-link-'+idx" style="margin-bottom:4px;">
+                      <strong>{{ d.domain }}</strong> — Spamhaus: {{ d.results?.spamhaus?.listed ? 'Listed' : (d.results?.spamhaus ? 'Clean' : 'Unknown') }}, Barracuda: {{ d.results?.barracuda?.listed ? 'Listed' : (d.results?.barracuda ? 'Clean' : 'Unknown') }}, SORBS: {{ d.results?.sorbs?.listed ? 'Listed' : (d.results?.sorbs ? 'Clean' : 'Unknown') }}
+                    </div>
+                    <div v-if="(emlAnalysisReport.metrics?.blocklist?.link_domains || []).length > 6" style="font-size:11px;color:#64748b;">+ {{ (emlAnalysisReport.metrics?.blocklist?.link_domains || []).length - 6 }} more</div>
+                  </div>
+                  <div v-else>—</div>
+                </div></div>
+                <div class="da-item"><div class="da-item-name">Redirect domains</div><div class="da-item-desc">
+                  <div v-if="(emlAnalysisReport.metrics?.blocklist?.redirect_domains || []).length">
+                    <div v-for="(d, idx) in (emlAnalysisReport.metrics?.blocklist?.redirect_domains || []).slice(0,6)" :key="'bl-redir-'+idx" style="margin-bottom:4px;">
+                      <strong>{{ d.domain }}</strong> — Spamhaus: {{ d.results?.spamhaus?.listed ? 'Listed' : (d.results?.spamhaus ? 'Clean' : 'Unknown') }}, Barracuda: {{ d.results?.barracuda?.listed ? 'Listed' : (d.results?.barracuda ? 'Clean' : 'Unknown') }}, SORBS: {{ d.results?.sorbs?.listed ? 'Listed' : (d.results?.sorbs ? 'Clean' : 'Unknown') }}
+                    </div>
+                    <div v-if="(emlAnalysisReport.metrics?.blocklist?.redirect_domains || []).length > 6" style="font-size:11px;color:#64748b;">+ {{ (emlAnalysisReport.metrics?.blocklist?.redirect_domains || []).length - 6 }} more</div>
+                  </div>
+                  <div v-else>—</div>
+                </div></div>
+              </div>
+            </div>
+
+<div class="da-section">
               <div class="da-sec-header" @click.prevent="toggleDeliverabilitySection('misc')">
                 <div class="da-dot" style="background:#888780"></div>
                 <span class="da-sec-title">10. Tiny / Often‑missed Checks</span>
@@ -5966,7 +6010,7 @@
           emlAnalysisError: null,
           emlAnalysisReport: null,
           emlAnalysisFilename: '',
-          deliverabilitySectionsOpen: { auth: true, routing: false, identity: false, structure: false, content: true, links: false, mime: false, infra: false, compliance: false, misc: false, signalScore: false },
+          deliverabilitySectionsOpen: { auth: true, routing: false, identity: false, structure: false, content: true, links: false, mime: false, infra: false, compliance: false, misc: false, blocklist: false, signalScore: false },
           emlSignalSearch: '',
           emlSignalFilter: 'all',
           emlSignalSortCol: null,
@@ -5984,6 +6028,7 @@
             { cat: 'Text-to-HTML Ratio', signal: 'Heavily HTML-driven CTA', score: 'slightneg', label: '⚠️ Slight Negative' },
             { cat: 'Brand Consistency', signal: 'Multiple domain references', score: 'medneg', label: '⚠️ Negative' },
             { cat: 'Link Trust', signal: 'Redirect + domain mismatch', score: 'medneg', label: '⚠️ Negative' },
+            { cat: 'Blocklist', signal: 'No blocklist hits detected', score: 'pos', label: '👍 Positive' },
             { cat: 'Tracking Density', signal: 'High tracking parameters', score: 'slightneg', label: '⚠️ Slight Negative' },
             { cat: 'CTA Aggressiveness', signal: 'Strong CTA repetition', score: 'medneg', label: '⚠️ Medium Negative' },
             { cat: 'Keyword Risk', signal: 'Financial/benefit phrasing', score: 'medneg', label: '⚠️ Medium Negative' },
@@ -6164,17 +6209,13 @@
             label: (spfPass && dkimPass && dmarcPass) ? '👍 Positive' : '🚨 Strong Negative'
           });
 
+          const hasListUnsub = !!metrics.list_unsubscribe_header;
+          const hasBodyUnsub = !!metrics.has_unsubscribe;
           rows.push({
             cat: 'Compliance Signals',
-            signal: metrics.list_unsubscribe_header ? 'List-Unsubscribe header present' : 'List-Unsubscribe header missing',
-            score: metrics.list_unsubscribe_header ? 'pos' : 'strongneg',
-            label: metrics.list_unsubscribe_header ? '👍 Positive' : '🚨 Strong Negative'
-          });
-          rows.push({
-            cat: 'Compliance Signals',
-            signal: metrics.has_unsubscribe ? 'Unsubscribe link present' : 'Unsubscribe link missing',
-            score: metrics.has_unsubscribe ? 'pos' : 'strongneg',
-            label: metrics.has_unsubscribe ? '👍 Positive' : '🚨 Strong Negative'
+            signal: `List-Unsubscribe: ${hasListUnsub ? 'present' : 'missing'}; Body unsubscribe: ${hasBodyUnsub ? 'present' : 'missing'}`,
+            score: (hasListUnsub && hasBodyUnsub) ? 'pos' : 'strongneg',
+            label: (hasListUnsub && hasBodyUnsub) ? '👍 Positive' : '🚨 Strong Negative'
           });
 
           const hiddenCount = metrics.hidden_char_count || 0;
@@ -6213,17 +6254,20 @@
             score: metrics.domain_alignment_issue ? 'medneg' : 'pos',
             label: metrics.domain_alignment_issue ? '⚠️ Negative' : '👍 Positive'
           });
+          const hasNonHttps = (metrics.non_https_links || []).length > 0;
+          const hasBroken = (metrics.broken_links || []).length > 0;
           rows.push({
             cat: 'Link Hygiene',
-            signal: (metrics.non_https_links || []).length ? 'Non-HTTPS links present' : 'All links are HTTPS',
-            score: (metrics.non_https_links || []).length ? 'medneg' : 'pos',
-            label: (metrics.non_https_links || []).length ? '⚠️ Medium Negative' : '👍 Positive'
+            signal: `Non-HTTPS: ${hasNonHttps ? 'present' : 'none'}; Broken: ${hasBroken ? 'present' : 'none'}`,
+            score: (hasNonHttps || hasBroken) ? 'medneg' : 'pos',
+            label: (hasNonHttps || hasBroken) ? '⚠️ Medium Negative' : '👍 Positive'
           });
+          const blocklistAny = !!(metrics.blocklist && metrics.blocklist.any_listed);
           rows.push({
-            cat: 'Link Hygiene',
-            signal: (metrics.broken_links || []).length ? 'Broken links detected' : 'No broken links detected',
-            score: (metrics.broken_links || []).length ? 'medneg' : 'pos',
-            label: (metrics.broken_links || []).length ? '⚠️ Medium Negative' : '👍 Positive'
+            cat: 'Blocklist',
+            signal: blocklistAny ? 'Blocklist listings detected' : 'No blocklist hits detected',
+            score: blocklistAny ? 'strongneg' : 'pos',
+            label: blocklistAny ? '🚨 Strong Negative' : '👍 Positive'
           });
 
           const headerIssue = (issues || []).some(i => (i || '').toLowerCase().includes('header'));
@@ -6428,7 +6472,7 @@
 
       methods: {
         toggleDeliverabilitySection(key) {
-          this.deliverabilitySectionsOpen = this.deliverabilitySectionsOpen || { auth: true, routing: false, identity: false, structure: false, content: true, links: false, mime: false, infra: false, compliance: false, misc: false, signalScore: false };
+          this.deliverabilitySectionsOpen = this.deliverabilitySectionsOpen || { auth: true, routing: false, identity: false, structure: false, content: true, links: false, mime: false, infra: false, compliance: false, misc: false, blocklist: false, signalScore: false };
           this.deliverabilitySectionsOpen[key] = !this.deliverabilitySectionsOpen[key];
         },
         setEmlSignalFilter(filter) {
