@@ -15,6 +15,7 @@ from typing import Dict, List, Optional
 from email import policy
 from email.parser import BytesParser
 from email.utils import parseaddr
+from spamhaus_service import _lookup_spamhaus, SPAMHAUS_ZONE
 
 DB_PATH = '/Users/pankaj/pani/data/deliverability_analysis.db'
 UPLOAD_DIR = '/Users/pankaj/pani/data/eml_uploads'
@@ -29,6 +30,146 @@ SPAM_KEYWORDS = [
 
 HIDDEN_CHAR_PATTERN = re.compile(r'[\u200b-\u200f\u202a-\u202e\u2060\uFEFF\u00ad\u00a0\u2000-\u200a\u202f\u205f\u3000]')
 URL_PATTERN = re.compile(r'(https?://[^\s"\'<>]+)', re.IGNORECASE)
+MAX_BLOCKLIST_DOMAINS = 20
+SPAMHAUS_IP_LOOKUP_ENABLED = os.getenv("BS_ENABLE_SPAMHAUS_IP", "true").lower() == "true"
+SPAMHAUS_IP_ZONE = SPAMHAUS_ZONE.replace('dbl', 'zen', 1) if 'dbl' in SPAMHAUS_ZONE else SPAMHAUS_ZONE
+
+
+def _clean_domain(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    val = value.strip().lower()
+    if '@' in val:
+        val = val.split('@')[-1]
+    if '//' in val:
+        val = urlparse(val).netloc or ''
+    elif '/' in val:
+        val = val.split('/')[0]
+    val = val.split(':')[0]
+    val = val.strip('[]()<>. ')
+    if val.startswith('www.'):
+        val = val[4:]
+    if '.' not in val:
+        return None
+    return val
+
+
+def _reverse_ip(ip: Optional[str]) -> Optional[str]:
+    if not ip:
+        return None
+    parts = ip.strip().split('.')
+    if len(parts) != 4:
+        return None
+    if not all(p.isdigit() for p in parts):
+        return None
+    return '.'.join(reversed(parts))
+
+
+def _dnsbl_query(hostname: Optional[str]) -> Dict:
+    if not hostname:
+        return {'listed': False, 'error': 'no-host'}
+    prev_timeout = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(2)
+    try:
+        ip = socket.gethostbyname(hostname)
+        return {'listed': True, 'response': ip}
+    except socket.gaierror:
+        return {'listed': False}
+    except Exception as e:
+        return {'listed': False, 'error': str(e)}
+    finally:
+        socket.setdefaulttimeout(prev_timeout)
+
+
+
+
+def _lookup_spamhaus_ip(rev_ip: str) -> str:
+    fqdn = f"{rev_ip}.{SPAMHAUS_IP_ZONE}"
+    prev_timeout = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(2)
+    try:
+        socket.gethostbyname(fqdn)
+        return 'listed'
+    except socket.gaierror:
+        return 'clean'
+    except socket.timeout:
+        return 'unknown'
+    except Exception:
+        return 'unknown'
+    finally:
+        socket.setdefaulttimeout(prev_timeout)
+def _check_ip_blocklists(ip: Optional[str]) -> Dict:
+    rev = _reverse_ip(ip)
+    if not rev:
+        return {}
+    spamhaus_result = None
+    if SPAMHAUS_IP_LOOKUP_ENABLED:
+        status = _lookup_spamhaus_ip(rev)
+        if status != 'unknown':
+            spamhaus_result = {'listed': status == 'listed'}
+    return {
+        'spamhaus': spamhaus_result,
+        'barracuda': _dnsbl_query(f'{rev}.b.barracudacentral.org'),
+        'sorbs': _dnsbl_query(f'{rev}.dnsbl.sorbs.net'),
+    }
+
+
+def _check_domain_blocklists(domain: Optional[str]) -> Dict:
+    d = _clean_domain(domain)
+    if not d:
+        return {}
+    status = _lookup_spamhaus(d)
+    spamhaus_result = {'listed': status == 'listed'}
+    if status == 'unknown':
+        spamhaus_result = None
+    return {
+        'spamhaus': spamhaus_result,
+        'barracuda': _dnsbl_query(f'{d}.b.barracudacentral.org'),
+        'sorbs': _dnsbl_query(f'{d}.dnsbl.sorbs.net'),
+    }
+
+
+def _blocklist_checks(sending_ip: Optional[str], sending_domain: Optional[str], link_domains: List[str], redirect_domains: List[str]) -> Dict:
+    result = {
+        'sending_ip': {'value': sending_ip, 'results': _check_ip_blocklists(sending_ip)},
+        'sending_domain': {'value': sending_domain, 'results': _check_domain_blocklists(sending_domain)},
+        'link_domains': [],
+        'redirect_domains': [],
+        'any_listed': False
+    }
+
+    seen = set()
+    for domain in link_domains:
+        d = _clean_domain(domain)
+        if not d or d in seen:
+            continue
+        seen.add(d)
+        result['link_domains'].append({'domain': d, 'results': _check_domain_blocklists(d)})
+        if len(result['link_domains']) >= MAX_BLOCKLIST_DOMAINS:
+            break
+
+    seen = set()
+    for domain in redirect_domains:
+        d = _clean_domain(domain)
+        if not d or d in seen:
+            continue
+        seen.add(d)
+        result['redirect_domains'].append({'domain': d, 'results': _check_domain_blocklists(d)})
+        if len(result['redirect_domains']) >= MAX_BLOCKLIST_DOMAINS:
+            break
+
+    def _any_listed(checks: Dict) -> bool:
+        return any(v.get('listed') for v in (checks or {}).values())
+
+    if _any_listed(result['sending_ip'].get('results')) or _any_listed(result['sending_domain'].get('results')):
+        result['any_listed'] = True
+    for item in result['link_domains'] + result['redirect_domains']:
+        if _any_listed(item.get('results')):
+            result['any_listed'] = True
+            break
+
+    return result
+
 
 
 def init_eml_database() -> None:
@@ -549,6 +690,14 @@ def analyze_eml(content: bytes) -> Dict:
     header_issues = _analyze_headers(parsed)
     sending_ip = _extract_sending_ip(parsed)
     rdns_info = _check_rdns(sending_ip)
+    sending_domain = _clean_domain(parsed.get('from_address'))
+    redirect_domain_list = []
+    for r in (redirect_domains or []):
+        if r.get('tracking_domain'):
+            redirect_domain_list.append(r.get('tracking_domain'))
+        if r.get('final_domain'):
+            redirect_domain_list.append(r.get('final_domain'))
+    blocklist = _blocklist_checks(sending_ip, sending_domain, links, redirect_domain_list)
     personalization = _personalization_issues(combined_text)
     subject_issues = _subject_quality(parsed.get('subject') or '')
     img_ratio = _image_text_ratio(parsed.get('html_body') or '', parsed.get('text_body') or '')
@@ -582,6 +731,8 @@ def analyze_eml(content: bytes) -> Dict:
         issues.append('From domain does not match landing URL domains')
     if redirect_domains:
         issues.append('Tracking link redirects to a different final domain')
+    if blocklist.get('any_listed'):
+        issues.append('Blocklist listing detected')
     issues.extend(html_issues)
     issues.extend(link_issues)
     issues.extend(header_issues)
@@ -653,6 +804,8 @@ def analyze_eml(content: bytes) -> Dict:
         recommendations.append('Align landing page domains with From domain')
     if redirect_domains:
         recommendations.append('Use branded tracking domains that resolve to the same root domain')
+    if blocklist.get('any_listed'):
+        recommendations.append('Investigate blocklist listings for sending IPs/domains and request delisting')
     if header_issues:
         recommendations.append('Align From, Reply-To, and Return-Path domains')
 
@@ -682,7 +835,8 @@ def analyze_eml(content: bytes) -> Dict:
         'sending_ip': sending_ip,
         'rdns_hostname': rdns_info.get('rdns_hostname'),
         'rdns_valid': rdns_info.get('rdns_valid'),
-        'rdns_note': rdns_info.get('rdns_note')
+        'rdns_note': rdns_info.get('rdns_note'),
+        'blocklist': blocklist
     }
 
     return {
