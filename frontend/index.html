@@ -4040,6 +4040,10 @@
               📥 Collect New
             </button>
 
+            <button v-if="!gptSelectedDomain" class="btn btn-secondary" @click="collectGPTBackfill(60)" :disabled="gptLoading" style="border-color:#7c3aed; color:#6d28d9;">
+              🕒 Backfill 60d
+            </button>
+
             <button v-if="gptSelectedDomain" class="btn btn-secondary" @click="clearDomainSelection" :disabled="gptLoading">
               ← Back to Overview
             </button>
@@ -9257,6 +9261,30 @@
           } catch (err) {
             this.gptError = 'Error collecting data: ' + err.message;
             this.showToast('error', 'Collection Error', this.gptError);
+          } finally {
+            this.gptLoading = false;
+          }
+        },
+
+        async collectGPTBackfill(days) {
+          this.gptLoading = true;
+          this.gptError = null;
+
+          try {
+            this.showToast('info', 'Backfill Started', `Fetching last ${days} days from Google Postmaster Tools...`);
+            const response = await fetch(`${this.API_BASE}/api/gpt/collect?days_back=${days}`, { method: 'POST' });
+            const result = await response.json();
+
+            if (result.status === 'success' || result.status === 'started') {
+              this.showToast('success', 'Backfill Running', result.message || `Backfill started for last ${days} days`);
+              await this.loadGPTData();
+            } else {
+              this.gptError = result.detail || 'Failed to backfill data';
+              this.showToast('error', 'Backfill Failed', this.gptError);
+            }
+          } catch (err) {
+            this.gptError = 'Error backfilling data: ' + err.message;
+            this.showToast('error', 'Backfill Error', this.gptError);
           } finally {
             this.gptLoading = false;
           }
