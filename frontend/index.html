@@ -5731,7 +5731,7 @@
       data() {
         return {
           // API Configuration - always use port 8001 for backend
-          API_BASE: 'http://localhost:8001',
+          API_BASE: `http://${window.location.hostname}:8001`,
 
           // UI State
           sidebarCollapsed: false,
