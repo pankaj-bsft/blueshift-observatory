@@ -105,12 +105,8 @@ def refresh_spamhaus_cache(domains: List[str]) -> Dict[str, str]:
 
         status = _lookup_spamhaus(domain)
         cursor.execute('''
-            INSERT INTO spamhaus_cache (domain, status, checked_at, expires_at)
+            INSERT OR REPLACE INTO spamhaus_cache (domain, status, checked_at, expires_at)
             VALUES (?, ?, ?, ?)
-            ON CONFLICT(domain) DO UPDATE SET
-                status = excluded.status,
-                checked_at = excluded.checked_at,
-                expires_at = excluded.expires_at
         ''', (domain, status, today, expires_at))
 
         cursor.execute('''
