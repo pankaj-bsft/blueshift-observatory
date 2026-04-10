@@ -7331,6 +7331,25 @@
           if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
           return `${Math.round(num)}`;
         },
+        computeNiceScale(maxValue, ticks = 4) {
+          const val = Number(maxValue);
+          if (!isFinite(val) || val <= 0) {
+            return { max: 1, step: 1 };
+          }
+          const rawStep = val / Math.max(1, ticks);
+          const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+          const norm = rawStep / magnitude;
+          let step;
+          if (norm <= 1) step = 1;
+          else if (norm <= 2) step = 2;
+          else if (norm <= 2.5) step = 2.5;
+          else if (norm <= 5) step = 5;
+          else step = 10;
+          step *= magnitude;
+          const niceMax = Math.ceil(val / step) * step;
+          return { max: niceMax, step };
+        },
+
         setDefaultDates() {
           const today = new Date();
           const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -7510,6 +7529,7 @@
             }
 
             const topDomains = chartsData.top10_overall || [];
+            const topDomainsMax = this.computeNiceScale(Math.max(...topDomains.map(d => Number(d.Sent || 0)), 0));
             const topDomainChart = this.$refs.mbrChartTopDomains;
             if (topDomainChart && topDomains.length) {
               this.mbrCharts.topDomains = new Chart(topDomainChart.getContext('2d'), {
@@ -7526,13 +7546,14 @@
                   indexAxis: 'y',
                   responsive: true,
                   plugins: { legend: { display: false } },
-                  scales: { x: { ticks: { callback: (v) => this.formatShortNumber(v) } } }
+                  scales: { x: { beginAtZero: true, max: topDomainsMax.max, ticks: { stepSize: topDomainsMax.step, callback: (v) => this.formatShortNumber(v) } } }
                 }
               });
             }
           }
 
           const topAccounts = this.topAccountsOverall || [];
+          const topAccountsMax = this.computeNiceScale(Math.max(...topAccounts.map(a => Number(a.Sent || 0)), 0));
           const topAccountsChart = this.$refs.mbrChartTopAccounts;
           if (topAccountsChart && topAccounts.length) {
             this.mbrCharts.topAccounts = new Chart(topAccountsChart.getContext('2d'), {
@@ -7549,7 +7570,7 @@
                 indexAxis: 'y',
                 responsive: true,
                 plugins: { legend: { display: false } },
-                scales: { x: { ticks: { callback: (v) => this.formatShortNumber(v) } } }
+                scales: { x: { beginAtZero: true, max: topAccountsMax.max, ticks: { stepSize: topAccountsMax.step, callback: (v) => this.formatShortNumber(v) } } }
               }
             });
           }
@@ -7573,6 +7594,10 @@
           }
 
           const series = this.mbrMonthlySent.series || {};
+          const monthlyMax = this.computeNiceScale(Math.max(
+            ...[series.Sparkpost || [], series.Mailgun || [], series.Sendgrid || []].flat().map(v => Number(v || 0)),
+            0
+          ));
           this.mbrMonthlySentChart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -7614,7 +7639,10 @@
               },
               scales: {
                 y: {
+                  beginAtZero: true,
+                  max: monthlyMax.max,
                   ticks: {
+                    stepSize: monthlyMax.step,
                     callback: (value) => this.formatShortNumber(value)
                   }
                 }

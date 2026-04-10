@@ -1,4 +1,5 @@
 import io
+import math
 import pandas as pd
 from datetime import datetime
 from reportlab.lib import colors
@@ -617,8 +618,9 @@ def create_sent_by_months_chart(monthly_data: Dict):
 
     max_val = max([max(s) if s else 0 for s in [sp, mg, sg]])
     chart.yValueAxis.valueMin = 0
-    chart.yValueAxis.valueMax = max_val * 1.1 if max_val > 0 else 1
-    chart.yValueAxis.valueSteps = [chart.yValueAxis.valueMax * i / 4 for i in range(5)]
+    nice_max, step = _nice_axis_scale(max_val, 4)
+    chart.yValueAxis.valueMax = nice_max
+    chart.yValueAxis.valueSteps = [step * i for i in range(int(nice_max / step) + 1)]
     chart.yValueAxis.labels.fontName = 'Helvetica'
     chart.yValueAxis.labels.fontSize = 8
     chart.yValueAxis.labelTextFormat = lambda v: _format_short_number(v)
@@ -727,6 +729,32 @@ def create_regional_split_charts(esp_data: Dict):
     return content
 
 
+def _nice_axis_scale(max_val: float, ticks: int = 4):
+    """Return (nice_max, step) for clean axis ticks."""
+    try:
+        max_val = float(max_val)
+    except Exception:
+        return 1, 1
+    if max_val <= 0:
+        return 1, 1
+    raw_step = max_val / max(1, ticks)
+    magnitude = 10 ** math.floor(math.log10(raw_step))
+    norm = raw_step / magnitude
+    if norm <= 1:
+        step = 1
+    elif norm <= 2:
+        step = 2
+    elif norm <= 2.5:
+        step = 2.5
+    elif norm <= 5:
+        step = 5
+    else:
+        step = 10
+    step *= magnitude
+    nice_max = math.ceil(max_val / step) * step
+    return nice_max, step
+
+
 def _format_short_number(value: float) -> str:
     try:
         v = float(value)
@@ -770,8 +798,9 @@ def create_top10_domains_chart(domains: List[Dict], title: str):
     chart.categoryAxis.labels.boxAnchor = 'e'
     chart.categoryAxis.labels.fontSize = 7
     chart.valueAxis.valueMin = 0
-    chart.valueAxis.valueMax = max_val * 1.1 if max_val > 0 else 1
-    chart.valueAxis.valueStep = max(1, int(max_val / 4)) if max_val > 0 else 1
+    nice_max, step = _nice_axis_scale(max_val, 4)
+    chart.valueAxis.valueMax = nice_max
+    chart.valueAxis.valueStep = step
     chart.valueAxis.labels.fontName = 'Helvetica'
     chart.valueAxis.labels.fontSize = 8
     chart.valueAxis.labelTextFormat = lambda v: _format_short_number(v)
@@ -823,8 +852,9 @@ def create_top10_accounts_chart(accounts: List[Dict], title: str):
     chart.categoryAxis.labels.boxAnchor = 'e'
     chart.categoryAxis.labels.fontSize = 8
     chart.valueAxis.valueMin = 0
-    chart.valueAxis.valueMax = max_val * 1.1 if max_val > 0 else 1
-    chart.valueAxis.valueStep = max(1, int(max_val / 4)) if max_val > 0 else 1
+    nice_max, step = _nice_axis_scale(max_val, 4)
+    chart.valueAxis.valueMax = nice_max
+    chart.valueAxis.valueStep = step
     chart.valueAxis.labels.fontName = 'Helvetica'
     chart.valueAxis.labels.fontSize = 8
     chart.valueAxis.labelTextFormat = lambda v: _format_short_number(v)
