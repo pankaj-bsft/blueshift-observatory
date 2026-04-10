@@ -9463,7 +9463,7 @@
                     padding: 12,
                     callbacks: {
                       label: (context) => {
-                        const labels = ['N/A', 'BAD', 'LOW', 'MEDIUM', 'HIGH'];
+                        const labels = ['', 'BAD', 'LOW', 'MEDIUM', 'HIGH'];
                         return 'Reputation: ' + labels[context.parsed.y];
                       }
                     }
@@ -9476,7 +9476,7 @@
                     ticks: {
                       color: '#64748b',
                       callback: (value) => {
-                        const labels = ['N/A', 'BAD', 'LOW', 'MEDIUM', 'HIGH'];
+                        const labels = ['', 'BAD', 'LOW', 'MEDIUM', 'HIGH'];
                         return labels[value] || '';
                       }
                     },
@@ -9491,53 +9491,68 @@
             });
           }
 
-          // 2. IP Reputation Chart
+          // 2. IP Reputation Chart (Highest tier per date)
           const ipCtx = document.getElementById('gptIpReputationChart');
           if (ipCtx && trends.ip_reputation_breakdown) {
-            const datasets = [];
-            const reputations = ['HIGH', 'MEDIUM', 'LOW', 'BAD'];
-            const colors = ['#16a34a', '#f59e0b', '#f97316', '#dc2626'];
+            const repOrder = ['BAD', 'LOW', 'MEDIUM', 'HIGH'];
+            const repScore = { BAD: 1, LOW: 2, MEDIUM: 3, HIGH: 4 };
+            const labels = trends.dates || [];
+            const breakdown = trends.ip_reputation_breakdown || {};
 
-            reputations.forEach((rep, index) => {
-              const data = trends.ip_reputation_breakdown[rep] || [];
-              datasets.push({
-                label: rep,
-                data: data,
-                borderColor: colors[index],
-                backgroundColor: colors[index] + '33',
-                tension: 0.4,
-                fill: true,
-                borderWidth: 2
-              });
+            const ipScores = labels.map((_, idx) => {
+              let score = 0;
+              for (let i = repOrder.length - 1; i >= 0; i--) {
+                const rep = repOrder[i];
+                const series = breakdown[rep] || [];
+                if ((series[idx] || 0) > 0) {
+                  score = repScore[rep];
+                  break;
+                }
+              }
+              return score;
             });
 
             this.gptCharts.ipReputation = new Chart(ipCtx, {
               type: 'line',
               data: {
-                labels: trends.dates,
-                datasets: datasets
+                labels: labels,
+                datasets: [{
+                  label: 'IP Reputation',
+                  data: ipScores,
+                  borderColor: '#16a34a',
+                  backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                  tension: 0.4,
+                  fill: true,
+                  borderWidth: 3
+                }]
               },
               options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                  legend: {
-                    display: true,
-                    position: 'bottom',
-                    labels: { color: '#64748b', font: { size: 11 } }
-                  },
+                  legend: { display: false },
                   tooltip: {
-                    mode: 'index',
-                    intersect: false,
                     backgroundColor: '#1e293b',
-                    padding: 12
+                    padding: 12,
+                    callbacks: {
+                      label: (context) => {
+                        const repLabels = ['', 'BAD', 'LOW', 'MEDIUM', 'HIGH'];
+                        return 'IP Reputation: ' + (repLabels[context.parsed.y] || 'N/A');
+                      }
+                    }
                   }
                 },
                 scales: {
                   y: {
-                    beginAtZero: true,
-                    stacked: true,
-                    ticks: { color: '#64748b' },
+                    min: 0,
+                    max: 4,
+                    ticks: {
+                      color: '#64748b',
+                      callback: (value) => {
+                        const repLabels = ['', 'BAD', 'LOW', 'MEDIUM', 'HIGH'];
+                        return repLabels[value] || '';
+                      }
+                    },
                     grid: { color: '#e2e8f0' }
                   },
                   x: {
