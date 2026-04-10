@@ -620,6 +620,7 @@ def create_sent_by_months_chart(monthly_data: Dict):
     chart.yValueAxis.valueMin = 0
     nice_max, step = _nice_axis_scale(max_val, 4)
     chart.yValueAxis.valueMax = nice_max
+    chart.yValueAxis.valueStep = step
     chart.yValueAxis.valueSteps = [step * i for i in range(int(nice_max / step) + 1)]
     chart.yValueAxis.labels.fontName = 'Helvetica'
     chart.yValueAxis.labels.fontSize = 8
@@ -800,6 +801,7 @@ def create_top10_domains_chart(domains: List[Dict], title: str):
     chart.valueAxis.valueMin = 0
     nice_max, step = _nice_axis_scale(max_val, 4)
     chart.valueAxis.valueMax = nice_max
+    chart.valueAxis.valueStep = step
     chart.valueAxis.valueSteps = [step * i for i in range(int(nice_max / step) + 1)]
     chart.valueAxis.labels.fontName = 'Helvetica'
     chart.valueAxis.labels.fontSize = 8
@@ -854,6 +856,7 @@ def create_top10_accounts_chart(accounts: List[Dict], title: str):
     chart.valueAxis.valueMin = 0
     nice_max, step = _nice_axis_scale(max_val, 4)
     chart.valueAxis.valueMax = nice_max
+    chart.valueAxis.valueStep = step
     chart.valueAxis.valueSteps = [step * i for i in range(int(nice_max / step) + 1)]
     chart.valueAxis.labels.fontName = 'Helvetica'
     chart.valueAxis.labels.fontSize = 8
