@@ -800,7 +800,7 @@ def create_top10_domains_chart(domains: List[Dict], title: str):
     chart.valueAxis.valueMin = 0
     nice_max, step = _nice_axis_scale(max_val, 4)
     chart.valueAxis.valueMax = nice_max
-    chart.valueAxis.valueStep = step
+    chart.valueAxis.valueSteps = [step * i for i in range(int(nice_max / step) + 1)]
     chart.valueAxis.labels.fontName = 'Helvetica'
     chart.valueAxis.labels.fontSize = 8
     chart.valueAxis.labelTextFormat = lambda v: _format_short_number(v)
@@ -854,7 +854,7 @@ def create_top10_accounts_chart(accounts: List[Dict], title: str):
     chart.valueAxis.valueMin = 0
     nice_max, step = _nice_axis_scale(max_val, 4)
     chart.valueAxis.valueMax = nice_max
-    chart.valueAxis.valueStep = step
+    chart.valueAxis.valueSteps = [step * i for i in range(int(nice_max / step) + 1)]
     chart.valueAxis.labels.fontName = 'Helvetica'
     chart.valueAxis.labels.fontSize = 8
     chart.valueAxis.labelTextFormat = lambda v: _format_short_number(v)
