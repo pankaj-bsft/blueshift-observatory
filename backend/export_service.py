@@ -1,12 +1,13 @@
 import io
 import math
+import os
 import pandas as pd
 from datetime import datetime
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, KeepTogether, Image
 from reportlab.pdfgen import canvas
 from reportlab.lib.enums import TA_CENTER
 from reportlab.graphics.shapes import Drawing
@@ -31,11 +32,13 @@ BRAND = {
     "navy": colors.HexColor("#0C3C78"),
     "slate": colors.HexColor("#334155"),
     "slate_light": colors.HexColor("#E2E8F0"),
-    "table_header": colors.HexColor("#0F172A"),
+    "table_header": colors.HexColor("#2563EB"),
     "row_alt": colors.HexColor("#F8FAFC"),
     "row_alt_2": colors.white,
     "accent": colors.HexColor("#2563EB"),
 }
+
+LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "blueshift-icon-primary.png")
 
 
 class NumberedCanvas(canvas.Canvas):
@@ -71,7 +74,7 @@ def create_section_header(title: str):
         'SectionHeaderText',
         parent=styles['Heading2'],
         fontSize=13,
-        textColor=colors.whitesmoke,
+        textColor=colors.white,
         spaceAfter=0,
         spaceBefore=0
     )
@@ -177,7 +180,7 @@ def create_summary_table(summary_data: Dict, title: str):
     table = Table(data, colWidths=[3*inch, 2*inch])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), BRAND["table_header"]),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -186,7 +189,10 @@ def create_summary_table(summary_data: Dict, title: str):
         ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
         ('TOPPADDING', (0, 1), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["slate_light"]),
+        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["accent"]),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.8, BRAND["accent"]),
+        ('LEFTPADDING', (0, 0), (-1, 0), 3),
+        ('RIGHTPADDING', (0, 0), (-1, 0), 3),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRAND["row_alt_2"], BRAND["row_alt"]]),
     ]))
 
@@ -264,14 +270,17 @@ def create_esp_summary_table(esp_info: Dict, esp_name: str):
 
     style_commands = [
         ('BACKGROUND', (0, 0), (-1, 0), BRAND["table_header"]),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
         ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 8),
         ('TOPPADDING', (0, 1), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["slate_light"]),
+        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["accent"]),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.8, BRAND["accent"]),
+        ('LEFTPADDING', (0, 0), (-1, 0), 3),
+        ('RIGHTPADDING', (0, 0), (-1, 0), 3),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRAND["row_alt_2"], BRAND["row_alt"]]),
     ]
 
@@ -334,19 +343,22 @@ def create_domain_table(domains: List[Dict], title: str):
             f"{domain.get('Click_Rate_%', 0):.2f}%",
         ])
 
-    table = Table(data, colWidths=[1.9*inch, 0.8*inch, 0.8*inch, 0.9*inch, 0.75*inch, 0.75*inch, 0.7*inch, 0.7*inch])
+    table = Table(data, colWidths=[1.6*inch, 0.9*inch, 0.95*inch, 0.9*inch, 0.8*inch, 0.75*inch, 0.7*inch, 0.7*inch])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), BRAND["table_header"]),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
         ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
         ('FONTSIZE', (0, 1), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
         ('TOPPADDING', (0, 1), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["slate_light"]),
+        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["accent"]),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.8, BRAND["accent"]),
+        ('LEFTPADDING', (0, 0), (-1, 0), 4),
+        ('RIGHTPADDING', (0, 0), (-1, 0), 4),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRAND["row_alt_2"], BRAND["row_alt"]]),
     ]))
 
@@ -367,6 +379,8 @@ def create_account_table(accounts: List[Dict], title: str):
     if not accounts:
         return []
 
+    is_affiliate = 'Affiliate' in title
+
     # Header row
     data = [['Rank', 'Account Name', 'Sent', 'MoM Send %', 'Delivered', 'Delivery %', 'Open %', 'Click %']]
 
@@ -383,19 +397,33 @@ def create_account_table(accounts: List[Dict], title: str):
             f"{account.get('Click_Rate_%', 0):.2f}%",
         ])
 
-    table = Table(data, colWidths=[0.5*inch, 1.9*inch, 0.9*inch, 0.8*inch, 0.9*inch, 0.8*inch, 0.75*inch, 0.75*inch])
+    if is_affiliate:
+        totals = _sum_accounts(accounts[:10])
+        total_delivery = (totals['Delivered'] / totals['Sent'] * 100) if totals['Sent'] else 0
+        total_open = (totals['Total_Unique_Opens'] / totals['Delivered'] * 100) if totals['Delivered'] else 0
+        total_click = (totals['unique_click'] / totals['Delivered'] * 100) if totals['Delivered'] else 0
+        prev_total = sum((r.get('Prev_Sent', 0) or 0) for r in accounts[:10])
+        total_mom = calculate_mom_change(totals['Sent'], prev_total) if prev_total else None
+        data.append([
+            '', 'TOTAL', f"{totals['Sent']:,}", _format_mom(total_mom), f"{totals['Delivered']:,}", f"{total_delivery:.2f}%", f"{total_open:.2f}%", f"{total_click:.2f}%"
+        ])
+
+    table = Table(data, colWidths=[0.5*inch, 1.4*inch, 0.9*inch, 1.1*inch, 0.85*inch, 0.75*inch, 0.7*inch, 0.7*inch])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), BRAND["table_header"]),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('ALIGN', (0, 0), (1, -1), 'LEFT'),
         ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 0), (-1, 0), 7),
         ('FONTSIZE', (0, 1), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
         ('TOPPADDING', (0, 1), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["slate_light"]),
+        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["accent"]),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.8, BRAND["accent"]),
+        ('LEFTPADDING', (0, 0), (-1, 0), 3),
+        ('RIGHTPADDING', (0, 0), (-1, 0), 3),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRAND["row_alt_2"], BRAND["row_alt"]]),
     ]))
 
@@ -788,6 +816,22 @@ def _format_mom(value) -> str:
     return f"{v:+.1f}%"
 
 
+def _sum_accounts(rows):
+    totals = {
+        'Sent': 0, 'Delivered': 0, 'Bounces': 0, 'Spam_Reports': 0, 'Spam_report': 0,
+        'Total_Unique_Opens': 0, 'unique_click': 0
+    }
+    for r in rows:
+        totals['Sent'] += r.get('Sent', 0) or 0
+        totals['Delivered'] += r.get('Delivered', 0) or 0
+        totals['Bounces'] += r.get('Bounces', 0) or 0
+        totals['Spam_Reports'] += r.get('Spam_Reports', 0) or 0
+        totals['Spam_report'] += r.get('Spam_report', 0) or 0
+        totals['Total_Unique_Opens'] += r.get('Total_Unique_Opens', 0) or 0
+        totals['unique_click'] += r.get('unique_click', 0) or 0
+    return totals
+
+
 
 def create_top10_domains_chart(domains: List[Dict], title: str):
     """Horizontal bar chart for top domains by sent volume"""
@@ -1000,6 +1044,14 @@ def export_to_pdf_reportlab(esp_data: Dict, df_combined: pd.DataFrame, from_date
 
     # Title page
     story.append(Spacer(1, 1.5*inch))
+    try:
+        if os.path.exists(LOGO_PATH):
+            logo = Image(LOGO_PATH, width=0.8*inch, height=0.8*inch)
+            logo.hAlign = 'CENTER'
+            story.append(logo)
+            story.append(Spacer(1, 0.2*inch))
+    except Exception:
+        pass
     story.append(Paragraph('Monthly Business Review (MBR)', title_style))
     story.append(Paragraph('Deliverability Report', title_style))
     story.append(Spacer(1, 0.3*inch))
@@ -1022,23 +1074,26 @@ def export_to_pdf_reportlab(esp_data: Dict, df_combined: pd.DataFrame, from_date
     if esp_data:
         for _, esp_info in esp_data.items():
             for domain_row in esp_info.get('top10_domains', []):
-                domain = domain_row.get('From_domain')
-                current_sent = domain_row.get('Sent', 0)
-                prev_sent = prev_domain_map.get(domain, 0) if prev_domain_map else 0
-                domain_row['MoM_Send_Change_%'] = calculate_mom_change(current_sent, prev_sent)
+                if domain_row.get('MoM_Send_Change_%') is None:
+                    domain = domain_row.get('From_domain')
+                    current_sent = domain_row.get('Sent', 0)
+                    prev_sent = prev_domain_map.get(domain, 0) if prev_domain_map else 0
+                    domain_row['MoM_Send_Change_%'] = calculate_mom_change(current_sent, prev_sent)
 
     if account_data:
         for _, esp_info in account_data.get('esp_data', {}).items():
             for account_row in esp_info.get('top10_accounts', []):
+                if account_row.get('MoM_Send_Change_%') is None:
+                    account = account_row.get('Account')
+                    current_sent = account_row.get('Sent', 0)
+                    prev_sent = prev_account_map.get(account, 0) if prev_account_map else 0
+                    account_row['MoM_Send_Change_%'] = calculate_mom_change(current_sent, prev_sent)
+        for account_row in account_data.get('top10_accounts_overall', []):
+            if account_row.get('MoM_Send_Change_%') is None:
                 account = account_row.get('Account')
                 current_sent = account_row.get('Sent', 0)
                 prev_sent = prev_account_map.get(account, 0) if prev_account_map else 0
                 account_row['MoM_Send_Change_%'] = calculate_mom_change(current_sent, prev_sent)
-        for account_row in account_data.get('top10_accounts_overall', []):
-            account = account_row.get('Account')
-            current_sent = account_row.get('Sent', 0)
-            prev_sent = prev_account_map.get(account, 0) if prev_account_map else 0
-            account_row['MoM_Send_Change_%'] = calculate_mom_change(current_sent, prev_sent)
 
     # Executive Summary
     from druid_service import aggregate_region_summary, get_top10_overall
@@ -1218,7 +1273,10 @@ def export_eml_analysis_pdf(report: Dict) -> bytes:
         ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["slate_light"]),
+        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["accent"]),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.8, BRAND["accent"]),
+        ('LEFTPADDING', (0, 0), (-1, 0), 3),
+        ('RIGHTPADDING', (0, 0), (-1, 0), 3),
         ('ROWBACKGROUNDS', (0, 0), (-1, -1), [BRAND["row_alt_2"], BRAND["row_alt"]])
     ]))
     elements.append(meta_table)
@@ -1252,7 +1310,10 @@ def export_eml_analysis_pdf(report: Dict) -> bytes:
         ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["slate_light"]),
+        ('GRID', (0, 0), (-1, -1), 0.4, BRAND["accent"]),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.8, BRAND["accent"]),
+        ('LEFTPADDING', (0, 0), (-1, 0), 3),
+        ('RIGHTPADDING', (0, 0), (-1, 0), 3),
         ('ROWBACKGROUNDS', (0, 0), (-1, -1), [BRAND["row_alt_2"], BRAND["row_alt"]])
     ]))
     elements.append(score_table)
@@ -1292,12 +1353,15 @@ def export_eml_analysis_pdf(report: Dict) -> bytes:
         att_table = Table(att_rows, colWidths=[3.0 * inch, 2.0 * inch, 1.5 * inch])
         att_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), BRAND["table_header"]),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('FONTSIZE', (0, 0), (-1, 0), 7),
             ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('GRID', (0, 0), (-1, -1), 0.4, BRAND["slate_light"]),
+            ('GRID', (0, 0), (-1, -1), 0.4, BRAND["accent"]),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.8, BRAND["accent"]),
+        ('LEFTPADDING', (0, 0), (-1, 0), 3),
+        ('RIGHTPADDING', (0, 0), (-1, 0), 3),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRAND["row_alt_2"], BRAND["row_alt"]])
         ]))
         elements.append(att_table)

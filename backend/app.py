@@ -106,9 +106,11 @@ from gpt_analytics_service import (
 from bounce_analytics_service import (
     collect_all_esps,
     collect_mailgun_bounces,
+    collect_sparkpost_bounces,
     get_bounces,
     get_sending_domains,
-    cleanup_old_data as cleanup_bounce_data
+    cleanup_old_data as cleanup_bounce_data,
+    init_bounce_database
 )
 from industry_updates_service import (
     init_database as init_industry_database,
@@ -137,7 +139,9 @@ from mbr_storage_service import (
 )
 from mom_service import (
     add_mom_to_domain_data,
-    add_mom_to_account_data
+    add_mom_to_account_data,
+    get_previous_month_range,
+    calculate_mom_change
 )
 from email_service import (
     get_all_recipients,
@@ -159,6 +163,12 @@ def run_daily_mailgun_collection():
     print(f'[Scheduler] Done: {result}')
 
 
+def run_daily_sparkpost_collection():
+    print('[Scheduler] Running daily SparkPost bounce collection...')
+    result = collect_sparkpost_bounces()
+    print(f'[Scheduler] Done: {result}')
+
+
 def run_daily_spamhaus_refresh():
     print('[Scheduler] Running daily Spamhaus refresh...')
     domains = get_recent_domains(30)
@@ -168,11 +178,15 @@ def run_daily_spamhaus_refresh():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_bounce_database()
+
     scheduler = BackgroundScheduler()
     scheduler.add_job(run_daily_mailgun_collection, 'cron', hour=2, minute=0)
+    scheduler.add_job(run_daily_sparkpost_collection, 'cron', hour=2, minute=30)
     scheduler.add_job(run_daily_spamhaus_refresh, 'cron', hour=3, minute=15)
     scheduler.start()
     print('[Scheduler] Daily Mailgun collection scheduled at 2:00 AM')
+    print('[Scheduler] Daily SparkPost collection scheduled at 2:30 AM')
     print('[Scheduler] Daily Spamhaus refresh scheduled at 3:15 AM')
     yield
     scheduler.shutdown()
@@ -338,6 +352,43 @@ async def export_pdf(date_range: DateRange):
             'top10_accounts_overall': top_accounts_overall,
             'affiliate_accounts': affiliate_accounts,
         }
+
+        # Add MoM Send % for accounts (fallback via Druid if needed)
+        try:
+            def _has_mom(rows):
+                return any(r.get('MoM_Send_Change_%') is not None for r in rows)
+
+            prev_from, prev_to = get_previous_month_range(date_range.from_date, date_range.to_date)
+            if prev_from and prev_to:
+                if prev_from and prev_to:
+                    prev_us = fetch_region_data('US', DRUID_US_BROKER, prev_from, prev_to)
+                    prev_eu = fetch_region_data('EU', DRUID_EU_BROKER, prev_from, prev_to)
+                    if not prev_us.empty or not prev_eu.empty:
+                        prev_df = pd.concat([prev_us, prev_eu], ignore_index=True)
+                        prev_df = add_account_column(prev_df)
+                        prev_map = prev_df.groupby('Account')['Sent'].sum().to_dict()
+
+                        for row in account_data.get('top10_accounts_overall', []):
+                            if row.get('MoM_Send_Change_%') is None:
+                                account = row.get('Account')
+                                prev_sent = prev_map.get(account, 0)
+                                row['MoM_Send_Change_%'] = calculate_mom_change(row.get('Sent', 0), prev_sent)
+
+                        for _, esp_info in account_data.get('esp_data', {}).items():
+                            for row in esp_info.get('top10_accounts', []):
+                                if row.get('MoM_Send_Change_%') is None:
+                                    account = row.get('Account')
+                                    prev_sent = prev_map.get(account, 0)
+                                    row['MoM_Send_Change_%'] = calculate_mom_change(row.get('Sent', 0), prev_sent)
+
+                        for row in account_data.get('affiliate_accounts', []):
+                            account = row.get('Account')
+                            prev_sent = prev_map.get(account, 0)
+                            row['Prev_Sent'] = prev_sent
+                            if row.get('MoM_Send_Change_%') is None:
+                                row['MoM_Send_Change_%'] = calculate_mom_change(row.get('Sent', 0), prev_sent)
+        except Exception:
+            pass
 
         # Generate PDF file with both domain and account data
         pdf_data = await export_to_pdf(esp_data, df_combined, date_range.from_date, date_range.to_date, account_data)
@@ -979,6 +1030,34 @@ async def fetch_data_by_account(date_range: DateRange):
 
         # Add MoM (Month-over-Month) Send change calculations
         response_data = add_mom_to_account_data(response_data, date_range.from_date, date_range.to_date)
+
+        # Fallback: if MoM missing (no stored account report), compute from previous month via Druid
+        try:
+            def _has_mom(rows):
+                return any(r.get('MoM_Send_Change_%') is not None for r in rows)
+
+            if not _has_mom(response_data.get('top10_accounts_overall', [])):
+                prev_from, prev_to = get_previous_month_range(date_range.from_date, date_range.to_date)
+                if prev_from and prev_to:
+                    prev_us = fetch_region_data('US', DRUID_US_BROKER, prev_from, prev_to)
+                    prev_eu = fetch_region_data('EU', DRUID_EU_BROKER, prev_from, prev_to)
+                    if not prev_us.empty or not prev_eu.empty:
+                        prev_df = pd.concat([prev_us, prev_eu], ignore_index=True)
+                        prev_df = add_account_column(prev_df)
+                        prev_map = prev_df.groupby('Account')['Sent'].sum().to_dict()
+
+                        for row in response_data.get('top10_accounts_overall', []):
+                            account = row.get('Account')
+                            prev_sent = prev_map.get(account, 0)
+                            row['MoM_Send_Change_%'] = calculate_mom_change(row.get('Sent', 0), prev_sent)
+
+                        for _, esp_info in response_data.get('esp_data', {}).items():
+                            for row in esp_info.get('top10_accounts', []):
+                                account = row.get('Account')
+                                prev_sent = prev_map.get(account, 0)
+                                row['MoM_Send_Change_%'] = calculate_mom_change(row.get('Sent', 0), prev_sent)
+        except Exception as _e:
+            pass
 
         # Extract top_accounts_by_esp from response for backward compatibility
         response_data['top_accounts_by_esp'] = response_data['esp_data']
