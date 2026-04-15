@@ -5,6 +5,10 @@ Collects and analyzes email bounce data from Mailgun, SparkPost, and SendGrid
 Automatically discovers sending domains from each ESP
 """
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from email.utils import parseaddr
+from urllib.parse import urlparse, parse_qsl, urljoin
+
 import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
@@ -15,6 +19,7 @@ from config import (
 )
 
 DB_PATH = data_path('bounce_analytics.db')
+MAILGUN_MAX_WORKERS = 6
 
 # ISP Domain Mapping
 ISP_MAPPING = {
@@ -98,6 +103,78 @@ def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def init_bounce_database():
+    """Create Bounce Analytics tables/indexes if they do not exist."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS bounce_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                esp TEXT NOT NULL,
+                event_date DATE NOT NULL,
+                sending_domain TEXT NOT NULL,
+                sending_ip TEXT,
+                recipient_domain TEXT NOT NULL,
+                isp TEXT NOT NULL,
+                bounce_type TEXT NOT NULL,
+                bounce_reason TEXT,
+                bounce_code TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_bounce_events_esp_date ON bounce_events (esp, event_date)'
+        )
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_bounce_events_esp_domain ON bounce_events (esp, sending_domain)'
+        )
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_bounce_events_event_date ON bounce_events (event_date)'
+        )
+        conn.commit()
+    except sqlite3.OperationalError as exc:
+        if 'readonly' not in str(exc).lower():
+            conn.close()
+            raise
+
+        table_exists = cursor.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='bounce_events'"
+        ).fetchone()
+        if not table_exists:
+            conn.close()
+            raise
+        print('[Bounce Analytics] Existing bounce database is read-only; skipping schema bootstrap.')
+    finally:
+        conn.close()
+
+
+def delete_bounces_for_esp_date(esp: str, date: str) -> int:
+    """Delete bounce rows for one ESP/date so a recollect can replace them cleanly."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM bounce_events WHERE esp = ? AND event_date = ?', (esp, date))
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+def normalize_domain(value: Optional[str]) -> str:
+    """Normalize a domain/email-like string down to a lowercase domain."""
+    if not value:
+        return ''
+
+    parsed_name, parsed_addr = parseaddr(str(value))
+    candidate = parsed_addr or str(value)
+    candidate = candidate.strip().strip('<>').strip('"').lower()
+
+    if '@' in candidate:
+        candidate = candidate.split('@')[-1]
+
+    return candidate.strip().strip('>;,"\'')
 
 
 def get_mailgun_domains() -> List[str]:
@@ -248,87 +325,33 @@ def collect_mailgun_bounces(date: str = None) -> Dict:
     end_time = end_dt.strftime('%a, %d %b %Y %H:%M:%S +0000')
 
     domains_with_bounces = 0
+    max_workers = min(MAILGUN_MAX_WORKERS, max(len(mailgun_domains), 1))
+    print(f'Mailgun collection using {max_workers} parallel workers')
 
-    for idx, domain in enumerate(mailgun_domains, 1):
-        url = f'https://api.mailgun.net/v3/{domain}/events'
-
-        params = {
-            'begin': begin_time,
-            'end': end_time,
-            'event': 'failed',  # Mailgun uses 'failed' for bounces
-            'limit': 300
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_domain = {
+            executor.submit(
+                fetch_mailgun_domain_bounces,
+                domain,
+                date,
+                begin_time,
+                end_time,
+                idx,
+                len(mailgun_domains)
+            ): domain
+            for idx, domain in enumerate(mailgun_domains, 1)
         }
 
-        try:
-            page_url = url
-            page_params = params
-            total_domain_bounces = 0
-            seen_pages = set()
-
-            while True:
-                response = requests.get(
-                    page_url,
-                    auth=('api', MAILGUN_API_KEY),
-                    params=page_params,
-                    timeout=30
-                )
-
-                if response.status_code != 200:
-                    break
-
-                data = response.json()
-                items = data.get('items', [])
-
-                if items:
-                    total_domain_bounces += len(items)
-
-                for item in items:
-                    # Extract bounce details
-                    recipient = item.get('recipient', '')
-                    recipient_domain = extract_domain_from_email(recipient)
-
-                    # Get delivery status
-                    delivery_status = item.get('delivery-status', {})
-                    error_code = delivery_status.get('code', '')
-                    error_message = delivery_status.get('message', '') or delivery_status.get('description', '')
-
-                    # Determine bounce type
-                    severity = item.get('severity', 'temporary')
-                    bounce_type = 'hard' if severity == 'permanent' else 'soft'
-
-                    # Get sending IP
-                    sending_ip = item.get('ip', None)
-
-                    bounce = {
-                        'esp': 'Mailgun',
-                        'event_date': date,
-                        'sending_domain': domain,
-                        'sending_ip': sending_ip,
-                        'recipient_domain': recipient_domain,
-                        'isp': map_domain_to_isp(recipient_domain),
-                        'bounce_type': bounce_type,
-                        'bounce_reason': error_message,
-                        'bounce_code': str(error_code) if error_code else None
-                    }
-
-                    all_bounces.append(bounce)
-
-                next_url = data.get('paging', {}).get('next')
-                if not next_url:
-                    break
-                if next_url in seen_pages:
-                    break
-
-                seen_pages.add(next_url)
-                page_url = next_url
-                page_params = None
-
-            if total_domain_bounces > 0:
-                domains_with_bounces += 1
-                print(f'  Domain {idx}/{len(mailgun_domains)}: {domain} - {total_domain_bounces} bounces')
-
-        except Exception as e:
-            print(f"Error collecting Mailgun bounces for {domain}: {str(e)}")
+        for future in as_completed(future_to_domain):
+            domain = future_to_domain[future]
+            try:
+                result = future.result()
+                total_domain_bounces = result['count']
+                if total_domain_bounces > 0:
+                    domains_with_bounces += 1
+                all_bounces.extend(result['bounces'])
+            except Exception as e:
+                print(f"Error collecting Mailgun bounces for {domain}: {str(e)}")
 
     print(f'\nMailgun collection summary:')
     print(f'  Total domains checked: {len(mailgun_domains)}')
@@ -346,6 +369,215 @@ def collect_mailgun_bounces(date: str = None) -> Dict:
     }
 
 
+def fetch_mailgun_domain_bounces(
+    domain: str,
+    date: str,
+    begin_time: str,
+    end_time: str,
+    idx: int,
+    total_domains: int
+) -> Dict:
+    """Fetch Mailgun bounce pages for one sending domain with progress logging."""
+    url = f'https://api.mailgun.net/v3/{domain}/events'
+    params = {
+        'begin': begin_time,
+        'end': end_time,
+        'event': 'failed',
+        'limit': 300
+    }
+
+    page_url = url
+    page_params = params
+    page_count = 0
+    total_domain_bounces = 0
+    domain_bounces = []
+    seen_pages = set()
+
+    print(f'[Mailgun] Domain {idx}/{total_domains} start: {domain}')
+
+    while True:
+        page_count += 1
+        response = requests.get(
+            page_url,
+            auth=('api', MAILGUN_API_KEY),
+            params=page_params,
+            timeout=30
+        )
+
+        if response.status_code != 200:
+            raise RuntimeError(f'Mailgun API error {response.status_code} on page {page_count}')
+
+        data = response.json()
+        items = data.get('items', [])
+        print(f'[Mailgun] Domain {idx}/{total_domains} page {page_count}: {domain} -> {len(items)} items')
+
+        if items:
+            total_domain_bounces += len(items)
+
+        for item in items:
+            recipient = item.get('recipient', '')
+            recipient_domain = extract_domain_from_email(recipient)
+
+            delivery_status = item.get('delivery-status', {})
+            error_code = delivery_status.get('code', '')
+            error_message = delivery_status.get('message', '') or delivery_status.get('description', '')
+
+            severity = item.get('severity', 'temporary')
+            bounce_type = 'hard' if severity == 'permanent' else 'soft'
+            sending_ip = item.get('ip', None)
+
+            domain_bounces.append({
+                'esp': 'Mailgun',
+                'event_date': date,
+                'sending_domain': domain,
+                'sending_ip': sending_ip,
+                'recipient_domain': recipient_domain,
+                'isp': map_domain_to_isp(recipient_domain),
+                'bounce_type': bounce_type,
+                'bounce_reason': error_message,
+                'bounce_code': str(error_code) if error_code else None
+            })
+
+        next_url = data.get('paging', {}).get('next')
+        if not next_url:
+            break
+        if next_url in seen_pages:
+            print(f'[Mailgun] Domain {idx}/{total_domains} duplicate page guard hit: {domain}')
+            break
+
+        seen_pages.add(next_url)
+        page_url = next_url
+        page_params = None
+
+    print(
+        f'[Mailgun] Domain {idx}/{total_domains} done: {domain} '
+        f'pages={page_count} bounces={total_domain_bounces}'
+    )
+    return {
+        'domain': domain,
+        'count': total_domain_bounces,
+        'bounces': domain_bounces
+    }
+
+
+def fetch_sparkpost_bounce_events(date: str) -> List[Dict]:
+    """Fetch all SparkPost bounce-like events for a specific UTC date."""
+    url = f'{SPARKPOST_BASE_URL}/events/message'
+    headers = {
+        'Authorization': SPARKPOST_API_KEY,
+        'Accept': 'application/json'
+    }
+    params = {
+        'events': 'bounce,out_of_band',
+        'from': f'{date}T00:00:00Z',
+        'to': f'{date}T23:59:59Z',
+        'per_page': 10000,
+        'cursor': 'initial'
+    }
+
+    all_events = []
+    next_url = url
+    next_params = params
+    seen_requests = set()
+
+    while next_url:
+        request_key = (next_url, tuple(sorted((next_params or {}).items())))
+        if request_key in seen_requests:
+            break
+        seen_requests.add(request_key)
+
+        response = requests.get(next_url, headers=headers, params=next_params, timeout=30)
+        if response.status_code != 200:
+            raise RuntimeError(f'SparkPost API error: {response.status_code} {response.text[:300]}')
+
+        data = response.json()
+        results = data.get('results', [])
+        all_events.extend(results)
+
+        links = data.get('links') or {}
+        next_link = links.get('next')
+        if not next_link:
+            break
+
+        absolute_next_link = urljoin(SPARKPOST_BASE_URL + '/', next_link)
+        parsed = urlparse(absolute_next_link)
+        next_url = f'{parsed.scheme}://{parsed.netloc}{parsed.path}' if parsed.scheme and parsed.netloc else absolute_next_link
+        next_params = dict(parse_qsl(parsed.query)) if parsed.query else None
+
+    return all_events
+
+
+def extract_sparkpost_sending_domain(event: Dict) -> str:
+    """Extract a clean sending domain from a SparkPost event payload."""
+    candidates = [
+        event.get('mailfrom'),
+        event.get('sending_domain'),
+        event.get('from'),
+        event.get('from_email'),
+        event.get('friendly_from')
+    ]
+
+    for candidate in candidates:
+        normalized = normalize_domain(candidate)
+        if normalized:
+            return normalized
+
+    return 'unknown'
+
+
+def extract_sparkpost_sending_ip(event: Dict) -> Optional[str]:
+    """Extract SparkPost sending IP if present."""
+    for key in ('sending_ip', 'ip_address', 'ip_pool', 'ip'):
+        value = event.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def map_sparkpost_bounce_type(bounce_class: Optional[str], event: Dict) -> str:
+    """Map SparkPost bounce classes/events to the shared bounce type model."""
+    bounce_class = str(bounce_class or '').strip()
+    event_type = str(event.get('type') or event.get('event') or '').lower()
+
+    if bounce_class in {'50', '51', '52', '53', '54'}:
+        return 'block'
+    if bounce_class in {'10', '30', '40', '60'}:
+        return 'hard'
+    if bounce_class in {'20', '25', '70', '80', '90', '100'}:
+        return 'soft'
+
+    if event_type == 'out_of_band':
+        return 'block'
+    if event_type == 'bounce':
+        return 'hard'
+
+    return 'soft'
+
+
+def normalize_sparkpost_bounce_event(event: Dict, date: str) -> Optional[Dict]:
+    """Normalize a SparkPost event into the same schema used by Mailgun."""
+    recipient_domain = normalize_domain(event.get('rcpt_to') or event.get('recipient'))
+    sending_domain = extract_sparkpost_sending_domain(event)
+
+    if not recipient_domain or not sending_domain:
+        return None
+
+    bounce_class = event.get('bounce_class')
+    reason = event.get('reason') or event.get('raw_reason') or event.get('raw_rcpt_to') or ''
+
+    return {
+        'esp': 'Sparkpost',
+        'event_date': date,
+        'sending_domain': sending_domain,
+        'sending_ip': extract_sparkpost_sending_ip(event),
+        'recipient_domain': recipient_domain,
+        'isp': map_domain_to_isp(recipient_domain),
+        'bounce_type': map_sparkpost_bounce_type(bounce_class, event),
+        'bounce_reason': reason,
+        'bounce_code': str(bounce_class) if bounce_class not in (None, '') else None
+    }
+
+
 def collect_sparkpost_bounces(date: str = None) -> Dict:
     """
     Collect bounce events from SparkPost for a specific date
@@ -356,77 +588,20 @@ def collect_sparkpost_bounces(date: str = None) -> Dict:
 
     print(f'Collecting SparkPost bounces for {date} (all domains)')
 
-    url = 'https://api.sparkpost.com/api/v1/message-events'
-
-    # Date range for the specific day
-    from_timestamp = f'{date}T00:00:00Z'
-    to_timestamp = f'{date}T23:59:59Z'
-
-    params = {
-        'events': 'bounce,out_of_band',
-        'from': from_timestamp,
-        'to': to_timestamp,
-        'per_page': 10000
-    }
-
-    headers = {
-        'Authorization': SPARKPOST_API_KEY,
-        'Accept': 'application/json'
-    }
-
     all_bounces = []
 
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=30)
-
-        if response.status_code == 200:
-            data = response.json()
-            results = data.get('results', [])
-
-            for event in results:
-                # Extract details
-                recipient = event.get('rcpt_to', '')
-                recipient_domain = extract_domain_from_email(recipient)
-
-                # Get sending domain
-                sending_domain_full = event.get('friendly_from', '') or event.get('mailfrom', '')
-                sending_domain = extract_domain_from_email(sending_domain_full) if '@' in sending_domain_full else sending_domain_full
-
-                # Get sending IP
-                sending_ip = event.get('sending_ip', None) or event.get('ip_address', None)
-
-                # Bounce classification
-                bounce_class = event.get('bounce_class', '')
-                reason = event.get('reason', '')
-                raw_reason = event.get('raw_reason', '')
-
-                # Determine bounce type based on bounce_class
-                # SparkPost classes: 10=Invalid, 20=Soft, 25=Admin Failure, 30=Generic, 40=Generic, 50=Mail Block, 51=Spam Block, 52=Spam Content, 53=Prohibited, 54=Bad Config, 60=Auto-reply, 70=Transient, 80=Subscribe, 90=Unsubscribe, 100=Challenge-Response
-                if bounce_class in ['10', '30', '40', '60']:
-                    bounce_type = 'hard'
-                elif bounce_class in ['50', '51', '52', '53']:
-                    bounce_type = 'block'
-                else:
-                    bounce_type = 'soft'
-
-                bounce = {
-                    'esp': 'Sparkpost',
-                    'event_date': date,
-                    'sending_domain': sending_domain,
-                    'sending_ip': sending_ip,
-                    'recipient_domain': recipient_domain,
-                    'isp': map_domain_to_isp(recipient_domain),
-                    'bounce_type': bounce_type,
-                    'bounce_reason': reason or raw_reason,
-                    'bounce_code': bounce_class
-                }
-
-                all_bounces.append(bounce)
-
+        raw_events = fetch_sparkpost_bounce_events(date)
+        for event in raw_events:
+            normalized = normalize_sparkpost_bounce_event(event, date)
+            if normalized:
+                all_bounces.append(normalized)
     except Exception as e:
         print(f"Error collecting SparkPost bounces: {str(e)}")
+        raise
 
     # Store in database
+    delete_bounces_for_esp_date('Sparkpost', date)
     if all_bounces:
         store_bounces(all_bounces)
 
