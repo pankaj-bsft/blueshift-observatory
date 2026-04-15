@@ -14,7 +14,9 @@ DB_PATH = data_path('mbr_reports.db')
 
 def get_previous_month_range(from_date: str, to_date: str) -> tuple:
     """
-    Calculate the previous month's date range based on current range
+    Calculate the previous month's date range based on current range.
+    If the current range is aligned to month boundaries (1st to 1st),
+    return the previous full calendar month.
 
     Args:
         from_date: Current period start (YYYY-MM-DD)
@@ -27,12 +29,18 @@ def get_previous_month_range(from_date: str, to_date: str) -> tuple:
         current_from = datetime.strptime(from_date, '%Y-%m-%d')
         current_to = datetime.strptime(to_date, '%Y-%m-%d')
 
-        # Calculate duration
-        duration = (current_to - current_from).days + 1
+        # If range is month-aligned (1st to 1st of next month), use calendar month
+        if current_from.day == 1:
+            next_month_start = (current_from.replace(day=1) + timedelta(days=32)).replace(day=1)
+            if current_to == next_month_start:
+                prev_month_end = current_from
+                prev_month_start = (current_from - timedelta(days=1)).replace(day=1)
+                return (prev_month_start.strftime('%Y-%m-%d'), prev_month_end.strftime('%Y-%m-%d'))
 
-        # Go back by one month
-        prev_to = current_from - timedelta(days=1)
-        prev_from = prev_to - timedelta(days=duration - 1)
+        # Fallback: same-length previous window
+        duration = (current_to - current_from).days
+        prev_to = current_from
+        prev_from = prev_to - timedelta(days=duration)
 
         return (prev_from.strftime('%Y-%m-%d'), prev_to.strftime('%Y-%m-%d'))
     except Exception as e:

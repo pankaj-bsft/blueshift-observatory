@@ -18,6 +18,13 @@ from reportlab.graphics.widgets.markers import makeMarker
 from pdf_html_service import build_mbr_html_report, export_to_pdf_html
 from typing import Dict, List
 from mbr_storage_service import get_monthly_sent_by_esp
+from mom_service import (
+    get_previous_month_range,
+    get_latest_report_for_period,
+    build_domain_send_map,
+    build_account_send_map,
+    calculate_mom_change
+)
 
 
 BRAND = {
@@ -312,13 +319,14 @@ def create_domain_table(domains: List[Dict], title: str):
         return []
 
     # Header row
-    data = [['Domain', 'Sent', 'Delivered', 'Delivery %', 'Bounce %', 'Open %', 'Click %']]
+    data = [['Domain', 'Sent', 'MoM Send %', 'Delivered', 'Delivery %', 'Bounce %', 'Open %', 'Click %']]
 
     # Data rows
     for domain in domains[:10]:  # Top 10
         data.append([
             domain.get('From_domain', '')[:30],  # Truncate long domains
             f"{domain.get('Sent', 0):,}",
+            _format_mom(domain.get('MoM_Send_Change_%')),
             f"{domain.get('Delivered', 0):,}",
             f"{domain.get('Delivery_Rate_%', 0):.2f}%",
             f"{domain.get('Bounce_Rate_%', 0):.2f}%",
@@ -326,7 +334,7 @@ def create_domain_table(domains: List[Dict], title: str):
             f"{domain.get('Click_Rate_%', 0):.2f}%",
         ])
 
-    table = Table(data, colWidths=[2*inch, 0.9*inch, 0.9*inch, 0.8*inch, 0.8*inch, 0.7*inch, 0.7*inch])
+    table = Table(data, colWidths=[1.9*inch, 0.8*inch, 0.8*inch, 0.9*inch, 0.75*inch, 0.75*inch, 0.7*inch, 0.7*inch])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), BRAND["table_header"]),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -360,7 +368,7 @@ def create_account_table(accounts: List[Dict], title: str):
         return []
 
     # Header row
-    data = [['Rank', 'Account Name', 'Sent', 'Delivered', 'Delivery %', 'Open %', 'Click %']]
+    data = [['Rank', 'Account Name', 'Sent', 'MoM Send %', 'Delivered', 'Delivery %', 'Open %', 'Click %']]
 
     # Data rows
     for account in accounts[:10]:  # Top 10
@@ -368,13 +376,14 @@ def create_account_table(accounts: List[Dict], title: str):
             str(account.get('Rank', '')),
             account.get('Account', '')[:25],  # Truncate long names
             f"{account.get('Sent', 0):,}",
+            _format_mom(account.get('MoM_Send_Change_%')),
             f"{account.get('Delivered', 0):,}",
             f"{account.get('Delivery_Rate_%', 0):.2f}%",
             f"{account.get('Open_Rate_%', 0):.2f}%",
             f"{account.get('Click_Rate_%', 0):.2f}%",
         ])
 
-    table = Table(data, colWidths=[0.5*inch, 2*inch, 1*inch, 1*inch, 0.9*inch, 0.8*inch, 0.8*inch])
+    table = Table(data, colWidths=[0.5*inch, 1.9*inch, 0.9*inch, 0.8*inch, 0.9*inch, 0.8*inch, 0.75*inch, 0.75*inch])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), BRAND["table_header"]),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -769,6 +778,16 @@ def _format_short_number(value: float) -> str:
         return f"{v/1_000:.1f}K"
     return f"{v:.0f}"
 
+def _format_mom(value) -> str:
+    if value is None:
+        return '—'
+    try:
+        v = float(value)
+    except Exception:
+        return '—'
+    return f"{v:+.1f}%"
+
+
 
 def create_top10_domains_chart(domains: List[Dict], title: str):
     """Horizontal bar chart for top domains by sent volume"""
@@ -988,6 +1007,39 @@ def export_to_pdf_reportlab(esp_data: Dict, df_combined: pd.DataFrame, from_date
     story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}", subtitle_style))
     story.append(PageBreak())
 
+    # Prepare MoM maps for top10 tables
+    prev_domain_map = {}
+    prev_account_map = {}
+    prev_from, prev_to = get_previous_month_range(from_date, to_date)
+    if prev_from and prev_to:
+        prev_domain_report = get_latest_report_for_period(prev_from, prev_to, report_type='domain')
+        if prev_domain_report:
+            prev_domain_map = build_domain_send_map(prev_domain_report)
+        prev_account_report = get_latest_report_for_period(prev_from, prev_to, report_type='account')
+        if prev_account_report:
+            prev_account_map = build_account_send_map(prev_account_report)
+
+    if esp_data:
+        for _, esp_info in esp_data.items():
+            for domain_row in esp_info.get('top10_domains', []):
+                domain = domain_row.get('From_domain')
+                current_sent = domain_row.get('Sent', 0)
+                prev_sent = prev_domain_map.get(domain, 0) if prev_domain_map else 0
+                domain_row['MoM_Send_Change_%'] = calculate_mom_change(current_sent, prev_sent)
+
+    if account_data:
+        for _, esp_info in account_data.get('esp_data', {}).items():
+            for account_row in esp_info.get('top10_accounts', []):
+                account = account_row.get('Account')
+                current_sent = account_row.get('Sent', 0)
+                prev_sent = prev_account_map.get(account, 0) if prev_account_map else 0
+                account_row['MoM_Send_Change_%'] = calculate_mom_change(current_sent, prev_sent)
+        for account_row in account_data.get('top10_accounts_overall', []):
+            account = account_row.get('Account')
+            current_sent = account_row.get('Sent', 0)
+            prev_sent = prev_account_map.get(account, 0) if prev_account_map else 0
+            account_row['MoM_Send_Change_%'] = calculate_mom_change(current_sent, prev_sent)
+
     # Executive Summary
     from druid_service import aggregate_region_summary, get_top10_overall
     overall_summary = aggregate_region_summary(df_combined[df_combined['Delivered'] > 0])
@@ -1031,12 +1083,19 @@ def export_to_pdf_reportlab(esp_data: Dict, df_combined: pd.DataFrame, from_date
     # Overall Top 10 Domains
     top10_overall = get_top10_overall(df_combined)
     if not top10_overall.empty:
+        top10_list = top10_overall.to_dict('records')
+        if prev_domain_map:
+            for row in top10_list:
+                domain = row.get('From_domain')
+                current_sent = row.get('Sent', 0)
+                prev_sent = prev_domain_map.get(domain, 0)
+                row['MoM_Send_Change_%'] = calculate_mom_change(current_sent, prev_sent)
         story.extend(create_top10_domains_chart(
-            top10_overall.to_dict('records'),
+            top10_list,
             'Top 10 Domains by Send Volume (All ESPs)'
         ))
         story.extend(create_domain_table(
-            top10_overall.to_dict('records'),
+            top10_list,
             'Top 10 Domains Across All ESPs'
         ))
 
