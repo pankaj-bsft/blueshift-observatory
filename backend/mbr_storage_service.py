@@ -354,6 +354,87 @@ def get_monthly_sent_by_esp(limit: int = 12) -> Dict:
     }
 
 
+
+
+
+def get_top_accounts_trend(accounts: list = None, limit: int = 12) -> Dict:
+    """Return monthly sent trend for top accounts from stored account reports."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT id, report_data, month, year, created_at
+        FROM mbr_reports
+        WHERE report_type = "account"
+          AND month IS NOT NULL
+          AND year IS NOT NULL
+        ORDER BY year DESC, month DESC, created_at DESC
+        """
+    )
+    rows = cursor.fetchall()
+    conn.close()
+
+    seen = set()
+    records = []
+    for row in rows:
+        key = (row['year'], row['month'])
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            report_data = json.loads(row['report_data'])
+        except Exception:
+            continue
+
+        top_accounts = report_data.get('top10_accounts_overall')
+        if not top_accounts and isinstance(report_data.get('account_data'), dict):
+            top_accounts = report_data['account_data'].get('top10_accounts_overall')
+
+        if not top_accounts:
+            top_accounts = []
+
+        account_sent_map = {}
+        for acct in top_accounts:
+            name = acct.get('Account') or acct.get('account')
+            if not name:
+                continue
+            account_sent_map[name] = float(acct.get('Sent', 0) or 0)
+
+        records.append({
+            'year': row['year'],
+            'month': row['month'],
+            'account_sent': account_sent_map,
+            'top_accounts': [a.get('Account') for a in top_accounts if a.get('Account')]
+        })
+
+        if len(records) >= limit:
+            break
+
+    if not records:
+        return {'labels': [], 'series': {}}
+
+    # Sort oldest -> newest for charting
+    records.sort(key=lambda r: (r['year'], r['month']))
+
+    # Determine account list
+    account_list = [a for a in (accounts or []) if a]
+    if not account_list:
+        # Use most recent report's top accounts if not provided
+        most_recent = max(records, key=lambda r: (r['year'], r['month']))
+        account_list = most_recent.get('top_accounts', [])[:10]
+
+    labels = [datetime(r['year'], r['month'], 1).strftime('%b %y') for r in records]
+    series = {acct: [] for acct in account_list}
+
+    for r in records:
+        account_sent = r.get('account_sent', {})
+        for acct in account_list:
+            series[acct].append(account_sent.get(acct, 0))
+
+    return {
+        'labels': labels,
+        'series': series
+    }
 # Initialize database on module import
 if __name__ != '__main__':
     try:

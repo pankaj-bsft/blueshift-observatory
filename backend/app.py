@@ -135,7 +135,8 @@ from mbr_storage_service import (
     get_all_reports,
     delete_report,
     get_report_statistics,
-    get_monthly_sent_by_esp
+    get_monthly_sent_by_esp,
+    get_top_accounts_trend
 )
 from mom_service import (
     add_mom_to_domain_data,
@@ -1213,6 +1214,22 @@ async def get_monthly_sent(limit: int = 12):
         raise HTTPException(status_code=500, detail=f'Error fetching monthly sent data: {str(e)}')
 
 
+
+
+@app.get('/api/mbr/top10-accounts-trend')
+async def get_top_accounts_trend_api(months: int = 12, accounts: str = None):
+    """Get monthly send trend for top accounts across all ESPs"""
+    try:
+        account_list = []
+        if accounts:
+            account_list = [a.strip() for a in accounts.split(',') if a.strip()]
+        data = get_top_accounts_trend(account_list, months)
+        return {
+            'status': 'success',
+            **data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching top accounts trend: {str(e)}')
 # -------------------------
 # Email Recipients Endpoints
 # -------------------------

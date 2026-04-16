@@ -2160,6 +2160,14 @@
                   </div>
                   <canvas v-else ref="mbrChartTopAccounts"></canvas>
                 </div>
+                <div class="chart-container">
+                  <h4>Top 10 Accounts - Sent Trend (Last 12 Months)</h4>
+                  <div v-if="mbrTopAccountsTrendLoading" class="summary-empty">Loading trend chart...</div>
+                  <div v-else-if="!mbrTopAccountsTrend || !mbrTopAccountsTrend.labels || !mbrTopAccountsTrend.labels.length" class="summary-empty">
+                    No account trend data available. Save monthly account reports to populate this chart.
+                  </div>
+                  <canvas v-else ref="mbrChartTopAccountsTrend"></canvas>
+                </div>
               </div>
             </div>
           </div>
@@ -2522,6 +2530,15 @@
             <!-- Affiliate Accounts -->
             <div v-if="affiliateAccounts && affiliateAccounts.length > 0" class="card-section" style="border-left: 4px solid #8b5cf6;">
               <div class="card-header" style="background: linear-gradient(135deg, #faf5ff, #f3e8ff);">
+                <div class="chart-container" style="margin: 16px 0;">
+                  <h4 style="color: #6b21a8;">Affiliate Accounts - Sent Trend (Last 12 Months)</h4>
+                  <div v-if="mbrAffiliateTrendLoading" class="summary-empty">Loading trend chart...</div>
+                  <div v-else-if="!mbrAffiliateTrend || !mbrAffiliateTrend.labels || !mbrAffiliateTrend.labels.length" class="summary-empty">
+                    No affiliate trend data available. Save monthly account reports to populate this chart.
+                  </div>
+                  <canvas v-else ref="mbrChartAffiliateTrend"></canvas>
+                </div>
+
                 <h3 class="card-title" style="color: #6b21a8;">
                   🤝 Affiliate Accounts <span style="color: #a855f7; font-weight: 400;">(IsAffiliate = Yes)</span>
                 </h3>
@@ -5153,7 +5170,7 @@
               </div>
               <div>
                 <h1 class="page-header-title">Industry Updates</h1>
-                <p class="page-header-subtitle">Critical news and updates from email deliverability ecosystem (Gmail, Outlook, Spamhaus, Barracuda, Proofpoint)</p>
+                <p class="page-header-subtitle">Deliverability-focused updates from mailbox providers and sender-policy sources</p>
               </div>
             </div>
           </div>
@@ -5213,12 +5230,14 @@
 
           <!-- Updates List -->
           <div v-else-if="industryUpdates.length > 0" style="display: flex; flex-direction: column; gap: 16px;">
-            <div
+            <a
               v-for="update in industryUpdates"
               :key="update.id"
               class="card-section"
-              style="padding: 24px; transition: all 0.2s; cursor: pointer; position: relative;"
-              @click="window.open(update.url, '_blank')"
+              :href="update.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="padding: 24px; transition: all 0.2s; cursor: pointer; position: relative; display: block; text-decoration: none; color: inherit;"
               onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 16px rgba(0,0,0,0.12)'"
               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'">
 
@@ -5262,6 +5281,10 @@
                       </svg>
                       {{ formatDate(update.published_date) }}
                     </span>
+
+                    <span style="font-size: 12px; color: #2563eb; font-weight: 600;">
+                      Open original article
+                    </span>
                   </div>
                 </div>
 
@@ -5282,7 +5305,7 @@
                   {{ update.severity }}
                 </span>
               </div>
-            </div>
+            </a>
           </div>
 
           <!-- Empty State -->
@@ -5808,6 +5831,9 @@
           mbrMonthlySent: null,
           mbrMonthlySentLoading: false,
           mbrMonthlySentChart: null,
+          mbrTopAccountsTrend: null,
+          mbrTopAccountsTrendLoading: false,
+          mbrTopAccountsTrendChart: null,
           mbrChartsData: null,
           mbrChartsRange: null,
           mbrChartsLoading: false,
@@ -7226,12 +7252,27 @@
             }
 
             this.accountData = await response.json();
+
+            // Normalize MoM keys for account tables
+            const normalizeMoM = (row) => {
+              if (row && row['MoM_Send_Change_%'] === undefined && row.MoM_Send_Change !== undefined) {
+                row['MoM_Send_Change_%'] = row.MoM_Send_Change;
+              }
+              return row;
+            };
+            (this.accountData.top10_accounts_overall || []).forEach(normalizeMoM);
+            Object.values(this.accountData.esp_data || {}).forEach(esp => {
+              (esp.top10_accounts || []).forEach(normalizeMoM);
+            });
+
             this.mbrAccountChartsRange = { from: this.fromDate, to: this.toDate };
             this.$nextTick(() => {
               this.renderMBRCharts();
               this.renderMBRMonthlySentChart();
             });
             await this.fetchDomainDataForCharts();
+                await this.fetchMBRTopAccountsTrend();
+              await this.fetchMBRAffiliateTrend();
             this.showToast('success', 'Data Loaded', `Found ${this.accountData.total_accounts || 0} accounts`);
           } catch (err) {
             this.showToast('error', 'Load Failed', err.message);
@@ -7402,11 +7443,73 @@
               this.$nextTick(() => {
                 this.renderMBRCharts();
               });
+              await this.fetchMBRTopAccountsTrend();
+              await this.fetchMBRAffiliateTrend();
             }
           } catch (err) {
             console.error('Error fetching charts data:', err);
           } finally {
             this.mbrChartsLoading = false;
+          }
+        },
+        
+        async fetchMBRTopAccountsTrend() {
+          const accounts = (this.topAccountsOverall || []).map(a => a.Account).filter(Boolean);
+          if (!accounts.length) {
+            this.mbrTopAccountsTrend = null;
+            return;
+          }
+          this.mbrTopAccountsTrendLoading = true;
+          try {
+            const query = `months=12&accounts=${encodeURIComponent(accounts.join(','))}`;
+            const response = await fetch(`${this.API_BASE}/api/mbr/top10-accounts-trend?${query}`);
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.detail || 'Failed to fetch account trend data');
+            }
+            const result = await response.json();
+            this.mbrTopAccountsTrend = {
+              labels: result.labels || [],
+              series: result.series || {}
+            };
+            this.$nextTick(() => {
+              this.renderMBRTopAccountsTrendChart();
+            });
+          } catch (err) {
+            console.error('Error fetching account trend:', err);
+            this.mbrTopAccountsTrend = null;
+          } finally {
+            this.mbrTopAccountsTrendLoading = false;
+          }
+        },
+        
+        async fetchMBRAffiliateTrend() {
+          const accounts = (this.affiliateAccounts || []).map(a => a.Account).filter(Boolean);
+          if (!accounts.length) {
+            this.mbrAffiliateTrend = null;
+            return;
+          }
+          this.mbrAffiliateTrendLoading = true;
+          try {
+            const query = `months=12&accounts=${encodeURIComponent(accounts.join(','))}`;
+            const response = await fetch(`${this.API_BASE}/api/mbr/top10-accounts-trend?${query}`);
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.detail || 'Failed to fetch affiliate trend data');
+            }
+            const result = await response.json();
+            this.mbrAffiliateTrend = {
+              labels: result.labels || [],
+              series: result.series || {}
+            };
+            this.$nextTick(() => {
+              this.renderMBRAffiliateTrendChart();
+            });
+          } catch (err) {
+            console.error('Error fetching affiliate trend:', err);
+            this.mbrAffiliateTrend = null;
+          } finally {
+            this.mbrAffiliateTrendLoading = false;
           }
         },
         async fetchAccountDataForCharts() {
@@ -7429,12 +7532,22 @@
               this.$nextTick(() => {
                 this.renderMBRCharts();
               });
+              await this.fetchMBRTopAccountsTrend();
+              await this.fetchMBRAffiliateTrend();
             }
           } catch (err) {
             console.error('Error fetching account charts data:', err);
           }
         },
         destroyMBRCharts() {
+          if (this.mbrAffiliateTrendChart) {
+            this.mbrAffiliateTrendChart.destroy();
+            this.mbrAffiliateTrendChart = null;
+          }
+          if (this.mbrTopAccountsTrendChart) {
+            this.mbrTopAccountsTrendChart.destroy();
+            this.mbrTopAccountsTrendChart = null;
+          }
           Object.keys(this.mbrCharts).forEach((key) => {
             if (this.mbrCharts[key]) {
               this.mbrCharts[key].destroy();
@@ -7575,6 +7688,130 @@
             });
           }
 
+        },
+        
+        renderMBRTopAccountsTrendChart() {
+          if (!this.mbrTopAccountsTrend || !this.mbrTopAccountsTrend.labels?.length) {
+            if (this.mbrAffiliateTrendChart) {
+            this.mbrAffiliateTrendChart.destroy();
+            this.mbrAffiliateTrendChart = null;
+          }
+          if (this.mbrTopAccountsTrendChart) {
+              this.mbrTopAccountsTrendChart.destroy();
+              this.mbrTopAccountsTrendChart = null;
+            }
+            return;
+          }
+
+          const canvas = this.$refs.mbrChartTopAccountsTrend;
+          if (!canvas) return;
+          const ctx = canvas.getContext('2d');
+
+          if (this.mbrAffiliateTrendChart) {
+            this.mbrAffiliateTrendChart.destroy();
+            this.mbrAffiliateTrendChart = null;
+          }
+          if (this.mbrTopAccountsTrendChart) {
+            this.mbrTopAccountsTrendChart.destroy();
+          }
+
+          const labels = this.mbrTopAccountsTrend.labels || [];
+          const series = this.mbrTopAccountsTrend.series || {};
+          const accounts = Object.keys(series);
+          const palette = ['#2563EB','#0EA5E9','#14B8A6','#22C55E','#F59E0B','#F97316','#EF4444','#A855F7','#6366F1','#64748B'];
+
+          const maxVal = Math.max(
+            0,
+            ...accounts.flatMap(a => (series[a] || []).map(v => Number(v || 0)))
+          );
+          const scale = this.computeNiceScale(maxVal);
+
+          this.mbrTopAccountsTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: accounts.map((acct, idx) => ({
+                label: acct,
+                data: series[acct] || [],
+                borderColor: palette[idx % palette.length],
+                backgroundColor: 'transparent',
+                tension: 0.3,
+                fill: false
+              }))
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: { position: 'top' }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  max: scale.max,
+                  ticks: { stepSize: scale.step, callback: (value) => this.formatShortNumber(value) }
+                }
+              }
+            }
+          });
+        },
+        
+        renderMBRAffiliateTrendChart() {
+          if (!this.mbrAffiliateTrend || !this.mbrAffiliateTrend.labels?.length) {
+            if (this.mbrAffiliateTrendChart) {
+              this.mbrAffiliateTrendChart.destroy();
+              this.mbrAffiliateTrendChart = null;
+            }
+            return;
+          }
+
+          const canvas = this.$refs.mbrChartAffiliateTrend;
+          if (!canvas) return;
+          const ctx = canvas.getContext('2d');
+
+          if (this.mbrAffiliateTrendChart) {
+            this.mbrAffiliateTrendChart.destroy();
+          }
+
+          const labels = this.mbrAffiliateTrend.labels || [];
+          const series = this.mbrAffiliateTrend.series || {};
+          const accounts = Object.keys(series);
+          const palette = ['#8b5cf6','#a855f7','#7c3aed','#6d28d9','#9333ea','#c084fc','#ec4899','#f97316','#f59e0b','#22c55e'];
+
+          const maxVal = Math.max(
+            0,
+            ...accounts.flatMap(a => (series[a] || []).map(v => Number(v || 0)))
+          );
+          const scale = this.computeNiceScale(maxVal);
+
+          this.mbrAffiliateTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: accounts.map((acct, idx) => ({
+                label: acct,
+                data: series[acct] || [],
+                borderColor: palette[idx % palette.length],
+                backgroundColor: 'transparent',
+                tension: 0.3,
+                fill: false
+              }))
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: { position: 'top' }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  max: scale.max,
+                  ticks: { stepSize: scale.step, callback: (value) => this.formatShortNumber(value) }
+                }
+              }
+            }
+          });
         },
         renderMBRMonthlySentChart() {
           if (!this.mbrMonthlySent || !this.mbrMonthlySent.labels?.length) {
@@ -7754,6 +7991,8 @@
                   this.renderMBRMonthlySentChart();
                 });
                 await this.fetchDomainDataForCharts();
+                await this.fetchMBRTopAccountsTrend();
+              await this.fetchMBRAffiliateTrend();
                 this.showToast('success', 'Loaded', `Loaded account report (ID: ${reportId}) - ${report.total_accounts} accounts`);
               }
 
