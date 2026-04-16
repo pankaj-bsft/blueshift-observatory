@@ -6,6 +6,7 @@ Use --months N to backfill previous N months.
 from datetime import datetime, date, timedelta
 import sys
 import argparse
+from typing import Tuple
 import pandas as pd
 
 from druid_service import fetch_region_data, DRUID_US_BROKER, DRUID_EU_BROKER
@@ -19,7 +20,7 @@ from mom_service import add_mom_to_account_data
 from mbr_storage_service import save_mbr_report, check_report_exists
 
 
-def _month_range_for_offset(offset_months: int) -> tuple[str, str]:
+def _month_range_for_offset(offset_months: int) -> Tuple[str, str]:
     """Return [from_date, to_date) for the month offset from current UTC month.
     offset_months=1 => previous full month.
     """
