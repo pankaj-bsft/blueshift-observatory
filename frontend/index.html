@@ -2004,27 +2004,6 @@
               </div>
             </div>
           </div>
-
-          <!-- View Mode Toggle -->
-          <div style="display: flex; gap: 12px; margin-bottom: 24px; padding: 4px; background: #f1f5f9; border-radius: 12px; width: fit-content;">
-            <button
-              class="btn"
-              :class="mbrViewMode === 'domain' ? 'btn-primary' : 'btn-secondary'"
-              @click="mbrViewMode = 'domain'"
-              style="border-radius: 9px;"
-            >
-              🌍 View by Domain
-            </button>
-            <button
-              class="btn"
-              :class="mbrViewMode === 'account' ? 'btn-primary' : 'btn-secondary'"
-              @click="mbrViewMode = 'account'"
-              style="border-radius: 9px;"
-            >
-              🏢 View by Account
-            </button>
-          </div>
-
           <!-- Control Panel -->
           <div class="control-panel" style="margin-bottom: 24px;">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -2058,13 +2037,13 @@
                 {{ savingToDb ? 'Saving...' : 'Load Data into DB' }}
               </button>
               <span style="color: #1e40af; font-size: 13px; font-weight: 500;">
-                ← Save this {{ mbrViewMode }} report as a timestamped snapshot for historical tracking
+                ← Save reports as timestamped snapshots for historical tracking
               </span>
             </div>
           </div>
 
           <!-- Export & Email Buttons (Domain View Only) -->
-          <div v-if="mbrViewMode === 'domain' && hasData" style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: center;">
+          <div v-if="hasData" style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: center;">
             <button
               class="btn"
               @click="exportExcel"
@@ -2173,7 +2152,7 @@
           </div>
 
           <!-- Domain View -->
-          <div v-if="mbrViewMode === 'domain' && hasData">
+          <div v-if="hasData">
             <!-- Executive Summary -->
             <div class="card-section">
               <div class="card-header">
@@ -2405,7 +2384,7 @@
           </div>
 
           <!-- Account View -->
-          <div v-if="mbrViewMode === 'account' && hasAccountData">
+          <div v-if="hasAccountData">
             <!-- Top 10 Accounts Overall -->
             <div class="card-section">
               <div class="card-header">
@@ -2530,18 +2509,17 @@
             <!-- Affiliate Accounts -->
             <div v-if="affiliateAccounts && affiliateAccounts.length > 0" class="card-section" style="border-left: 4px solid #8b5cf6;">
               <div class="card-header" style="background: linear-gradient(135deg, #faf5ff, #f3e8ff);">
-                <div class="chart-container" style="margin: 16px 0;">
-                  <h4 style="color: #6b21a8;">Affiliate Accounts - Sent Trend (Last 12 Months)</h4>
-                  <div v-if="mbrAffiliateTrendLoading" class="summary-empty">Loading trend chart...</div>
-                  <div v-else-if="!mbrAffiliateTrend || !mbrAffiliateTrend.labels || !mbrAffiliateTrend.labels.length" class="summary-empty">
-                    No affiliate trend data available. Save monthly account reports to populate this chart.
-                  </div>
-                  <canvas v-else ref="mbrChartAffiliateTrend"></canvas>
-                </div>
-
                 <h3 class="card-title" style="color: #6b21a8;">
                   🤝 Affiliate Accounts <span style="color: #a855f7; font-weight: 400;">(IsAffiliate = Yes)</span>
                 </h3>
+              </div>
+              <div class="chart-container" style="margin: 16px 0;">
+                <h4 style="color: #6b21a8;">Affiliate Accounts - Sent Trend (Last 12 Months)</h4>
+                <div v-if="mbrAffiliateTrendLoading" class="summary-empty">Loading trend chart...</div>
+                <div v-else-if="!mbrAffiliateTrend || !mbrAffiliateTrend.labels || !mbrAffiliateTrend.labels.length" class="summary-empty">
+                  No affiliate trend data available. Save monthly account reports to populate this chart.
+                </div>
+                <canvas v-else ref="mbrChartAffiliateTrend"></canvas>
               </div>
               <div class="table-wrapper">
                 <table class="data-table">
@@ -5820,7 +5798,6 @@
           toastIdCounter: 0,
 
           // MBR Deliverability State
-          mbrViewMode: 'domain',
           fromDate: '',
           toDate: '',
           loading: false,
@@ -5834,6 +5811,9 @@
           mbrTopAccountsTrend: null,
           mbrTopAccountsTrendLoading: false,
           mbrTopAccountsTrendChart: null,
+          mbrAffiliateTrend: null,
+          mbrAffiliateTrendLoading: false,
+          mbrAffiliateTrendChart: null,
           mbrChartsData: null,
           mbrChartsRange: null,
           mbrChartsLoading: false,
@@ -7194,12 +7174,8 @@
         // MBR Methods
         async fetchMBRData() {
           if (!this.canFetch) return;
-
-          if (this.mbrViewMode === 'domain') {
-            await this.fetchData();
-          } else {
-            await this.fetchAccountData();
-          }
+          await this.fetchData();
+          await this.fetchAccountData();
         },
         async fetchData() {
           this.loading = true;
@@ -7894,34 +7870,39 @@
             return;
           }
 
-          const reportData = this.mbrViewMode === 'domain' ? this.data : this.accountData;
-          if (!reportData) {
-            this.showToast('error', 'No Data', 'No data available to save.');
-            return;
-          }
-
           this.savingToDb = true;
 
-          try {
+          const saveOne = async (type, data) => {
             const response = await fetch(`${this.API_BASE}/api/mbr/save-report`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 from_date: this.fromDate,
                 to_date: this.toDate,
-                report_type: this.mbrViewMode,
-                report_data: reportData,
+                report_type: type,
+                report_data: data,
                 overwrite: false
               })
             });
+            return response.json();
+          };
 
-            const result = await response.json();
+          try {
+            const results = [];
+            if (this.hasData && this.data) {
+              results.push(await saveOne('domain', this.data));
+            }
+            if (this.hasAccountData && this.accountData) {
+              results.push(await saveOne('account', this.accountData));
+            }
 
-            if (result.status === 'success') {
-              this.showToast('success', 'Saved', `Report saved successfully! (ID: ${result.report_id})`);
+            const ok = results.filter(r => r && r.status === 'success');
+            if (ok.length) {
+              this.showToast('success', 'Saved', `Saved ${ok.length} report(s) successfully.`);
               this.fetchSavedReports();
             } else {
-              this.showToast('error', 'Save Failed', result.message || 'Failed to save report');
+              const first = results[0];
+              this.showToast('error', 'Save Failed', first?.message || 'Failed to save report');
             }
           } catch (err) {
             this.showToast('error', 'Save Error', 'Error saving report: ' + err.message);
@@ -7971,7 +7952,6 @@
               // Load the report data based on type
               if (report.report_type === 'domain') {
                 this.accountData = null;
-                this.mbrViewMode = 'domain';
                 this.data = { ...report.report_data };
                 this.mbrChartsData = this.data;
                 this.mbrChartsRange = { from: report.from_date, to: report.to_date };
@@ -7980,10 +7960,10 @@
                   this.renderMBRMonthlySentChart();
                 });
                 this.fetchAccountDataForCharts();
+                await this.fetchAccountData();
                 this.showToast('success', 'Loaded', `Loaded domain report (ID: ${reportId}) - ${report.total_domains} domains`);
               } else if (report.report_type === 'account') {
                 this.data = null;
-                this.mbrViewMode = 'account';
                 this.accountData = { ...report.report_data };
                 this.mbrAccountChartsRange = { from: report.from_date, to: report.to_date };
                 this.$nextTick(() => {
@@ -7991,6 +7971,7 @@
                   this.renderMBRMonthlySentChart();
                 });
                 await this.fetchDomainDataForCharts();
+                await this.fetchData();
                 await this.fetchMBRTopAccountsTrend();
               await this.fetchMBRAffiliateTrend();
                 this.showToast('success', 'Loaded', `Loaded account report (ID: ${reportId}) - ${report.total_accounts} accounts`);
