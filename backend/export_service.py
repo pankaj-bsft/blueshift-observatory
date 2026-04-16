@@ -18,7 +18,7 @@ from reportlab.graphics.charts.legends import Legend
 from reportlab.graphics.widgets.markers import makeMarker
 from pdf_html_service import build_mbr_html_report, export_to_pdf_html
 from typing import Dict, List
-from mbr_storage_service import get_monthly_sent_by_esp
+from mbr_storage_service import get_monthly_sent_by_esp, get_top_accounts_trend
 from mom_service import (
     get_previous_month_range,
     get_latest_report_for_period,
@@ -610,6 +610,86 @@ def create_volume_share_chart(esp_data: Dict):
     return [KeepTogether([_chart_title('Share of Total Sent by ESP'), Spacer(1, 0.1 * inch), drawing, Spacer(1, 0.15*inch)])]
 
 
+
+
+def create_top10_accounts_trend_chart(trend_data: Dict, title: str = "Top 10 Accounts - Sent Trend (Last 12 Months)", page_break: bool = True):
+    """Line chart: Monthly Sent trend for Top 10 Accounts"""
+    if not trend_data:
+        return []
+
+    labels = trend_data.get('labels', [])
+    series = trend_data.get('series', {})
+    if not labels or not series:
+        return []
+
+    accounts = list(series.keys())[:10]
+    if not accounts:
+        return []
+
+    width = 7.2 * inch
+    height = 4.3 * inch if 'Affiliate' in title else 4.8 * inch
+    drawing = Drawing(width, height)
+
+    chart = LinePlot()
+    chart.x = 40
+    chart.y = 80
+    chart.height = height - (130 if 'Affiliate' in title else 150)
+    chart.width = width - 80
+
+    x_vals = list(range(len(labels)))
+    chart.data = [
+        list(zip(x_vals, [series[a][i] if i < len(series[a]) else 0 for i in range(len(labels))]))
+        for a in accounts
+    ]
+
+    chart.xValueAxis.valueMin = 0
+    chart.xValueAxis.valueMax = max(len(labels) - 1, 0)
+    chart.xValueAxis.valueSteps = x_vals
+    chart.xValueAxis.labelTextFormat = lambda v: labels[int(v)] if 0 <= int(v) < len(labels) else ''
+    chart.xValueAxis.labels.fontName = 'Helvetica'
+    chart.xValueAxis.labels.fontSize = 8
+
+    max_val = 0
+    for a in accounts:
+        max_val = max(max_val, max(series.get(a, []) or [0]))
+    nice_max, step = _nice_axis_scale(max_val, 4)
+    chart.yValueAxis.valueMin = 0
+    chart.yValueAxis.valueMax = nice_max
+    chart.yValueAxis.valueStep = step
+    chart.yValueAxis.valueSteps = [step * i for i in range(int(nice_max / step) + 1)]
+    chart.yValueAxis.labels.fontName = 'Helvetica'
+    chart.yValueAxis.labels.fontSize = 8
+    chart.yValueAxis.labelTextFormat = lambda v: _format_short_number(v)
+    chart.yValueAxis.strokeColor = colors.HexColor('#CBD5E1')
+    chart.yValueAxis.gridStrokeColor = colors.HexColor('#E2E8F0')
+
+    palette = [
+        colors.HexColor('#2563EB'),
+        colors.HexColor('#0EA5E9'),
+        colors.HexColor('#14B8A6'),
+        colors.HexColor('#22C55E'),
+        colors.HexColor('#F59E0B'),
+        colors.HexColor('#F97316'),
+        colors.HexColor('#EF4444'),
+        colors.HexColor('#A855F7'),
+        colors.HexColor('#6366F1'),
+        colors.HexColor('#64748B')
+    ]
+
+    for idx, color in enumerate(palette[:len(accounts)]):
+        chart.lines[idx].strokeColor = color
+        chart.lines[idx].strokeWidth = 1.6
+        chart.lines[idx].symbol = makeMarker('Circle')
+        chart.lines[idx].symbol.size = 3.5
+
+    drawing.add(chart)
+
+    legend_items = [(palette[i], accounts[i]) for i in range(len(accounts))]
+    legend = _build_legend(legend_items, x=30, y=30)
+    legend.columnMaximum = 2
+    drawing.add(legend)
+
+    return ([PageBreak()] if page_break else []) + [KeepTogether([_chart_title(title), drawing, Spacer(1, 0.2*inch)])]
 def create_sent_by_months_chart(monthly_data: Dict):
     """Line chart: Sent by Months for Sparkpost, Mailgun, Sendgrid"""
     if not monthly_data:
@@ -629,15 +709,15 @@ def create_sent_by_months_chart(monthly_data: Dict):
     if max_points <= 1:
         return []
 
-    width = 6.8 * inch
-    height = 3.2 * inch
+    width = 7.2 * inch
+    height = 4.8 * inch
     drawing = Drawing(width, height)
 
     chart = LinePlot()
-    chart.x = 50
-    chart.y = 35
-    chart.height = height - 70
-    chart.width = width - 100
+    chart.x = 40
+    chart.y = 80
+    chart.height = height - 150
+    chart.width = width - 80
 
     x_vals = list(range(len(labels)))
     chart.data = [
@@ -1165,6 +1245,12 @@ def export_to_pdf_reportlab(esp_data: Dict, df_combined: pd.DataFrame, from_date
                 account_data['top10_accounts_overall'],
                 'Top 10 Accounts by Send Volume (All ESPs)'
             ))
+            try:
+                account_names = [a.get('Account') for a in account_data['top10_accounts_overall'] if a.get('Account')]
+                trend_data = get_top_accounts_trend(account_names, 12)
+                story.extend(create_top10_accounts_trend_chart(trend_data))
+            except Exception:
+                pass
             story.extend(create_account_table(
                 account_data['top10_accounts_overall'],
                 'Top 10 Accounts (Across All ESPs)'
@@ -1181,8 +1267,13 @@ def export_to_pdf_reportlab(esp_data: Dict, df_combined: pd.DataFrame, from_date
 
         # ===== AFFILIATE ACCOUNTS SECTION =====
         if account_data.get('affiliate_accounts'):
-            story.append(PageBreak())
             story.extend(create_section_header('AFFILIATE ACCOUNTS ANALYSIS'))
+            try:
+                affiliate_names = [a.get('Account') for a in account_data['affiliate_accounts'] if a.get('Account')]
+                affiliate_trend = get_top_accounts_trend(affiliate_names, 12)
+                story.extend(create_top10_accounts_trend_chart(affiliate_trend, 'Affiliate Accounts - Sent Trend (Last 12 Months)', page_break=False))
+            except Exception:
+                pass
             story.extend(create_account_table(
                 account_data['affiliate_accounts'],
                 'Affiliate Accounts (IsAffiliate = Yes)'
