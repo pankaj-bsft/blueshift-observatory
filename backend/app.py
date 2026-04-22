@@ -107,6 +107,9 @@ from bounce_analytics_service import (
     collect_all_esps,
     collect_mailgun_bounces,
     collect_sparkpost_bounces,
+    export_domain_live_bounces_csv,
+    fetch_domain_live_bounces,
+    get_domain_live_bounce_payload,
     get_bounces,
     get_sending_domains,
     cleanup_old_data as cleanup_bounce_data,
@@ -158,18 +161,6 @@ from esp_integration_service import (
     clear_cache
 )
 
-def run_daily_mailgun_collection():
-    print(f'[Scheduler] Running daily Mailgun bounce collection...')
-    result = collect_mailgun_bounces()
-    print(f'[Scheduler] Done: {result}')
-
-
-def run_daily_sparkpost_collection():
-    print('[Scheduler] Running daily SparkPost bounce collection...')
-    result = collect_sparkpost_bounces()
-    print(f'[Scheduler] Done: {result}')
-
-
 def run_daily_spamhaus_refresh():
     print('[Scheduler] Running daily Spamhaus refresh...')
     domains = get_recent_domains(30)
@@ -177,18 +168,22 @@ def run_daily_spamhaus_refresh():
     print(f'[Scheduler] Done: refreshed {len(domains)} domains')
 
 
+def run_daily_bounce_cleanup():
+    print('[Scheduler] Running bounce cleanup...')
+    deleted = cleanup_bounce_data(365)
+    print(f'[Scheduler] Done: deleted {deleted} old bounce rows')
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_bounce_database()
 
     scheduler = BackgroundScheduler()
-    scheduler.add_job(run_daily_mailgun_collection, 'cron', hour=2, minute=0)
-    scheduler.add_job(run_daily_sparkpost_collection, 'cron', hour=2, minute=30)
     scheduler.add_job(run_daily_spamhaus_refresh, 'cron', hour=3, minute=15)
+    scheduler.add_job(run_daily_bounce_cleanup, 'cron', hour=3, minute=45)
     scheduler.start()
-    print('[Scheduler] Daily Mailgun collection scheduled at 2:00 AM')
-    print('[Scheduler] Daily SparkPost collection scheduled at 2:30 AM')
     print('[Scheduler] Daily Spamhaus refresh scheduled at 3:15 AM')
+    print('[Scheduler] Daily bounce cleanup scheduled at 3:45 AM')
     yield
     scheduler.shutdown()
 
@@ -782,6 +777,56 @@ async def get_spamhaus_account_trend_endpoint(account_name: str, days: int = 30)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error fetching Spamhaus account trend: {str(e)}')
+
+
+@app.get('/api/pulsation/domain-live-bounces/{domain}')
+async def get_domain_live_bounces_endpoint(
+    domain: str,
+    window_type: str = 'last_24h',
+    snapshot_date: str = None,
+    esp: str = None,
+    cache_age_minutes: int = 30
+):
+    """Get cached grouped live bounce reasons for a sending domain."""
+    try:
+        return get_domain_live_bounce_payload(domain, window_type, snapshot_date, esp, cache_age_minutes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching domain live bounces: {str(e)}')
+
+
+@app.post('/api/pulsation/domain-live-bounces/{domain}/refresh')
+async def refresh_domain_live_bounces_endpoint(
+    domain: str,
+    window_type: str = 'last_24h',
+    snapshot_date: str = None,
+    esp: str = None
+):
+    """Refresh live bounce reasons for a sending domain from ESP APIs."""
+    try:
+        return fetch_domain_live_bounces(domain, window_type, snapshot_date, esp)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error refreshing domain live bounces: {str(e)}')
+
+
+@app.get('/api/pulsation/domain-live-bounces/{domain}/export-csv')
+async def export_domain_live_bounces_endpoint(
+    domain: str,
+    window_type: str = 'last_24h',
+    snapshot_date: str = None,
+    esp: str = None
+):
+    """Export grouped live bounce reasons for a sending domain to CSV."""
+    try:
+        csv_content = export_domain_live_bounces_csv(domain, window_type, snapshot_date, esp)
+        filename_suffix = snapshot_date if window_type == 'daily' and snapshot_date else window_type
+        filename = f'domain_live_bounces_{domain}_{filename_suffix}.csv'
+        return StreamingResponse(
+            iter([csv_content]),
+            media_type='text/csv',
+            headers={'Content-Disposition': f'attachment; filename={filename}'}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error exporting domain live bounces: {str(e)}')
 
 
 # -------------------------

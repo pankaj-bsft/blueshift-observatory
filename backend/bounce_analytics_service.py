@@ -12,14 +12,21 @@ from urllib.parse import urlparse, parse_qsl, urljoin
 import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
+import csv
+import io
+import uuid
 from config import (
     MAILGUN_API_KEY, MAILGUN_US_BASE_URL, MAILGUN_EU_BASE_URL,
     SPARKPOST_API_KEY, SPARKPOST_BASE_URL,
     SENDGRID_API_KEY, SENDGRID_BASE_URL
 )
+from account_mapping_service import get_account_for_domain
 
 DB_PATH = data_path('bounce_analytics.db')
 MAILGUN_MAX_WORKERS = 6
+LIVE_BOUNCE_CACHE_WINDOW_MINUTES = 30
+LIVE_BOUNCE_WINDOW_LAST_24H = 'last_24h'
+LIVE_BOUNCE_WINDOW_DAILY = 'daily'
 
 # ISP Domain Mapping
 ISP_MAPPING = {
@@ -134,6 +141,69 @@ def init_bounce_database():
         cursor.execute(
             'CREATE INDEX IF NOT EXISTS idx_bounce_events_event_date ON bounce_events (event_date)'
         )
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS domain_live_bounces (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fetch_batch_id TEXT NOT NULL,
+                window_type TEXT NOT NULL DEFAULT 'last_24h',
+                snapshot_date TEXT,
+                esp TEXT NOT NULL,
+                region TEXT,
+                account_name TEXT,
+                sending_domain TEXT NOT NULL,
+                event_timestamp TEXT NOT NULL,
+                event_date TEXT NOT NULL,
+                sending_ip TEXT,
+                recipient TEXT,
+                recipient_domain TEXT,
+                isp TEXT,
+                bounce_type TEXT,
+                bounce_reason TEXT,
+                bounce_code TEXT,
+                raw_status TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        _ensure_column(cursor, 'domain_live_bounces', 'window_type', "TEXT NOT NULL DEFAULT 'last_24h'")
+        _ensure_column(cursor, 'domain_live_bounces', 'snapshot_date', 'TEXT')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_domain_live_bounces_lookup ON domain_live_bounces (sending_domain, event_timestamp)'
+        )
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_domain_live_bounces_window ON domain_live_bounces (sending_domain, window_type, snapshot_date)'
+        )
+        cursor.execute(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_domain_live_bounces_dedupe ON domain_live_bounces '
+            '(window_type, snapshot_date, esp, sending_domain, event_timestamp, recipient, bounce_reason, bounce_code)'
+        )
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS domain_live_bounce_cache (
+                sending_domain TEXT NOT NULL,
+                window_hours INTEGER NOT NULL,
+                last_fetched_at TEXT,
+                status TEXT NOT NULL DEFAULT 'empty',
+                row_count INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (sending_domain, window_hours)
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS domain_live_bounce_cache_v2 (
+                cache_key TEXT PRIMARY KEY,
+                sending_domain TEXT NOT NULL,
+                window_type TEXT NOT NULL,
+                snapshot_date TEXT,
+                last_fetched_at TEXT,
+                status TEXT NOT NULL DEFAULT 'empty',
+                row_count INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_domain_live_bounce_cache_v2_lookup ON domain_live_bounce_cache_v2 (sending_domain, window_type, snapshot_date)'
+        )
         conn.commit()
     except sqlite3.OperationalError as exc:
         if 'readonly' not in str(exc).lower():
@@ -149,6 +219,12 @@ def init_bounce_database():
         print('[Bounce Analytics] Existing bounce database is read-only; skipping schema bootstrap.')
     finally:
         conn.close()
+
+
+def _ensure_column(cursor, table_name: str, column_name: str, definition: str) -> None:
+    columns = [row[1] for row in cursor.execute(f'PRAGMA table_info({table_name})').fetchall()]
+    if column_name not in columns:
+        cursor.execute(f'ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}')
 
 
 def delete_bounces_for_esp_date(esp: str, date: str) -> int:
@@ -615,81 +691,38 @@ def collect_sparkpost_bounces(date: str = None) -> Dict:
 def collect_sendgrid_bounces(date: str = None) -> Dict:
     """
     Collect bounce events from SendGrid for a specific date
-    Automatically collects bounces for all sending domains via messages API
+    Automatically collects bounces for all sending domains via Email Logs API
     """
     if not date:
         date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
 
     print(f'Collecting SendGrid bounces for {date} (all domains)')
 
-    url = 'https://api.sendgrid.com/v3/messages'
-
-    headers = {
-        'Authorization': f'Bearer {SENDGRID_API_KEY}',
-        'Content-Type': 'application/json'
-    }
-
-    # Query for bounce events
-    query = f'status="bounce" OR status="blocked" OR status="dropped"'
-
-    params = {
-        'query': query,
-        'limit': 1000
-    }
-
     all_bounces = []
+    start_time = datetime.strptime(date, '%Y-%m-%d')
+    end_time = start_time + timedelta(days=1)
 
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=30)
+        messages = fetch_sendgrid_log_messages(start_time, end_time)
+        for msg in messages:
+            recipient = msg.get('to_email', '')
+            recipient_domain = extract_domain_from_email(recipient)
+            sending_domain = extract_domain_from_email(msg.get('from_email', ''))
+            if not sending_domain:
+                continue
 
-        if response.status_code == 200:
-            data = response.json()
-            messages = data.get('messages', [])
-
-            for msg in messages:
-                # Filter by date
-                msg_date = msg.get('last_event_time', '')[:10]  # Get YYYY-MM-DD
-                if msg_date != date:
-                    continue
-
-                # Extract details
-                recipient = msg.get('to_email', '')
-                recipient_domain = extract_domain_from_email(recipient)
-
-                # Get sending domain
-                from_email = msg.get('from_email', '')
-                sending_domain = extract_domain_from_email(from_email)
-
-                # Get sending IP
-                sending_ip = msg.get('originating_ip', None)
-
-                # Bounce details
-                status = msg.get('status', '')
-                reason = msg.get('reason', '') or msg.get('bounce_reason', '')
-
-                # Determine bounce type
-                if status == 'bounce':
-                    bounce_type = 'hard'
-                elif status == 'blocked':
-                    bounce_type = 'block'
-                elif status == 'dropped':
-                    bounce_type = 'soft'
-                else:
-                    bounce_type = 'unknown'
-
-                bounce = {
-                    'esp': 'Sendgrid',
-                    'event_date': date,
-                    'sending_domain': sending_domain,
-                    'sending_ip': sending_ip,
-                    'recipient_domain': recipient_domain,
-                    'isp': map_domain_to_isp(recipient_domain),
-                    'bounce_type': bounce_type,
-                    'bounce_reason': reason,
-                    'bounce_code': None
-                }
-
-                all_bounces.append(bounce)
+            status = msg.get('status', '')
+            all_bounces.append({
+                'esp': 'Sendgrid',
+                'event_date': date,
+                'sending_domain': sending_domain,
+                'sending_ip': msg.get('originating_ip'),
+                'recipient_domain': recipient_domain,
+                'isp': map_domain_to_isp(recipient_domain),
+                'bounce_type': map_sendgrid_status_to_bounce_type(status),
+                'bounce_reason': _normalize_live_bounce_reason(msg.get('reason') or msg.get('bounce_reason') or ''),
+                'bounce_code': str(status or '')
+            })
 
     except Exception as e:
         print(f"Error collecting SendGrid bounces: {str(e)}")
@@ -703,6 +736,549 @@ def collect_sendgrid_bounces(date: str = None) -> Dict:
         'date': date,
         'bounces_collected': len(all_bounces)
     }
+
+
+def _iso_now_utc() -> str:
+    return datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
+
+
+def _to_iso_utc(dt: datetime) -> str:
+    return dt.replace(microsecond=0).isoformat() + 'Z'
+
+
+def _event_datetime_to_iso(value) -> str:
+    if value is None or value == '':
+        return _iso_now_utc()
+    try:
+        if isinstance(value, (int, float)):
+            return _to_iso_utc(datetime.utcfromtimestamp(float(value)))
+        return _to_iso_utc(datetime.fromisoformat(str(value).replace('Z', '+00:00')).replace(tzinfo=None))
+    except Exception:
+        return _iso_now_utc()
+
+
+def _normalize_live_bounce_reason(reason: Optional[str], fallback: Optional[str] = None) -> str:
+    reason = (reason or '').strip()
+    fallback = (fallback or '').strip()
+    if reason.lower() in {'too old', 'message too old'} and fallback:
+        return fallback
+    return reason or fallback or 'Unknown'
+
+
+def _get_domain_account(domain: str) -> str:
+    return get_account_for_domain(domain) or 'Unmapped'
+
+
+def _group_live_bounces(rows: List[Dict]) -> List[Dict]:
+    grouped = {}
+    for row in rows:
+        key = (
+            row.get('esp', ''),
+            row.get('region', '') or 'Unknown',
+            row.get('account_name', '') or 'Unmapped',
+            row.get('sending_domain', ''),
+            row.get('bounce_reason', '') or 'Unknown'
+        )
+        grouped[key] = grouped.get(key, 0) + 1
+
+    result = []
+    for (esp, region, account_name, sending_domain, bounce_reason), count in grouped.items():
+        result.append({
+            'esp': esp,
+            'region': region,
+            'account_name': account_name,
+            'sending_domain': sending_domain,
+            'bounce_reason': bounce_reason,
+            'count': count
+        })
+    result.sort(key=lambda item: (-item['count'], item['esp'], item['region'], item['bounce_reason']))
+    return result
+
+
+def _build_live_bounce_summary(domain: str, rows: List[Dict]) -> Dict:
+    return {
+        'domain': domain,
+        'accounts': sorted({(row.get('account_name') or 'Unmapped') for row in rows}) or ['Unmapped'],
+        'esps': sorted({row.get('esp', '') for row in rows if row.get('esp')}),
+        'regions': sorted({(row.get('region') or 'Unknown') for row in rows}) or ['Unknown']
+    }
+
+
+def normalize_esp_name(esp: Optional[str]) -> Optional[str]:
+    value = (esp or '').strip().lower()
+    if not value:
+        return None
+    if 'mail' in value:
+        return 'Mailgun'
+    if 'spark' in value:
+        return 'Sparkpost'
+    if 'send' in value:
+        return 'Sendgrid'
+    return None
+
+
+def _build_live_cache_key(domain: str, window_type: str, snapshot_date: Optional[str] = None, esp: Optional[str] = None) -> str:
+    suffix = snapshot_date or 'rolling'
+    esp_suffix = normalize_esp_name(esp) or 'unknown'
+    return f'{domain.lower()}::{window_type}::{suffix}::{esp_suffix}'
+
+
+def _resolve_live_bounce_window(
+    window_type: str = LIVE_BOUNCE_WINDOW_LAST_24H,
+    snapshot_date: Optional[str] = None
+) -> Dict:
+    normalized_window_type = window_type if window_type in {LIVE_BOUNCE_WINDOW_LAST_24H, LIVE_BOUNCE_WINDOW_DAILY} else LIVE_BOUNCE_WINDOW_LAST_24H
+
+    if normalized_window_type == LIVE_BOUNCE_WINDOW_DAILY:
+        resolved_snapshot_date = snapshot_date or (datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d')
+        start_time = datetime.strptime(resolved_snapshot_date, '%Y-%m-%d')
+        end_time = start_time + timedelta(days=1)
+        label = resolved_snapshot_date
+    else:
+        resolved_snapshot_date = None
+        end_time = datetime.utcnow()
+        start_time = end_time - timedelta(hours=24)
+        label = 'Past 24 Hours'
+
+    return {
+        'window_type': normalized_window_type,
+        'snapshot_date': resolved_snapshot_date,
+        'start_time': start_time,
+        'end_time': end_time,
+        'label': label
+    }
+
+
+def _get_live_cache_metadata(domain: str, window_type: str, snapshot_date: Optional[str] = None, esp: Optional[str] = None) -> Optional[Dict]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cache_key = _build_live_cache_key(domain, window_type, snapshot_date, esp)
+    try:
+        row = cursor.execute(
+            'SELECT sending_domain, window_type, snapshot_date, last_fetched_at, status, row_count, error_message, updated_at '
+            'FROM domain_live_bounce_cache_v2 WHERE cache_key = ?',
+            (cache_key,)
+        ).fetchone()
+    except sqlite3.OperationalError as exc:
+        if 'no such table' in str(exc).lower():
+            conn.close()
+            return None
+        conn.close()
+        raise
+    conn.close()
+    return dict(row) if row else None
+
+
+def _upsert_live_cache_metadata(
+    domain: str,
+    window_type: str,
+    snapshot_date: Optional[str],
+    esp: Optional[str],
+    status: str,
+    row_count: int,
+    error_message: Optional[str] = None
+) -> None:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now = _iso_now_utc()
+    normalized_esp = normalize_esp_name(esp)
+    cache_key = _build_live_cache_key(domain, window_type, snapshot_date, normalized_esp)
+    cursor.execute('''
+        INSERT INTO domain_live_bounce_cache_v2
+        (cache_key, sending_domain, window_type, snapshot_date, last_fetched_at, status, row_count, error_message, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(cache_key) DO UPDATE SET
+            last_fetched_at = excluded.last_fetched_at,
+            status = excluded.status,
+            row_count = excluded.row_count,
+            error_message = excluded.error_message,
+            updated_at = excluded.updated_at
+    ''', (cache_key, domain.lower(), window_type, snapshot_date, now, status, row_count, error_message, now))
+    conn.commit()
+    conn.close()
+
+
+def _store_domain_live_bounces(domain: str, rows: List[Dict], window_type: str, snapshot_date: Optional[str] = None, esp: Optional[str] = None) -> int:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    inserted = 0
+    fetch_batch_id = str(uuid.uuid4())
+    normalized_esp = normalize_esp_name(esp)
+    cursor.execute(
+        'DELETE FROM domain_live_bounces WHERE sending_domain = ? AND window_type = ? AND IFNULL(snapshot_date, "") = IFNULL(?, "") AND (? IS NULL OR esp = ?)',
+        (domain.lower(), window_type, snapshot_date, normalized_esp, normalized_esp)
+    )
+
+    for row in rows:
+        cursor.execute('''
+            INSERT OR IGNORE INTO domain_live_bounces
+            (fetch_batch_id, window_type, snapshot_date, esp, region, account_name, sending_domain, event_timestamp, event_date, sending_ip,
+             recipient, recipient_domain, isp, bounce_type, bounce_reason, bounce_code, raw_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            fetch_batch_id,
+            window_type,
+            snapshot_date,
+            row.get('esp'),
+            row.get('region'),
+            row.get('account_name'),
+            row.get('sending_domain'),
+            row.get('event_timestamp'),
+            row.get('event_date'),
+            row.get('sending_ip'),
+            row.get('recipient'),
+            row.get('recipient_domain'),
+            row.get('isp'),
+            row.get('bounce_type'),
+            row.get('bounce_reason'),
+            row.get('bounce_code'),
+            row.get('raw_status')
+        ))
+        inserted += cursor.rowcount
+
+    conn.commit()
+    conn.close()
+    _upsert_live_cache_metadata(domain, window_type, snapshot_date, normalized_esp, 'success', inserted)
+    return inserted
+
+
+def _load_domain_live_bounces(domain: str, window_type: str, snapshot_date: Optional[str] = None, esp: Optional[str] = None) -> List[Dict]:
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    params = [domain.lower(), window_type]
+    where_clause = 'sending_domain = ? AND window_type = ?'
+    normalized_esp = normalize_esp_name(esp)
+
+    if window_type == LIVE_BOUNCE_WINDOW_DAILY:
+        where_clause += ' AND snapshot_date = ?'
+        params.append(snapshot_date)
+    else:
+        where_clause += ' AND snapshot_date IS NULL'
+
+    if normalized_esp:
+        where_clause += ' AND esp = ?'
+        params.append(normalized_esp)
+
+    try:
+        rows = cursor.execute(f'''
+            SELECT esp, region, account_name, sending_domain, event_timestamp, event_date, sending_ip,
+                   recipient, recipient_domain, isp, bounce_type, bounce_reason, bounce_code, raw_status
+            FROM domain_live_bounces
+            WHERE {where_clause}
+            ORDER BY event_timestamp DESC
+        ''', params).fetchall()
+    except sqlite3.OperationalError as exc:
+        if 'no such table' in str(exc).lower():
+            conn.close()
+            return []
+        conn.close()
+        raise
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def get_domain_live_bounce_payload(
+    domain: str,
+    window_type: str = LIVE_BOUNCE_WINDOW_LAST_24H,
+    snapshot_date: Optional[str] = None,
+    esp: Optional[str] = None,
+    cache_age_minutes: int = LIVE_BOUNCE_CACHE_WINDOW_MINUTES
+) -> Dict:
+    window = _resolve_live_bounce_window(window_type, snapshot_date)
+    normalized_esp = normalize_esp_name(esp)
+    rows = _load_domain_live_bounces(domain, window['window_type'], window['snapshot_date'], normalized_esp)
+    metadata = _get_live_cache_metadata(domain, window['window_type'], window['snapshot_date'], normalized_esp)
+    now = datetime.utcnow()
+    is_stale = window['window_type'] == LIVE_BOUNCE_WINDOW_LAST_24H
+    if metadata and metadata.get('last_fetched_at'):
+        try:
+            fetched_at = datetime.fromisoformat(metadata['last_fetched_at'].replace('Z', '+00:00')).replace(tzinfo=None)
+            if window['window_type'] == LIVE_BOUNCE_WINDOW_LAST_24H:
+                is_stale = (now - fetched_at) >= timedelta(minutes=cache_age_minutes)
+            else:
+                is_stale = False
+        except Exception:
+            is_stale = window['window_type'] == LIVE_BOUNCE_WINDOW_LAST_24H
+
+    return {
+        'status': 'success',
+        'summary': _build_live_bounce_summary(domain, rows),
+        'table_rows': _group_live_bounces(rows),
+        'raw_row_count': len(rows),
+        'window': {
+            'window_type': window['window_type'],
+            'snapshot_date': window['snapshot_date'],
+            'label': window['label'],
+            'esp': normalized_esp
+        },
+        'cache': {
+            'last_fetched_at': metadata.get('last_fetched_at') if metadata else None,
+            'status': metadata.get('status') if metadata else 'empty',
+            'row_count': metadata.get('row_count') if metadata else 0,
+            'error_message': metadata.get('error_message') if metadata else None,
+            'is_stale': is_stale,
+            'cache_age_minutes': cache_age_minutes
+        }
+    }
+
+
+def fetch_domain_live_bounces(
+    domain: str,
+    window_type: str = LIVE_BOUNCE_WINDOW_LAST_24H,
+    snapshot_date: Optional[str] = None,
+    esp: Optional[str] = None
+) -> Dict:
+    domain = domain.lower().strip()
+    window = _resolve_live_bounce_window(window_type, snapshot_date)
+    start_time = window['start_time']
+    end_time = window['end_time']
+    normalized_esp = normalize_esp_name(esp)
+    if not normalized_esp:
+        raise ValueError('ESP could not be determined')
+    rows = []
+    errors = []
+
+    try:
+        if normalized_esp == 'Mailgun':
+            rows.extend(fetch_mailgun_live_bounces_for_domain(domain, start_time, end_time))
+        elif normalized_esp == 'Sparkpost':
+            rows.extend(fetch_sparkpost_live_bounces_for_domain(domain, start_time, end_time))
+        elif normalized_esp == 'Sendgrid':
+            rows.extend(fetch_sendgrid_live_bounces_for_domain(domain, start_time, end_time))
+    except Exception as exc:
+        errors.append(f'{normalized_esp}: {exc}')
+
+    inserted = _store_domain_live_bounces(domain, rows, window['window_type'], window['snapshot_date'], normalized_esp)
+    if errors:
+        _upsert_live_cache_metadata(
+            domain,
+            window['window_type'],
+            window['snapshot_date'],
+            normalized_esp,
+            'partial_success' if rows else 'error',
+            inserted,
+            '; '.join(errors)
+        )
+
+    payload = get_domain_live_bounce_payload(domain, window['window_type'], window['snapshot_date'], normalized_esp)
+    payload['fetch'] = {
+        'inserted': inserted,
+        'errors': errors,
+        'esp': normalized_esp
+    }
+    return payload
+
+
+def export_domain_live_bounces_csv(
+    domain: str,
+    window_type: str = LIVE_BOUNCE_WINDOW_LAST_24H,
+    snapshot_date: Optional[str] = None,
+    esp: Optional[str] = None
+) -> str:
+    payload = get_domain_live_bounce_payload(domain, window_type, snapshot_date, esp, LIVE_BOUNCE_CACHE_WINDOW_MINUTES)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ESP', 'Region', 'Account', 'Email Domain', 'Bounce Reason', 'Count'])
+    for row in payload['table_rows']:
+        writer.writerow([
+            row['esp'],
+            row['region'],
+            row['account_name'],
+            row['sending_domain'],
+            row['bounce_reason'],
+            row['count']
+        ])
+    return output.getvalue()
+
+
+def fetch_mailgun_live_bounces_for_domain(domain: str, start_time: datetime, end_time: datetime) -> List[Dict]:
+    results = []
+    begin_time = start_time.strftime('%a, %d %b %Y %H:%M:%S +0000')
+    end_time_str = end_time.strftime('%a, %d %b %Y %H:%M:%S +0000')
+    account_name = _get_domain_account(domain)
+
+    for region, base_host in [('US', 'https://api.mailgun.net'), ('EU', 'https://api.eu.mailgun.net')]:
+        page_url = f'{base_host}/v3/{domain}/events'
+        page_params = {
+            'begin': begin_time,
+            'end': end_time_str,
+            'event': 'failed',
+            'limit': 300
+        }
+        seen_pages = set()
+
+        while True:
+            response = requests.get(page_url, auth=('api', MAILGUN_API_KEY), params=page_params, timeout=30)
+            if response.status_code == 404:
+                break
+            if response.status_code != 200:
+                raise RuntimeError(f'{region} Mailgun API error {response.status_code}')
+
+            data = response.json()
+            for item in data.get('items', []):
+                delivery_status = item.get('delivery-status', {})
+                message = delivery_status.get('message', '') or delivery_status.get('description', '')
+                reason = _normalize_live_bounce_reason(message, delivery_status.get('last-message', ''))
+                event_ts = _event_datetime_to_iso(item.get('timestamp'))
+                results.append({
+                    'esp': 'Mailgun',
+                    'region': region,
+                    'account_name': account_name,
+                    'sending_domain': domain,
+                    'event_timestamp': event_ts,
+                    'event_date': event_ts[:10],
+                    'sending_ip': item.get('ip'),
+                    'recipient': item.get('recipient', ''),
+                    'recipient_domain': extract_domain_from_email(item.get('recipient', '')),
+                    'isp': map_domain_to_isp(extract_domain_from_email(item.get('recipient', ''))),
+                    'bounce_type': delivery_status.get('bounce-type') or ('hard' if item.get('severity') == 'permanent' else 'soft'),
+                    'bounce_reason': reason,
+                    'bounce_code': str(delivery_status.get('last-code') or delivery_status.get('code') or ''),
+                    'raw_status': item.get('event', 'failed')
+                })
+
+            next_url = data.get('paging', {}).get('next')
+            if not next_url or next_url in seen_pages:
+                break
+            seen_pages.add(next_url)
+            page_url = next_url
+            page_params = None
+
+    return results
+
+
+def fetch_sparkpost_bounce_events_range(start_iso: str, end_iso: str) -> List[Dict]:
+    url = f'{SPARKPOST_BASE_URL}/events/message'
+    headers = {'Authorization': SPARKPOST_API_KEY, 'Accept': 'application/json'}
+    params = {
+        'events': 'bounce,out_of_band',
+        'from': start_iso,
+        'to': end_iso,
+        'per_page': 10000,
+        'cursor': 'initial'
+    }
+    all_events = []
+    next_url = url
+    next_params = params
+    seen_requests = set()
+
+    while next_url:
+        request_key = (next_url, tuple(sorted((next_params or {}).items())))
+        if request_key in seen_requests:
+            break
+        seen_requests.add(request_key)
+
+        response = requests.get(next_url, headers=headers, params=next_params, timeout=30)
+        if response.status_code != 200:
+            raise RuntimeError(f'SparkPost API error: {response.status_code} {response.text[:300]}')
+        data = response.json()
+        all_events.extend(data.get('results', []))
+        next_link = (data.get('links') or {}).get('next')
+        if not next_link:
+            break
+        absolute_next_link = urljoin(SPARKPOST_BASE_URL + '/', next_link)
+        parsed = urlparse(absolute_next_link)
+        next_url = f'{parsed.scheme}://{parsed.netloc}{parsed.path}'
+        next_params = dict(parse_qsl(parsed.query)) if parsed.query else None
+
+    return all_events
+
+
+def fetch_sparkpost_live_bounces_for_domain(domain: str, start_time: datetime, end_time: datetime) -> List[Dict]:
+    account_name = _get_domain_account(domain)
+    rows = []
+    raw_events = fetch_sparkpost_bounce_events_range(_to_iso_utc(start_time), _to_iso_utc(end_time))
+    for event in raw_events:
+        sending_domain = extract_sparkpost_sending_domain(event)
+        if sending_domain != domain:
+            continue
+        recipient = event.get('rcpt_to') or event.get('recipient') or ''
+        recipient_domain = normalize_domain(recipient)
+        event_ts = _event_datetime_to_iso(event.get('timestamp') or event.get('timestamp_ms'))
+        rows.append({
+            'esp': 'Sparkpost',
+            'region': 'Global',
+            'account_name': account_name,
+            'sending_domain': domain,
+            'event_timestamp': event_ts,
+            'event_date': event_ts[:10],
+            'sending_ip': extract_sparkpost_sending_ip(event),
+            'recipient': recipient,
+            'recipient_domain': recipient_domain,
+            'isp': map_domain_to_isp(recipient_domain),
+            'bounce_type': map_sparkpost_bounce_type(event.get('bounce_class'), event),
+            'bounce_reason': _normalize_live_bounce_reason(event.get('reason') or event.get('raw_reason') or ''),
+            'bounce_code': str(event.get('bounce_class') or ''),
+            'raw_status': event.get('type') or event.get('event') or 'bounce'
+        })
+    return rows
+
+
+def map_sendgrid_status_to_bounce_type(status: str) -> str:
+    status = (status or '').lower().strip()
+    if status == 'bounced':
+        return 'hard'
+    if status == 'blocked':
+        return 'block'
+    if status in {'dropped', 'deferred'}:
+        return 'soft'
+    return 'unknown'
+
+
+def fetch_sendgrid_log_messages(start_time: datetime, end_time: datetime, limit: int = 1000) -> List[Dict]:
+    headers = {
+        'Authorization': f'Bearer {SENDGRID_API_KEY}',
+        'Content-Type': 'application/json'
+    }
+    query = (
+        f'sg_message_id_created_at >= TIMESTAMP "{_to_iso_utc(start_time)}" '
+        f'AND sg_message_id_created_at < TIMESTAMP "{_to_iso_utc(end_time)}" '
+        "AND status IN ('bounced','blocked','dropped')"
+    )
+    payload = {
+        'query': query,
+        'limit': limit
+    }
+
+    response = requests.post(f'{SENDGRID_BASE_URL}/logs', headers=headers, json=payload, timeout=30)
+    if response.status_code != 200:
+        raise RuntimeError(f'SendGrid API error {response.status_code}: {response.text[:300]}')
+
+    return response.json().get('messages', [])
+
+
+def fetch_sendgrid_live_bounces_for_domain(domain: str, start_time: datetime, end_time: datetime) -> List[Dict]:
+    account_name = _get_domain_account(domain)
+    rows = []
+    for msg in fetch_sendgrid_log_messages(start_time, end_time):
+        sending_domain = extract_domain_from_email(msg.get('from_email', ''))
+        if sending_domain != domain:
+            continue
+        event_ts = _event_datetime_to_iso(msg.get('sg_message_id_created_at') or msg.get('last_event_time'))
+        event_dt = datetime.fromisoformat(event_ts.replace('Z', '+00:00')).replace(tzinfo=None)
+        if event_dt < start_time or event_dt > end_time:
+            continue
+        recipient = msg.get('to_email', '')
+        recipient_domain = extract_domain_from_email(recipient)
+        status = msg.get('status', '')
+        rows.append({
+            'esp': 'Sendgrid',
+            'region': 'Global',
+            'account_name': account_name,
+            'sending_domain': domain,
+            'event_timestamp': event_ts,
+            'event_date': event_ts[:10],
+            'sending_ip': msg.get('originating_ip'),
+            'recipient': recipient,
+            'recipient_domain': recipient_domain,
+            'isp': map_domain_to_isp(recipient_domain),
+            'bounce_type': map_sendgrid_status_to_bounce_type(status),
+            'bounce_reason': _normalize_live_bounce_reason(msg.get('reason') or msg.get('bounce_reason') or ''),
+            'bounce_code': str(msg.get('status') or ''),
+            'raw_status': status
+        })
+    return rows
 
 
 def store_bounces(bounces: List[Dict]) -> int:
@@ -813,12 +1389,25 @@ def get_sending_domains(esp: str) -> List[str]:
 def cleanup_old_data(days: int = 120) -> int:
     """Delete bounce events older than specified days"""
     cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+    cutoff_iso = _to_iso_utc(datetime.utcnow() - timedelta(days=days))
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute('DELETE FROM bounce_events WHERE event_date < ?', (cutoff_date,))
     deleted = cursor.rowcount
+    cursor.execute('DELETE FROM domain_live_bounces WHERE event_timestamp < ?', (cutoff_iso,))
+    deleted += cursor.rowcount
+    cursor.execute(
+        "DELETE FROM domain_live_bounce_cache WHERE last_fetched_at IS NOT NULL AND last_fetched_at < ?",
+        (cutoff_iso,)
+    )
+    deleted += cursor.rowcount
+    cursor.execute(
+        "DELETE FROM domain_live_bounce_cache_v2 WHERE last_fetched_at IS NOT NULL AND last_fetched_at < ?",
+        (cutoff_iso,)
+    )
+    deleted += cursor.rowcount
 
     conn.commit()
     conn.close()

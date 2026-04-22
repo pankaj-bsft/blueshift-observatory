@@ -1972,6 +1972,80 @@
                   <canvas ref="chartSpamhaus"></canvas>
                 </div>
               </div>
+
+              <div v-if="pulsationTrendMode === 'domain' && selectedDomain" class="card-section" style="margin-top: 24px;">
+                <div class="card-header">
+                  <h3 class="card-title">Live Bounces</h3>
+                  <span class="card-meta" v-if="domainLiveBouncesCache?.last_fetched_at">
+                    Updated {{ formatTimeAgo(domainLiveBouncesCache.last_fetched_at) }}
+                  </span>
+                </div>
+
+                <div style="padding: 0 24px 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesWindowType === 'last_24h' }" @click="setDomainLiveBouncesWindow('last_24h')">
+                    Past 24h
+                  </button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesWindowType === 'daily' }" @click="setDomainLiveBouncesWindow('daily')">
+                    Daily Snapshot
+                  </button>
+                  <input
+                    v-if="domainLiveBouncesWindowType === 'daily'"
+                    type="date"
+                    class="date-input"
+                    v-model="domainLiveBouncesDailyDate"
+                    @change="loadDomainLiveBounces"
+                    style="width: 180px;"
+                  >
+                  <span class="badge" style="background: #eff6ff; color: #1d4ed8;">Domain: {{ selectedDomain }}</span>
+                  <span class="badge" style="background: #f8fafc; color: #334155;">Account: {{ domainLiveBouncesSummary?.accounts?.join(', ') || 'Unmapped' }}</span>
+                  <span class="badge" style="background: #f8fafc; color: #334155;">ESP: {{ domainLiveBouncesResolvedESP || domainLiveBouncesSummary?.esps?.join(', ') || 'Undetermined' }}</span>
+                  <span class="badge" style="background: #f8fafc; color: #334155;">Region: {{ domainLiveBouncesSummary?.regions?.join(', ') || 'N/A' }}</span>
+                  <span class="badge" style="background: #f8fafc; color: #334155;">View: {{ domainLiveBouncesWindow?.label || (domainLiveBouncesWindowType === 'daily' ? domainLiveBouncesDailyDate : 'Past 24 Hours') }}</span>
+
+                  <button class="btn btn-sm btn-primary" @click="refreshDomainLiveBounces('last_24h')" :disabled="domainLiveBouncesRefreshing">
+                    {{ domainLiveBouncesRefreshing && domainLiveBouncesWindowType === 'last_24h' ? 'Fetching...' : 'Fetch Live Bounces (Past 24h)' }}
+                  </button>
+                  <button class="btn btn-sm btn-primary" @click="refreshDomainLiveBounces('daily', yesterdayDateString)" :disabled="domainLiveBouncesRefreshing">
+                    {{ domainLiveBouncesRefreshing && domainLiveBouncesWindowType === 'daily' && domainLiveBouncesDailyDate === yesterdayDateString ? "Fetching..." : "Fetch Yesterday's Bounces" }}
+                  </button>
+                  <button class="btn btn-sm btn-secondary" @click="exportDomainLiveBouncesCSV" :disabled="!domainLiveBouncesData.length">
+                    Export CSV
+                  </button>
+                </div>
+
+                <div v-if="domainLiveBouncesLoading" class="summary-empty" style="padding: 0 24px 24px;">Loading cached bounce data...</div>
+                <div v-else-if="domainLiveBouncesESPError" class="summary-empty" style="padding: 0 24px 24px; color: #b45309;">{{ domainLiveBouncesESPError }}</div>
+                <div v-else-if="domainLiveBouncesError" class="summary-empty" style="padding: 0 24px 24px; color: #dc2626;">{{ domainLiveBouncesError }}</div>
+                <div v-else-if="!domainLiveBouncesData.length" class="summary-empty" style="padding: 0 24px 24px;">
+                  No cached bounce reasons found for this view. Use one of the fetch buttons to load data from the ESPs.
+                </div>
+                <div v-else style="padding: 0 24px 24px;">
+                  <div class="table-wrapper">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>ESP</th>
+                          <th>Region</th>
+                          <th>Account</th>
+                          <th>Email Domain</th>
+                          <th>Bounce Reason</th>
+                          <th>Count</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(row, idx) in domainLiveBouncesData" :key="`${row.esp}-${row.region}-${idx}`">
+                          <td>{{ row.esp }}</td>
+                          <td>{{ row.region }}</td>
+                          <td>{{ row.account_name }}</td>
+                          <td>{{ row.sending_domain }}</td>
+                          <td style="white-space: normal; max-width: 640px;">{{ row.bounce_reason }}</td>
+                          <td class="text-mono">{{ formatNumber(row.count) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -6005,6 +6079,18 @@
             bounce_code: '',
             count: ''
           },
+          domainLiveBouncesLoading: false,
+          domainLiveBouncesRefreshing: false,
+          domainLiveBouncesWindowType: 'last_24h',
+          domainLiveBouncesWindow: null,
+          domainLiveBouncesDailyDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+          yesterdayDateString: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+          domainLiveBouncesData: [],
+          domainLiveBouncesSummary: null,
+          domainLiveBouncesCache: null,
+          domainLiveBouncesResolvedESP: null,
+          domainLiveBouncesESPError: null,
+          domainLiveBouncesError: null,
 
           // Industry Updates State
           industryUpdates: [],
@@ -6848,6 +6934,13 @@
           if (!target) {
             this.destroyAllCharts();
             this.chartData = null;
+            this.domainLiveBouncesData = [];
+            this.domainLiveBouncesSummary = null;
+            this.domainLiveBouncesCache = null;
+            this.domainLiveBouncesWindow = null;
+            this.domainLiveBouncesResolvedESP = null;
+            this.domainLiveBouncesESPError = null;
+            this.domainLiveBouncesError = null;
             return;
           }
 
@@ -6885,6 +6978,17 @@
                   this.renderChart('chartSpamhaus', labels, values, 'Spamhaus Listed', '#8b5cf6');
                 });
               }
+              if (mode === 'domain') {
+                await this.loadDomainLiveBounces();
+              } else {
+                this.domainLiveBouncesData = [];
+                this.domainLiveBouncesSummary = null;
+                this.domainLiveBouncesCache = null;
+                this.domainLiveBouncesWindow = null;
+                this.domainLiveBouncesResolvedESP = null;
+                this.domainLiveBouncesESPError = null;
+                this.domainLiveBouncesError = null;
+              }
             } else {
               this.chartData = null;
               this.showToast('info', 'No Chart Data', `No chart data available for this ${mode}`);
@@ -6894,6 +6998,154 @@
             this.showToast('error', 'Chart Error', 'Error loading chart data: ' + err.message);
             this.chartData = null;
           }
+        },
+        async loadDomainLiveBounces() {
+          if (!this.selectedDomain) return;
+          this.domainLiveBouncesLoading = true;
+          const espResolution = this.resolveSelectedDomainESP();
+          this.domainLiveBouncesResolvedESP = espResolution.esp;
+          this.domainLiveBouncesESPError = espResolution.error;
+          this.domainLiveBouncesError = null;
+          try {
+            const query = new URLSearchParams({
+              window_type: this.domainLiveBouncesWindowType,
+              cache_age_minutes: '30'
+            });
+            if (espResolution.esp) {
+              query.set('esp', espResolution.esp);
+            }
+            if (this.domainLiveBouncesWindowType === 'daily' && this.domainLiveBouncesDailyDate) {
+              query.set('snapshot_date', this.domainLiveBouncesDailyDate);
+            }
+            const response = await fetch(`${this.API_BASE}/api/pulsation/domain-live-bounces/${encodeURIComponent(this.selectedDomain)}?${query.toString()}`);
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.detail || 'Failed to load live bounces');
+            }
+            this.domainLiveBouncesData = result.table_rows || [];
+            this.domainLiveBouncesSummary = result.summary || null;
+            this.domainLiveBouncesCache = result.cache || null;
+            this.domainLiveBouncesWindow = result.window || null;
+          } catch (err) {
+            console.error('Error loading domain live bounces:', err);
+            this.domainLiveBouncesError = err.message;
+          } finally {
+            this.domainLiveBouncesLoading = false;
+          }
+        },
+        async refreshDomainLiveBounces(windowType = this.domainLiveBouncesWindowType, snapshotDate = null) {
+          if (!this.selectedDomain) return;
+          if (windowType === 'daily') {
+            this.domainLiveBouncesWindowType = 'daily';
+            this.domainLiveBouncesDailyDate = snapshotDate || this.yesterdayDateString;
+          } else {
+            this.domainLiveBouncesWindowType = 'last_24h';
+          }
+          const espResolution = this.resolveSelectedDomainESP();
+          this.domainLiveBouncesResolvedESP = espResolution.esp;
+          this.domainLiveBouncesESPError = espResolution.error;
+          if (!espResolution.esp) {
+            this.domainLiveBouncesData = [];
+            this.domainLiveBouncesSummary = null;
+            this.domainLiveBouncesCache = null;
+            this.domainLiveBouncesWindow = null;
+            this.showToast('warning', 'ESP Not Determined', espResolution.error || 'ESP could not be determined for this domain');
+            return;
+          }
+          this.domainLiveBouncesRefreshing = true;
+          this.domainLiveBouncesError = null;
+          try {
+            const query = new URLSearchParams({
+              window_type: this.domainLiveBouncesWindowType,
+              esp: espResolution.esp
+            });
+            if (this.domainLiveBouncesWindowType === 'daily' && this.domainLiveBouncesDailyDate) {
+              query.set('snapshot_date', this.domainLiveBouncesDailyDate);
+            }
+            const response = await fetch(`${this.API_BASE}/api/pulsation/domain-live-bounces/${encodeURIComponent(this.selectedDomain)}/refresh?${query.toString()}`, {
+              method: 'POST'
+            });
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.detail || 'Failed to refresh live bounces');
+            }
+            this.domainLiveBouncesData = result.table_rows || [];
+            this.domainLiveBouncesSummary = result.summary || null;
+            this.domainLiveBouncesCache = result.cache || null;
+            this.domainLiveBouncesWindow = result.window || null;
+            if (this.domainLiveBouncesData.length) {
+              this.showToast('success', 'Live Bounces Refreshed', `Loaded ${this.domainLiveBouncesData.length} grouped bounce reasons`);
+            } else {
+              this.showToast('info', 'No Bounce Records', 'No bounce records were found for the selected domain and time window');
+            }
+          } catch (err) {
+            console.error('Error refreshing domain live bounces:', err);
+            this.domainLiveBouncesError = err.message;
+            this.showToast('error', 'Refresh Failed', err.message);
+          } finally {
+            this.domainLiveBouncesRefreshing = false;
+          }
+        },
+        async setDomainLiveBouncesWindow(windowType) {
+          this.domainLiveBouncesWindowType = windowType;
+          if (windowType === 'daily' && !this.domainLiveBouncesDailyDate) {
+            this.domainLiveBouncesDailyDate = this.yesterdayDateString;
+          }
+          await this.loadDomainLiveBounces();
+        },
+        async exportDomainLiveBouncesCSV() {
+          if (!this.selectedDomain) return;
+          const espResolution = this.resolveSelectedDomainESP();
+          if (!espResolution.esp) {
+            this.showToast('warning', 'ESP Not Determined', espResolution.error || 'ESP could not be determined for this domain');
+            return;
+          }
+          try {
+            const query = new URLSearchParams({
+              window_type: this.domainLiveBouncesWindowType,
+              esp: espResolution.esp
+            });
+            let filenameSuffix = 'last_24h';
+            if (this.domainLiveBouncesWindowType === 'daily' && this.domainLiveBouncesDailyDate) {
+              query.set('snapshot_date', this.domainLiveBouncesDailyDate);
+              filenameSuffix = this.domainLiveBouncesDailyDate;
+            }
+            const response = await fetch(`${this.API_BASE}/api/pulsation/domain-live-bounces/${encodeURIComponent(this.selectedDomain)}/export-csv?${query.toString()}`);
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(errorText || 'Failed to export CSV');
+            }
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `domain_live_bounces_${this.selectedDomain}_${filenameSuffix}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            this.showToast('success', 'Exported', 'Live bounce CSV downloaded successfully');
+          } catch (err) {
+            console.error('Error exporting live bounce CSV:', err);
+            this.showToast('error', 'Export Failed', err.message);
+          }
+        },
+        resolveSelectedDomainESP() {
+          const rows = this.pulsationData?.overall_data || [];
+          const esps = [...new Set(
+            rows
+              .filter(row => (row.From_domain || '').toLowerCase() === (this.selectedDomain || '').toLowerCase())
+              .map(row => (row.ESP || '').trim())
+              .filter(Boolean)
+          )];
+
+          if (esps.length === 1) {
+            return { esp: esps[0], error: null };
+          }
+          if (esps.length > 1) {
+            return { esp: null, error: `ESP could not be determined for ${this.selectedDomain}. Multiple ESPs were found in Pulsation data: ${esps.join(', ')}` };
+          }
+          return { esp: null, error: `ESP could not be determined for ${this.selectedDomain} from Pulsation data.` };
         },
         destroyChart(chartId) {
           if (this.activeCharts[chartId]) {
@@ -7418,6 +7670,8 @@
               this.mbrChartsRange = { from: this.fromDate, to: this.toDate };
               this.$nextTick(() => {
                 this.renderMBRCharts();
+                this.renderMBRTopAccountsTrendChart();
+                this.renderMBRAffiliateTrendChart();
               });
               await this.fetchMBRTopAccountsTrend();
               await this.fetchMBRAffiliateTrend();
@@ -7507,6 +7761,8 @@
               this.mbrAccountChartsRange = { from: this.fromDate, to: this.toDate };
               this.$nextTick(() => {
                 this.renderMBRCharts();
+                this.renderMBRTopAccountsTrendChart();
+                this.renderMBRAffiliateTrendChart();
               });
               await this.fetchMBRTopAccountsTrend();
               await this.fetchMBRAffiliateTrend();
@@ -7516,14 +7772,6 @@
           }
         },
         destroyMBRCharts() {
-          if (this.mbrAffiliateTrendChart) {
-            this.mbrAffiliateTrendChart.destroy();
-            this.mbrAffiliateTrendChart = null;
-          }
-          if (this.mbrTopAccountsTrendChart) {
-            this.mbrTopAccountsTrendChart.destroy();
-            this.mbrTopAccountsTrendChart = null;
-          }
           Object.keys(this.mbrCharts).forEach((key) => {
             if (this.mbrCharts[key]) {
               this.mbrCharts[key].destroy();
@@ -7788,6 +8036,10 @@
               }
             }
           });
+
+          // Ensure trend charts render after main charts
+          this.renderMBRTopAccountsTrendChart();
+          this.renderMBRAffiliateTrendChart();
         },
         renderMBRMonthlySentChart() {
           if (!this.mbrMonthlySent || !this.mbrMonthlySent.labels?.length) {
@@ -10177,6 +10429,19 @@
           const date = new Date(dateStr);
           const options = { year: 'numeric', month: 'short', day: 'numeric' };
           return date.toLocaleDateString('en-US', options);
+        },
+
+        formatTimeAgo(dateStr) {
+          if (!dateStr) return 'never';
+          const then = new Date(dateStr);
+          const diffMs = Date.now() - then.getTime();
+          const diffMins = Math.floor(diffMs / 60000);
+          if (diffMins < 1) return 'just now';
+          if (diffMins < 60) return `${diffMins} min ago`;
+          const diffHours = Math.floor(diffMins / 60);
+          if (diffHours < 24) return `${diffHours}h ago`;
+          const diffDays = Math.floor(diffHours / 24);
+          return `${diffDays}d ago`;
         }
       },
       mounted() {

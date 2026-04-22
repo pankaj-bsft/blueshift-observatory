@@ -1,0 +1,15 @@
+source "https://rubygems.org"
+
+gem "activerecord", "7.1.5.1"
+gem "activesupport", "7.1.5.1"
+gem "activemodel", "7.1.5.1"
+gem "mysql2", "0.5.6"
+gem "orm_adapter"
+gem "devise", "~> 4.9.4"
+gem "devise_invitable", "~> 2.0.10"
+gem "devise-security", "~> 0.18.0"
+gem "attr_encrypted", "4.2.0"
+gem "acts-as-taggable-on"
+gem "actionview", "7.1.5.1"
+
+gem "bsft-models", path: "/Users/pankaj/pani/git/bsft-models"

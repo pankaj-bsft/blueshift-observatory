@@ -1,0 +1,92 @@
+
+
+
+def get_daily_summary(mode: str = 'daily', days: int = 30) -> dict:
+    """
+    Get aggregated pulsation data grouped by day/week/month.
+    mode: 'daily' | 'weekly' | 'monthly'
+    Returns two datasets:
+      - 'all': includes classdojo.com
+      - 'excluding_classdojo': excludes classdojo.com
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT MAX(report_date) FROM daily_metrics")
+    max_date_row = cursor.fetchone()
+    max_date = max_date_row[0] if max_date_row else None
+    if not max_date:
+        conn.close()
+        return {
+            'mode': mode,
+            'range_start': None,
+            'range_end': None,
+            'all': [],
+            'excluding_classdojo': []
+        }
+
+    try:
+        max_dt = datetime.strptime(max_date, '%Y-%m-%d')
+    except ValueError:
+        conn.close()
+        return {
+            'mode': mode,
+            'range_start': None,
+            'range_end': None,
+            'all': [],
+            'excluding_classdojo': []
+        }
+
+    days = int(days) if days else 30
+    if days < 1:
+        days = 1
+    start_dt = max_dt - timedelta(days=days - 1)
+    start_date = start_dt.strftime('%Y-%m-%d')
+
+    if mode == 'weekly':
+        period_expr = "strftime('%Y-W%W', report_date)"
+    elif mode == 'monthly':
+        period_expr = "strftime('%Y-%m', report_date)"
+    else:
+        period_expr = "report_date"
+        mode = 'daily'
+
+    def run_query(exclude_classdojo: bool = False):
+        where_clauses = ["report_date >= ?", "report_date <= ?"]
+        params = [start_date, max_date]
+        if exclude_classdojo:
+            where_clauses.append("from_domain != 'classdojo.com'")
+        where_sql = " AND ".join(where_clauses)
+
+        sql = f"""
+            SELECT
+                {period_expr} as period,
+                SUM(sent) as total_sent,
+                SUM(delivered) as total_delivered,
+                SUM(bounces) as total_bounces,
+                SUM(spam_report) as total_spam,
+                SUM(unsubscribe) as total_unsub,
+                ROUND(SUM(delivered) * 100.0 / NULLIF(SUM(sent), 0), 2) as delivery_rate,
+                ROUND(SUM(bounces) * 100.0 / NULLIF(SUM(sent), 0), 2) as bounce_rate,
+                ROUND(SUM(spam_report) * 100.0 / NULLIF(SUM(delivered), 0), 4) as spam_rate
+            FROM daily_metrics
+            WHERE {where_sql}
+            GROUP BY {period_expr}
+            ORDER BY {period_expr} ASC
+        """
+        cursor = conn.cursor()
+        cursor.execute(sql, params)
+        cols = [d[0] for d in cursor.description]
+        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+    all_data = run_query(False)
+    excl_data = run_query(True)
+    conn.close()
+
+    return {
+        'mode': mode,
+        'range_start': start_date,
+        'range_end': max_date,
+        'all': all_data,
+        'excluding_classdojo': excl_data
+    }
