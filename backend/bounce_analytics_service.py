@@ -1005,6 +1005,7 @@ def get_domain_live_bounce_payload(
         'status': 'success',
         'summary': _build_live_bounce_summary(domain, rows),
         'table_rows': _group_live_bounces(rows),
+        'detail_rows': rows,
         'raw_row_count': len(rows),
         'window': {
             'window_type': window['window_type'],
@@ -1074,21 +1075,38 @@ def export_domain_live_bounces_csv(
     domain: str,
     window_type: str = LIVE_BOUNCE_WINDOW_LAST_24H,
     snapshot_date: Optional[str] = None,
-    esp: Optional[str] = None
+    esp: Optional[str] = None,
+    view: str = 'summary'
 ) -> str:
     payload = get_domain_live_bounce_payload(domain, window_type, snapshot_date, esp, LIVE_BOUNCE_CACHE_WINDOW_MINUTES)
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['ESP', 'Region', 'Account', 'Email Domain', 'Bounce Reason', 'Count'])
-    for row in payload['table_rows']:
-        writer.writerow([
-            row['esp'],
-            row['region'],
-            row['account_name'],
-            row['sending_domain'],
-            row['bounce_reason'],
-            row['count']
-        ])
+    if view == 'detail':
+        writer.writerow(['ESP', 'Region', 'Account', 'Sending Domain', 'Recipient Email', 'Recipient Domain', 'Bounce Type', 'Bounce Reason', 'Bounce Code', 'Event Time'])
+        for row in payload['detail_rows']:
+            writer.writerow([
+                row.get('esp'),
+                row.get('region'),
+                row.get('account_name'),
+                row.get('sending_domain'),
+                row.get('recipient'),
+                row.get('recipient_domain'),
+                row.get('bounce_type'),
+                row.get('bounce_reason'),
+                row.get('bounce_code'),
+                row.get('event_timestamp')
+            ])
+    else:
+        writer.writerow(['ESP', 'Region', 'Account', 'Email Domain', 'Bounce Reason', 'Count'])
+        for row in payload['table_rows']:
+            writer.writerow([
+                row['esp'],
+                row['region'],
+                row['account_name'],
+                row['sending_domain'],
+                row['bounce_reason'],
+                row['count']
+            ])
     return output.getvalue()
 
 

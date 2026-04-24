@@ -382,6 +382,11 @@
       transition: all 0.2s;
     }
 
+    .stats-grid .stat-card {
+      padding: 10px 12px;
+      min-height: 92px;
+    }
+
     .stat-card:hover {
       transform: translateY(-2px);
       box-shadow: var(--shadow-lg);
@@ -422,6 +427,14 @@
       font-weight: 700;
     }
 
+    .stats-grid .stat-card-icon-badge {
+      top: 8px;
+      right: 8px;
+      width: 20px;
+      height: 20px;
+      font-size: 11px;
+    }
+
     .stat-card-healthy .stat-card-icon-badge { background: var(--color-green); }
     .stat-card-monitor .stat-card-icon-badge { background: var(--color-yellow); }
     .stat-card-low .stat-card-icon-badge { background: var(--color-orange); }
@@ -433,6 +446,12 @@
       letter-spacing: 0.06em;
       margin: 0 0 6px;
       text-transform: uppercase;
+    }
+
+    .stats-grid .stat-card-label {
+      font-size: 9px;
+      margin: 0 0 2px;
+      letter-spacing: 0.04em;
     }
 
     .stat-card-healthy .stat-card-label { color: var(--color-green); }
@@ -448,20 +467,52 @@
       line-height: 1;
     }
 
+    .stats-grid .stat-card-value {
+      font-size: 22px;
+      margin: 0 0 1px;
+    }
+
     .stat-card-subtitle {
       font-size: 12px;
       color: #64748b;
       margin: 0;
     }
 
+    .stats-grid .stat-card-subtitle {
+      font-size: 9px;
+    }
+
     /* Tabs */
+    .tabs-sticky {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 6px;
+      margin-top: -20px;
+      margin-bottom: 0;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    }
+
     .tabs {
       display: flex;
       gap: 4px;
-      margin-bottom: 20px;
-      background: #f1f5f9;
-      border-radius: 12px;
-      padding: 4px;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+    }
+
+    .tabs-spacer {
+      height: 56px;
+    }
+
+    .card-section > .tabs-sticky {
+      margin-left: 0;
+      margin-right: 0;
     }
 
     .tab {
@@ -1243,7 +1294,7 @@
             </div>
           </div>
 
-          <div class="control-panel" style="margin-top: -12px;">
+          <div v-if="pulsationTab !== 'charts'" class="control-panel" style="margin-top: -12px;">
             <div class="control-group" style="flex: 1; min-width: 260px;">
               <span class="control-label">🔍 Domain</span>
               <input
@@ -1514,29 +1565,32 @@
           </div>
 
           <!-- Tabs -->
-          <div v-if="pulsationData" class="tabs">
-            <button class="tab" :class="{ active: pulsationTab === 'overall' }" @click="pulsationTab = 'overall'">
-              Overall
-            </button>
-            <button class="tab" :class="{ active: pulsationTab === 'low_delivery' }" @click="pulsationTab = 'low_delivery'">
-              Top 20 Low Delivery
-            </button>
-            <button class="tab" :class="{ active: pulsationTab === 'spam' }" @click="pulsationTab = 'spam'">
-              Top 20 Spam
-            </button>
-            <button class="tab" :class="{ active: pulsationTab === 'bounce' }" @click="pulsationTab = 'bounce'">
-              Top 20 Bounce
-            </button>
-            <button class="tab" :class="{ active: pulsationTab === 'risk' }" @click="pulsationTab = 'risk'">
-              Top 20 Risk
-            </button>
-            <button class="tab" :class="{ active: pulsationTab === 'daily_summary' }" @click="pulsationTab = 'daily_summary'; loadDailySummary()">
-              Daily Summary
-            </button>
-            <button class="tab" :class="{ active: pulsationTab === 'charts' }" @click="pulsationTab = 'charts'">
-              Trend
-            </button>
+          <div v-if="pulsationData" class="tabs-sticky">
+            <div class="tabs">
+              <button class="tab" :class="{ active: pulsationTab === 'overall' }" @click="pulsationTab = 'overall'">
+                Overall
+              </button>
+              <button class="tab" :class="{ active: pulsationTab === 'low_delivery' }" @click="pulsationTab = 'low_delivery'">
+                Top 20 Low Delivery
+              </button>
+              <button class="tab" :class="{ active: pulsationTab === 'spam' }" @click="pulsationTab = 'spam'">
+                Top 20 Spam
+              </button>
+              <button class="tab" :class="{ active: pulsationTab === 'bounce' }" @click="pulsationTab = 'bounce'">
+                Top 20 Bounce
+              </button>
+              <button class="tab" :class="{ active: pulsationTab === 'risk' }" @click="pulsationTab = 'risk'">
+                Top 20 Risk
+              </button>
+              <button class="tab" :class="{ active: pulsationTab === 'daily_summary' }" @click="pulsationTab = 'daily_summary'; loadDailySummary()">
+                Daily Summary
+              </button>
+              <button class="tab" :class="{ active: pulsationTab === 'charts' }" @click="pulsationTab = 'charts'">
+                Trend & Logs
+              </button>
+            </div>
           </div>
+          <div class="tabs-spacer"></div>
 
           <!-- Overall Tab -->
           <div v-if="pulsationData && pulsationTab === 'overall'" class="card-section">
@@ -1900,9 +1954,17 @@
           <!-- Charts Tab -->
           <div v-if="pulsationData && pulsationTab === 'charts'" class="card-section">
             <div class="card-header">
-              <h3 class="card-title">Trends by Domain</h3>
+              <h3 class="card-title">Trend & Logs</h3>
             </div>
-            <div style="padding: 24px;">
+            <div style="padding: 16px 24px 0; display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendSubTab === 'trend' }" @click="pulsationTrendSubTab = 'trend'">
+                Trend
+              </button>
+              <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendSubTab === 'bounce_logs' }" @click="pulsationTrendSubTab = 'bounce_logs'">
+                Bounce Logs
+              </button>
+            </div>
+            <div v-if="pulsationTrendSubTab === 'trend'" style="padding: 24px;">
               <div style="display: grid; grid-template-columns: 1fr 200px; gap: 16px; margin-bottom: 24px;">
                 <div>
                   <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Trend View:</label>
@@ -1973,7 +2035,14 @@
                 </div>
               </div>
 
-              <div v-if="pulsationTrendMode === 'domain' && selectedDomain" class="card-section" style="margin-top: 24px;">
+            </div>
+
+            <div v-if="pulsationTrendSubTab === 'bounce_logs'" style="padding: 24px;">
+              <div v-if="!selectedDomain" class="empty-state">
+                <div class="empty-state-icon">📮</div>
+                <div class="empty-state-text">Select a domain from Pulsation to view live bounces</div>
+              </div>
+              <div v-else class="card-section">
                 <div class="card-header">
                   <h3 class="card-title">Live Bounces</h3>
                   <span class="card-meta" v-if="domainLiveBouncesCache?.last_fetched_at">
@@ -2000,6 +2069,13 @@
                   <span class="badge" style="background: #f8fafc; color: #334155;">Account: {{ domainLiveBouncesSummary?.accounts?.join(', ') || 'Unmapped' }}</span>
                   <span class="badge" style="background: #f8fafc; color: #334155;">ESP: {{ domainLiveBouncesResolvedESP || domainLiveBouncesSummary?.esps?.join(', ') || 'Undetermined' }}</span>
                   <span class="badge" style="background: #f8fafc; color: #334155;">Region: {{ domainLiveBouncesSummary?.regions?.join(', ') || 'N/A' }}</span>
+                  <span class="badge" style="background: #f8fafc; color: #334155;">Issue Type:</span>
+                  <select class="date-input" v-model="jiraIssueType" style="width: 180px;">
+                    <option value="Remediation">Remediation</option>
+                    <option value="Compliance">Compliance</option>
+                    <option value="Monitoring">Monitoring</option>
+                  </select>
+
                   <span class="badge" style="background: #f8fafc; color: #334155;">View: {{ domainLiveBouncesWindow?.label || (domainLiveBouncesWindowType === 'daily' ? domainLiveBouncesDailyDate : 'Past 24 Hours') }}</span>
 
                   <button class="btn btn-sm btn-primary" @click="refreshDomainLiveBounces('last_24h')" :disabled="domainLiveBouncesRefreshing">
@@ -2008,20 +2084,32 @@
                   <button class="btn btn-sm btn-primary" @click="refreshDomainLiveBounces('daily', yesterdayDateString)" :disabled="domainLiveBouncesRefreshing">
                     {{ domainLiveBouncesRefreshing && domainLiveBouncesWindowType === 'daily' && domainLiveBouncesDailyDate === yesterdayDateString ? "Fetching..." : "Fetch Yesterday's Bounces" }}
                   </button>
-                  <button class="btn btn-sm btn-secondary" @click="exportDomainLiveBouncesCSV" :disabled="!domainLiveBouncesData.length">
+                  <button class="btn btn-sm btn-secondary" @click="exportDomainLiveBouncesCSV" :disabled="domainLiveBouncesView === 'summary' ? !domainLiveBouncesData.length : !domainLiveBouncesDetailData.length">
                     Export CSV
+                  </button>
+                </div>
+
+                <div style="padding: 0 24px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesView === 'summary' }" @click="setDomainLiveBouncesView('summary')">
+                    Summary
+                  </button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesView === 'detail' }" @click="setDomainLiveBouncesView('detail')">
+                    Details
                   </button>
                 </div>
 
                 <div v-if="domainLiveBouncesLoading" class="summary-empty" style="padding: 0 24px 24px;">Loading cached bounce data...</div>
                 <div v-else-if="domainLiveBouncesESPError" class="summary-empty" style="padding: 0 24px 24px; color: #b45309;">{{ domainLiveBouncesESPError }}</div>
                 <div v-else-if="domainLiveBouncesError" class="summary-empty" style="padding: 0 24px 24px; color: #dc2626;">{{ domainLiveBouncesError }}</div>
-                <div v-else-if="!domainLiveBouncesData.length" class="summary-empty" style="padding: 0 24px 24px;">
+                <div v-else-if="domainLiveBouncesView === 'summary' && !domainLiveBouncesData.length" class="summary-empty" style="padding: 0 24px 24px;">
                   No cached bounce reasons found for this view. Use one of the fetch buttons to load data from the ESPs.
+                </div>
+                <div v-else-if="domainLiveBouncesView === 'detail' && !domainLiveBouncesDetailData.length" class="summary-empty" style="padding: 0 24px 24px;">
+                  No bounce details found for this view. Use one of the fetch buttons to load data from the ESPs.
                 </div>
                 <div v-else style="padding: 0 24px 24px;">
                   <div class="table-wrapper">
-                    <table class="data-table">
+                    <table v-if="domainLiveBouncesView === 'summary'" class="data-table">
                       <thead>
                         <tr>
                           <th>ESP</th>
@@ -2040,6 +2128,42 @@
                           <td>{{ row.sending_domain }}</td>
                           <td style="white-space: normal; max-width: 640px;">{{ row.bounce_reason }}</td>
                           <td class="text-mono">{{ formatNumber(row.count) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <table v-else class="data-table">
+                      <thead>
+                        <tr>
+                          <th>ESP</th>
+                          <th>Region</th>
+                          <th>Account</th>
+                          <th>Sending Domain</th>
+                          <th>Recipient Email</th>
+                          <th>Recipient Domain</th>
+                          <th>Bounce Type</th>
+                          <th>Bounce Reason</th>
+                          <th>Bounce Code</th>
+                          <th>Event Time</th>
+                          <th>Jira</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(row, idx) in domainLiveBouncesDetailData" :key="`${row.esp}-${row.region}-${row.event_timestamp}-${idx}`">
+                          <td>{{ row.esp }}</td>
+                          <td>{{ row.region }}</td>
+                          <td>{{ row.account_name }}</td>
+                          <td>{{ row.sending_domain }}</td>
+                          <td style="white-space: normal; max-width: 320px;">{{ row.recipient || 'N/A' }}</td>
+                          <td>{{ row.recipient_domain || 'N/A' }}</td>
+                          <td>{{ row.bounce_type }}</td>
+                          <td style="white-space: normal; max-width: 520px;">{{ row.bounce_reason || 'N/A' }}</td>
+                          <td>{{ row.bounce_code || 'N/A' }}</td>
+                          <td>{{ row.event_timestamp }}</td>
+                          <td>
+                            <button class="btn btn-sm btn-secondary" @click="createJiraTicketFromBounce(row)" :disabled="jiraCreating">
+                              {{ jiraCreating ? 'Creating...' : 'Create' }}
+                            </button>
+                          </td>
                         </tr>
                       </tbody>
                     </table>
@@ -5838,6 +5962,9 @@
           pulsationDomainFilter: '',
           pulsationAccountFilter: '',
           pulsationTrendMode: 'domain',
+          pulsationTrendSubTab: 'trend',
+          jiraIssueType: 'Remediation',
+          jiraCreating: false,
           pulsationSummaryOpen: false,
           // Daily Summary
           dailySummaryMode: 'daily',
@@ -6085,7 +6212,9 @@
           domainLiveBouncesWindow: null,
           domainLiveBouncesDailyDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
           yesterdayDateString: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+          domainLiveBouncesView: 'summary',
           domainLiveBouncesData: [],
+          domainLiveBouncesDetailData: [],
           domainLiveBouncesSummary: null,
           domainLiveBouncesCache: null,
           domainLiveBouncesResolvedESP: null,
@@ -6924,6 +7053,7 @@
           this.selectedDomain = domain;
           this.chartDays = 30;
           this.pulsationTab = 'charts';
+          this.pulsationTrendSubTab = 'trend';
           this.$nextTick(() => {
             this.loadTrendCharts();
           });
@@ -6935,6 +7065,7 @@
             this.destroyAllCharts();
             this.chartData = null;
             this.domainLiveBouncesData = [];
+            this.domainLiveBouncesDetailData = [];
             this.domainLiveBouncesSummary = null;
             this.domainLiveBouncesCache = null;
             this.domainLiveBouncesWindow = null;
@@ -6982,6 +7113,7 @@
                 await this.loadDomainLiveBounces();
               } else {
                 this.domainLiveBouncesData = [];
+                this.domainLiveBouncesDetailData = [];
                 this.domainLiveBouncesSummary = null;
                 this.domainLiveBouncesCache = null;
                 this.domainLiveBouncesWindow = null;
@@ -7023,6 +7155,7 @@
               throw new Error(result.detail || 'Failed to load live bounces');
             }
             this.domainLiveBouncesData = result.table_rows || [];
+            this.domainLiveBouncesDetailData = result.detail_rows || [];
             this.domainLiveBouncesSummary = result.summary || null;
             this.domainLiveBouncesCache = result.cache || null;
             this.domainLiveBouncesWindow = result.window || null;
@@ -7046,6 +7179,7 @@
           this.domainLiveBouncesESPError = espResolution.error;
           if (!espResolution.esp) {
             this.domainLiveBouncesData = [];
+            this.domainLiveBouncesDetailData = [];
             this.domainLiveBouncesSummary = null;
             this.domainLiveBouncesCache = null;
             this.domainLiveBouncesWindow = null;
@@ -7070,6 +7204,7 @@
               throw new Error(result.detail || 'Failed to refresh live bounces');
             }
             this.domainLiveBouncesData = result.table_rows || [];
+            this.domainLiveBouncesDetailData = result.detail_rows || [];
             this.domainLiveBouncesSummary = result.summary || null;
             this.domainLiveBouncesCache = result.cache || null;
             this.domainLiveBouncesWindow = result.window || null;
@@ -7093,6 +7228,45 @@
           }
           await this.loadDomainLiveBounces();
         },
+        async createJiraTicketFromBounce(row) {
+          if (!row) return;
+          const domain = this.selectedDomain || row.sending_domain || 'Unknown';
+          const issueType = this.jiraIssueType || 'Remediation';
+          const summary = `[Bounce] ${domain} — ${row.bounce_type || 'Unknown'}`;
+          const description = [
+            `Sending Domain: ${domain}`,
+            `Account: ${row.account_name || 'Unmapped'}`,
+            `ESP: ${row.esp || 'Unknown'}`,
+            `Region: ${row.region || 'Unknown'}`,
+            `Recipient Domain: ${row.recipient_domain || 'N/A'}`,
+            `Bounce Type: ${row.bounce_type || 'N/A'}`,
+            `Bounce Reason: ${row.bounce_reason || 'N/A'}`,
+            `Event Time: ${row.event_timestamp || 'N/A'}`
+          ].join('\n');
+
+          this.jiraCreating = true;
+          try {
+            const response = await fetch(`${this.API_BASE}/api/jira/create-ticket`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                issue_type: issueType,
+                summary,
+                description
+              })
+            });
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.detail || 'Failed to create Jira ticket');
+            }
+            this.showToast('success', 'Jira Ticket Created', `Key: ${result.key || 'Created'}`);
+          } catch (err) {
+            this.showToast('error', 'Jira Ticket Error', err.message || 'Failed to create Jira ticket');
+          } finally {
+            this.jiraCreating = false;
+          }
+        },
+
         async exportDomainLiveBouncesCSV() {
           if (!this.selectedDomain) return;
           const espResolution = this.resolveSelectedDomainESP();
@@ -7103,7 +7277,8 @@
           try {
             const query = new URLSearchParams({
               window_type: this.domainLiveBouncesWindowType,
-              esp: espResolution.esp
+              esp: espResolution.esp,
+              view: this.domainLiveBouncesView
             });
             let filenameSuffix = 'last_24h';
             if (this.domainLiveBouncesWindowType === 'daily' && this.domainLiveBouncesDailyDate) {
@@ -7146,6 +7321,9 @@
             return { esp: null, error: `ESP could not be determined for ${this.selectedDomain}. Multiple ESPs were found in Pulsation data: ${esps.join(', ')}` };
           }
           return { esp: null, error: `ESP could not be determined for ${this.selectedDomain} from Pulsation data.` };
+        },
+        setDomainLiveBouncesView(view) {
+          this.domainLiveBouncesView = view;
         },
         destroyChart(chartId) {
           if (this.activeCharts[chartId]) {

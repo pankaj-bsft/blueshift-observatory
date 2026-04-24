@@ -115,6 +115,7 @@ from bounce_analytics_service import (
     cleanup_old_data as cleanup_bounce_data,
     init_bounce_database
 )
+from jira_service import create_jira_ticket
 from industry_updates_service import (
     init_database as init_industry_database,
     refresh_all_updates,
@@ -813,13 +814,14 @@ async def export_domain_live_bounces_endpoint(
     domain: str,
     window_type: str = 'last_24h',
     snapshot_date: str = None,
-    esp: str = None
+    esp: str = None,
+    view: str = 'summary'
 ):
     """Export grouped live bounce reasons for a sending domain to CSV."""
     try:
-        csv_content = export_domain_live_bounces_csv(domain, window_type, snapshot_date, esp)
+        csv_content = export_domain_live_bounces_csv(domain, window_type, snapshot_date, esp, view)
         filename_suffix = snapshot_date if window_type == 'daily' and snapshot_date else window_type
-        filename = f'domain_live_bounces_{domain}_{filename_suffix}.csv'
+        filename = f'domain_live_bounces_{domain}_{filename_suffix}_{view}.csv'
         return StreamingResponse(
             iter([csv_content]),
             media_type='text/csv',
@@ -827,6 +829,26 @@ async def export_domain_live_bounces_endpoint(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error exporting domain live bounces: {str(e)}')
+
+
+class JiraTicketRequest(BaseModel):
+    issue_type: str
+    summary: str
+    description: str
+
+@app.post('/api/jira/create-ticket')
+async def create_jira_ticket_endpoint(payload: JiraTicketRequest):
+    """Create a Jira ticket for a bounce log row."""
+    try:
+        result = create_jira_ticket(payload.issue_type, payload.summary, payload.description)
+        return {
+            'status': 'success',
+            'key': result.get('key'),
+            'id': result.get('id'),
+            'self': result.get('self')
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error creating Jira ticket: {str(e)}')
 
 
 # -------------------------
@@ -845,6 +867,7 @@ class AccountMappingUpdate(BaseModel):
     account_name: Optional[str] = None
     notes: Optional[str] = None
     is_affiliate: Optional[bool] = None
+
 
 
 class BulkDelete(BaseModel):
