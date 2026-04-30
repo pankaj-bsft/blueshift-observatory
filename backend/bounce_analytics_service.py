@@ -883,17 +883,20 @@ def _upsert_live_cache_metadata(
     now = _iso_now_utc()
     normalized_esp = normalize_esp_name(esp)
     cache_key = _build_live_cache_key(domain, window_type, snapshot_date, normalized_esp)
-    cursor.execute('''
-        INSERT INTO domain_live_bounce_cache_v2
-        (cache_key, sending_domain, window_type, snapshot_date, last_fetched_at, status, row_count, error_message, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(cache_key) DO UPDATE SET
-            last_fetched_at = excluded.last_fetched_at,
-            status = excluded.status,
-            row_count = excluded.row_count,
-            error_message = excluded.error_message,
-            updated_at = excluded.updated_at
-    ''', (cache_key, domain.lower(), window_type, snapshot_date, now, status, row_count, error_message, now))
+    # Avoid ON CONFLICT for older SQLite builds (seen on some EC2 images).
+    cursor.execute(
+        'UPDATE domain_live_bounce_cache_v2 '
+        'SET last_fetched_at = ?, status = ?, row_count = ?, error_message = ?, updated_at = ? '
+        'WHERE cache_key = ?',
+        (now, status, row_count, error_message, now, cache_key)
+    )
+    if cursor.rowcount == 0:
+        cursor.execute(
+            'INSERT INTO domain_live_bounce_cache_v2 '
+            '(cache_key, sending_domain, window_type, snapshot_date, last_fetched_at, status, row_count, error_message, updated_at) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (cache_key, domain.lower(), window_type, snapshot_date, now, status, row_count, error_message, now)
+        )
     conn.commit()
     conn.close()
 

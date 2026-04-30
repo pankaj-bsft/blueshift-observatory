@@ -182,9 +182,13 @@ async def lifespan(app: FastAPI):
     scheduler = BackgroundScheduler()
     scheduler.add_job(run_daily_spamhaus_refresh, 'cron', hour=3, minute=15)
     scheduler.add_job(run_daily_bounce_cleanup, 'cron', hour=3, minute=45)
+    scheduler.add_job(_run_dns_daily_check, 'cron', hour=4, minute=0)
+    scheduler.add_job(run_esp_domain_sync, 'cron', day_of_week='mon', hour=2, minute=0)
     scheduler.start()
     print('[Scheduler] Daily Spamhaus refresh scheduled at 3:15 AM')
     print('[Scheduler] Daily bounce cleanup scheduled at 3:45 AM')
+    print('[Scheduler] Daily DNS check scheduled at 4:00 AM')
+    print('[Scheduler] Weekly ESP domain sync scheduled Monday 2:00 AM')
     yield
     scheduler.shutdown()
 
@@ -2315,6 +2319,354 @@ async def cleanup_updates(days: int = 90):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error cleaning up updates: {str(e)}')
+
+
+# -------------------------
+# DNS Looker Endpoints
+# -------------------------
+
+from dns_looker import run_full_check, get_spf_chain
+from dns_storage_service import (
+    save_dns_result,
+    get_latest_all_domains,
+    get_domain_latest,
+    get_domain_history,
+    save_custom_selector,
+    get_custom_selector,
+    get_all_custom_selectors,
+    get_esp_selectors,
+    add_esp_selector,
+    delete_esp_selector,
+    get_selectors_for_esp,
+    sync_alert_recipients,
+    get_alert_recipients,
+    set_alert_recipient_enabled,
+    get_enabled_alert_recipients,
+)
+from dns_change_detector import (
+    detect_changes,
+    save_change_events,
+    get_unread_count,
+    get_recent_events,
+    get_unnotified_events,
+    mark_all_read,
+    mark_event_read,
+    mark_events_notified,
+)
+from dns_alert_service import send_dns_alert
+from esp_domain_sync_service import run_esp_domain_sync, get_all_registry_domains
+
+
+class DnsCustomSelector(BaseModel):
+    domain: str
+    selector: str
+
+
+@app.get('/api/dns/lookup')
+async def dns_lookup(domain: str, selector: Optional[str] = None):
+    """
+    On-demand DNS check for any domain.
+    Optional ?selector= for DKIM.
+    Does NOT save to DB.
+    """
+    try:
+        result = run_full_check(domain.lower().strip(), selector)
+        return {'status': 'success', 'result': result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'DNS lookup failed: {str(e)}')
+
+
+@app.get('/api/dns/monitor/domains')
+async def dns_monitor_domains():
+    """
+    Return latest DNS check row for all monitored domains.
+    Used to populate the Domain Monitor table.
+    """
+    try:
+        rows = get_latest_all_domains()
+        return {'status': 'success', 'domains': rows, 'count': len(rows)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching monitor domains: {str(e)}')
+
+
+@app.get('/api/dns/monitor/domain/{domain}')
+async def dns_monitor_domain_detail(domain: str):
+    """
+    Return latest check + full detail for a single domain.
+    """
+    try:
+        row = get_domain_latest(domain)
+        if not row:
+            raise HTTPException(status_code=404, detail=f'No DNS data found for {domain}')
+        return {'status': 'success', 'domain': row}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching domain detail: {str(e)}')
+
+
+@app.get('/api/dns/monitor/history/{domain}')
+async def dns_monitor_domain_history(domain: str, days: int = 90):
+    """
+    Return historical DNS check rows for a domain (for trend charts).
+    """
+    try:
+        rows = get_domain_history(domain, days)
+        return {'status': 'success', 'domain': domain, 'history': rows, 'count': len(rows)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching domain history: {str(e)}')
+
+
+@app.post('/api/dns/monitor/selector')
+async def dns_save_selector(payload: DnsCustomSelector):
+    """
+    Save a custom DKIM selector for a domain.
+    Will be used in future daily checks.
+    """
+    try:
+        save_custom_selector(payload.domain.lower().strip(), payload.selector.strip())
+        return {'status': 'success', 'message': f'Selector saved for {payload.domain}'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error saving selector: {str(e)}')
+
+
+@app.post('/api/dns/monitor/trigger-check')
+async def dns_trigger_check(background_tasks: BackgroundTasks):
+    """
+    Manually trigger a DNS check for all Pulsation domains.
+    Runs in background.
+    """
+    try:
+        background_tasks.add_task(_run_dns_daily_check)
+        return {'status': 'started', 'message': 'DNS daily check started in background'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error triggering DNS check: {str(e)}')
+
+
+def _run_dns_daily_check():
+    """Background task: check all Pulsation domains and save to DNS history."""
+    try:
+        from datetime import date, timedelta
+        import sqlite3
+        from data_paths import data_path
+
+        print('[DNS Scheduler] Starting daily DNS check...')
+
+        # Get all unique domain+esp combos from last 30 days of pulsation data
+        db_path = data_path('deliverability_history.db')
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        today = date.today()
+        start = (today - timedelta(days=30)).strftime('%Y-%m-%d')
+        cursor.execute('''
+            SELECT from_domain, MAX(esp) as esp
+            FROM daily_metrics
+            WHERE report_date >= ? AND from_domain != '' AND from_domain IS NOT NULL
+            GROUP BY from_domain
+            ORDER BY from_domain
+        ''', (start,))
+        domain_esp_rows = cursor.fetchall()
+        conn.close()
+
+        if not domain_esp_rows:
+            print('[DNS Scheduler] No pulsation domains found.')
+            return
+
+        # Build domain -> esp map
+        domain_esp_map = {row[0]: row[1] for row in domain_esp_rows}
+        domains = sorted(domain_esp_map.keys())
+
+        # Build domain -> account map from account mappings
+        from account_mapping_service import get_all_mappings
+        mappings_result = get_all_mappings(limit=100000)
+        account_map = {
+            m['sending_domain']: m['account_name']
+            for m in mappings_result.get('mappings', [])
+        }
+
+        # Load custom selectors
+        custom_selectors = get_all_custom_selectors()
+
+        checked = 0
+        for domain in domains:
+            try:
+                selector = custom_selectors.get(domain)
+                result = run_full_check(domain, selector, skip_slow=True)
+                save_dns_result(
+                    result,
+                    account=account_map.get(domain),
+                    esp=domain_esp_map.get(domain),
+                    check_date=today,
+                )
+                checked += 1
+            except Exception as e:
+                print(f'[DNS Scheduler] Error checking {domain}: {e}')
+                continue
+
+        print(f'[DNS Scheduler] Done. Checked {checked}/{len(domains)} domains.')
+
+        # ── Change Detection + Email Alert ──
+        try:
+            events = detect_changes(today)
+            if events:
+                saved = save_change_events(events)
+                print(f'[DNS Scheduler] {saved} change event(s) detected and saved.')
+
+                # Send email alert using MBR recipients
+                unnotified = get_unnotified_events()
+                if unnotified:
+                    from email_service import get_all_recipients
+                    mbr_recipients = [r['email'] for r in get_all_recipients(active_only=True)]
+                    # Sync MBR recipients into dns_alert_recipients (preserves existing prefs)
+                    sync_alert_recipients(mbr_recipients)
+                    # Use only enabled recipients
+                    recipients = get_enabled_alert_recipients()
+                    if recipients:
+                        result = send_dns_alert(unnotified, recipients, today.isoformat())
+                        if result.get('status') == 'success':
+                            mark_events_notified([e['id'] for e in unnotified if 'id' in e])
+                            print(f'[DNS Scheduler] Alert email sent to {len(recipients)} recipient(s).')
+                        else:
+                            print(f'[DNS Scheduler] Alert email failed: {result.get("reason")}')
+                    else:
+                        print('[DNS Scheduler] No email recipients configured — skipping alert.')
+            else:
+                print('[DNS Scheduler] No DNS changes detected.')
+        except Exception as e:
+            print(f'[DNS Scheduler] Change detection error: {e}')
+
+    except Exception as e:
+        print(f'[DNS Scheduler] Fatal error: {e}')
+
+
+# ── ESP Domain Sync Endpoints ──
+
+@app.post('/api/dns/esp-sync/trigger')
+async def esp_sync_trigger(background_tasks: BackgroundTasks):
+    try:
+        background_tasks.add_task(run_esp_domain_sync)
+        return {'status': 'started', 'message': 'ESP domain sync started in background'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get('/api/dns/esp-sync/registry')
+async def esp_sync_registry():
+    try:
+        domains = get_all_registry_domains()
+        return {'status': 'success', 'domains': domains, 'count': len(domains)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── DNS Settings Endpoints ──
+
+class EspSelectorPayload(BaseModel):
+    esp: str
+    selector: str
+
+
+class RecipientTogglePayload(BaseModel):
+    email: str
+    enabled: bool
+
+
+@app.get('/api/dns/settings/esp-selectors')
+async def dns_get_esp_selectors():
+    """Get all ESP selectors grouped by ESP."""
+    try:
+        return {'status': 'success', 'selectors': get_esp_selectors()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/api/dns/settings/esp-selectors')
+async def dns_add_esp_selector(payload: EspSelectorPayload):
+    """Add a new selector for an ESP."""
+    try:
+        added = add_esp_selector(payload.esp.strip(), payload.selector.strip())
+        if not added:
+            raise HTTPException(status_code=409, detail='Selector already exists for this ESP.')
+        return {'status': 'success', 'selectors': get_esp_selectors()}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete('/api/dns/settings/esp-selectors')
+async def dns_delete_esp_selector(esp: str, selector: str):
+    """Delete a selector for an ESP."""
+    try:
+        delete_esp_selector(esp, selector)
+        return {'status': 'success', 'selectors': get_esp_selectors()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get('/api/dns/settings/alert-recipients')
+async def dns_get_alert_recipients():
+    """Get alert recipients with enabled status. Syncs from MBR recipients first."""
+    try:
+        from email_service import get_all_recipients
+        mbr_recipients = [r['email'] for r in get_all_recipients(active_only=True)]
+        sync_alert_recipients(mbr_recipients)
+        recipients = get_alert_recipients()
+        return {'status': 'success', 'recipients': recipients}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/api/dns/settings/alert-recipients/toggle')
+async def dns_toggle_alert_recipient(payload: RecipientTogglePayload):
+    """Enable or disable a recipient for DNS alerts."""
+    try:
+        set_alert_recipient_enabled(payload.email, payload.enabled)
+        return {'status': 'success'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── DNS Alert / Notification Endpoints ──
+
+@app.get('/api/dns/alerts')
+async def dns_get_alerts(days: int = 7, unread_only: bool = False):
+    """Get DNS change events for notification center."""
+    try:
+        events = get_recent_events(days=days, include_read=not unread_only)
+        unread = get_unread_count()
+        return {'status': 'success', 'events': events, 'unread_count': unread, 'total': len(events)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error fetching alerts: {str(e)}')
+
+
+@app.get('/api/dns/alerts/unread-count')
+async def dns_unread_count():
+    """Get unread notification count — for bell badge."""
+    try:
+        return {'unread_count': get_unread_count()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/api/dns/alerts/mark-read')
+async def dns_mark_all_read():
+    """Mark all notifications as read."""
+    try:
+        mark_all_read()
+        return {'status': 'success'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/api/dns/alerts/{event_id}/read')
+async def dns_mark_one_read(event_id: int):
+    """Mark a single notification as read."""
+    try:
+        mark_event_read(event_id)
+        return {'status': 'success'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == '__main__':

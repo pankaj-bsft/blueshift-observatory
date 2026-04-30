@@ -5214,61 +5214,63 @@
             </div>
 
             <!-- Settings Panel -->
-            <div v-if="dnsShowSettings" style="position:absolute;right:0;top:56px;width:480px;max-height:560px;overflow-y:auto;background:#fff;border-radius:12px;box-shadow:0 8px 40px rgba(15,23,42,0.18);border:1px solid #e2e8f0;z-index:999;">
-              <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;">
-                <span style="font-size:14px;font-weight:700;color:#1e293b;">&#9881; DNS Looker Settings</span>
-                <button @click="dnsShowSettings=false" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;">&times;</button>
-              </div>
-              <div style="padding:16px;">
+            <div v-if="dnsShowSettings" style="position:absolute;right:24px;top:auto;z-index:998;">
+              <div style="position:absolute;right:0;top:0;width:480px;max-height:560px;overflow-y:auto;background:#fff;border-radius:12px;box-shadow:0 8px 40px rgba(15,23,42,0.18);border:1px solid #e2e8f0;">
+                <!-- Header -->
+                <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;">
+                  <span style="font-size:14px;font-weight:700;color:#1e293b;">&#9881; DNS Looker Settings</span>
+                  <button @click="dnsShowSettings=false" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;">&times;</button>
+                </div>
+                <div style="padding:18px;">
 
-                <!-- Section 1: DKIM Selectors -->
-                <div style="margin-bottom:8px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-                  <div @click="dnsSettingsSec1Open=!dnsSettingsSec1Open" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;background:#f8fafc;user-select:none;">
-                    <span style="font-size:12px;font-weight:700;color:#334155;">Fallback DKIM Selectors</span>
-                    <span style="font-size:11px;color:#94a3b8;">{{ dnsSettingsSec1Open ? '▲' : '▼' }}</span>
-                  </div>
-                  <div v-if="dnsSettingsSec1Open" style="padding:14px;">
-                    <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;padding:8px 10px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;">Used when a domain is not found in the ESP registry. ESP registry auto-syncs weekly.</div>
-                    <div v-if="dnsSettingsLoading" style="font-size:12px;color:#94a3b8;">Loading...</div>
+                  <!-- Section 1: DKIM Selectors -->
+                  <div style="margin-bottom:8px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                    <div @click="dnsSettingsSec1Open=!dnsSettingsSec1Open" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;background:#f8fafc;user-select:none;">
+                      <span style="font-size:12px;font-weight:700;color:#334155;">DKIM Selectors by ESP</span>
+                      <span style="font-size:11px;color:#94a3b8;">{{ dnsSettingsSec1Open ? '▲' : '▼' }}</span>
+                    </div>
+                    <div v-if="dnsSettingsSec1Open" style="padding:14px;">
+                    <div v-if="dnsSettingsLoading" style="font-size:12px;color:#94a3b8;padding:8px 0;">Loading...</div>
                     <div v-else>
                       <div v-for="(selectors, esp) in dnsEspSelectors" :key="esp" style="margin-bottom:14px;">
                         <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">{{ esp }}</div>
                         <div v-for="sel in selectors" :key="sel" style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:4px;">
                           <span style="font-size:12px;font-family:'Courier New',monospace;color:#1e293b;">{{ sel }}</span>
-                          <button @click="dnsDeleteSelector(esp, sel)" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;line-height:1;padding:0 4px;">&times;</button>
+                          <button @click="dnsDeleteSelector(esp, sel)" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;line-height:1;padding:0 4px;" title="Remove">&times;</button>
                         </div>
                       </div>
                       <div v-if="Object.keys(dnsEspSelectors).length===0" style="font-size:12px;color:#94a3b8;">No selectors configured.</div>
+                    </div>
+                    <!-- Add new -->
                     <div style="margin-top:12px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
-                      <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;">Add Custom Selector</div>
+                      <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;">Add New Selector</div>
                       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <select v-model="dnsNewSelectorEsp" class="date-input" style="width:115px;font-size:12px;">
+                        <select v-model="dnsNewSelectorEsp" class="date-input" style="width:130px;font-size:12px;">
                           <option value="">ESP...</option>
                           <option>SparkPost</option>
                           <option>Mailgun</option>
                           <option>SendGrid</option>
                         </select>
-                        <input v-model="dnsNewSelectorDomain" placeholder="Domain" class="date-input" style="flex:1;min-width:140px;font-size:12px;"/>
-                        <input v-model="dnsNewSelectorVal" placeholder="Selector ID" class="date-input" style="width:110px;font-size:12px;" @keyup.enter="dnsAddSelector()"/>
-                        <button @click="dnsAddSelector()" class="btn btn-primary" style="font-size:12px;" :disabled="!dnsNewSelectorEsp||!dnsNewSelectorDomain.trim()||!dnsNewSelectorVal.trim()">Add</button>
+                        <input v-model="dnsNewSelectorVal" placeholder="e.g. scph0226" class="date-input" style="flex:1;min-width:110px;font-size:12px;" @keyup.enter="dnsAddSelector()"/>
+                        <button @click="dnsAddSelector()" class="btn btn-primary" style="font-size:12px;" :disabled="!dnsNewSelectorEsp||!dnsNewSelectorVal.trim()">Add</button>
                       </div>
                       <div v-if="dnsSettingsError" style="font-size:11px;color:#dc2626;margin-top:6px;">{{ dnsSettingsError }}</div>
                     </div>
-                    </div>
-                  </div>
-                </div>
+                     </div>
+                   </div><!-- end sec1 -->
 
-                <!-- Section 2: Alert Recipients -->
-                <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-                  <div @click="dnsSettingsSec2Open=!dnsSettingsSec2Open" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;background:#f8fafc;user-select:none;">
-                    <span style="font-size:12px;font-weight:700;color:#334155;">Email Alert Recipients</span>
-                    <span style="font-size:11px;color:#94a3b8;">{{ dnsSettingsSec2Open ? '▲' : '▼' }}</span>
-                  </div>
-                  <div v-if="dnsSettingsSec2Open" style="padding:14px;">
+                   <!-- Section 2: Alert Recipients -->
+                  <div style="margin-bottom:4px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                    <div @click="dnsSettingsSec2Open=!dnsSettingsSec2Open" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;background:#f8fafc;user-select:none;">
+                      <span style="font-size:12px;font-weight:700;color:#334155;">Email Alert Recipients</span>
+                      <span style="font-size:11px;color:#94a3b8;">{{ dnsSettingsSec2Open ? '▲' : '▼' }}</span>
+                    </div>
+                    <div v-if="dnsSettingsSec2Open" style="padding:14px;">
                     <div v-if="dnsSettingsLoading" style="font-size:12px;color:#94a3b8;">Loading...</div>
-                    <div v-else-if="dnsAlertRecipients.length===0" style="font-size:12px;color:#94a3b8;">No recipients found. Add in MBR Deliverability first.</div>
+                    <div v-else-if="dnsAlertRecipients.length===0" style="font-size:12px;color:#94a3b8;">No recipients found. Add recipients in MBR Deliverability first.</div>
                     <div v-else>
-                      <div v-for="r in dnsAlertRecipients" :key="r.email" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;">
+                      <div v-for="r in dnsAlertRecipients" :key="r.email"
+                        style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8fafc;">
                         <span style="font-size:12px;color:#334155;">{{ r.email }}</span>
                         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
                           <input type="checkbox" :checked="r.enabled===1" @change="dnsToggleRecipient(r, $event)" style="width:14px;height:14px;cursor:pointer;"/>
@@ -5276,9 +5278,9 @@
                         </label>
                       </div>
                     </div>
-                  </div>
-                </div>
+                   </div><!-- end sec2 -->
 
+                </div>
               </div>
             </div>
 
@@ -5322,6 +5324,7 @@
                       <th style="padding:10px 8px; text-align:center;">BIMI</th>
                       <th style="padding:10px 8px; text-align:center;">MTA-STS</th>
                       <th style="padding:10px 8px; text-align:center;">TLS-RPT</th>
+                      <th style="padding:10px 8px; text-align:center;">PTR</th>
                       <th style="padding:10px 8px; white-space:nowrap;">Checked</th>
                     </tr>
                   </thead>
@@ -5346,27 +5349,20 @@
                       <td style="padding:9px 8px; text-align:center;" :class="dnsStatusClass(row.bimi_status)">{{ dnsStatusIcon(row.bimi_status) }}</td>
                       <td style="padding:9px 8px; text-align:center;" :class="dnsStatusClass(row.mta_sts_status)">{{ dnsStatusIcon(row.mta_sts_status) }}</td>
                       <td style="padding:9px 8px; text-align:center;" :class="dnsStatusClass(row.tls_rpt_status)">{{ dnsStatusIcon(row.tls_rpt_status) }}</td>
+                      <td style="padding:9px 8px; text-align:center;" :class="dnsStatusClass(row.ptr_status)">{{ dnsStatusIcon(row.ptr_status) }}</td>
                       <td style="padding:9px 8px; color:#64748b; white-space:nowrap;">{{ row.check_date }}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              <!-- Selector input modal -->
-              <teleport to="body">
-              <div v-if="dnsShowSelectorInput" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;" @click.self="dnsShowSelectorInput=null;dnsPendingSelector=''">
-                <div style="position:absolute;inset:0;background:rgba(0,0,0,0.35);"></div>
-                <div style="position:relative;background:#fff;border-radius:12px;padding:24px 28px;width:420px;box-shadow:0 8px 40px rgba(15,23,42,0.15);border:1px solid #e2e8f0;">
-                  <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:4px;">Add DKIM Selector</div>
-                  <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Domain: <strong>{{ dnsShowSelectorInput }}</strong></div>
-                  <input v-model="dnsPendingSelector" placeholder="e.g. scph0226" class="date-input" style="width:100%;margin-bottom:14px;" @keyup.enter="dnsSaveSelector(dnsShowSelectorInput)" ref="selectorInput"/>
-                  <div style="display:flex;gap:8px;justify-content:flex-end;">
-                    <button @click="dnsShowSelectorInput=null;dnsPendingSelector=''" class="btn btn-secondary" style="font-size:13px;">Cancel</button>
-                    <button @click="dnsSaveSelector(dnsShowSelectorInput)" class="btn btn-primary" style="font-size:13px;" :disabled="!dnsPendingSelector.trim()">Save</button>
-                  </div>
-                </div>
+              <!-- Selector input popup -->
+              <div v-if="dnsShowSelectorInput" style="margin-top:12px; padding:14px 16px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span style="font-size:13px;">Add DKIM selector for <strong>{{ dnsShowSelectorInput }}</strong>:</span>
+                <input v-model="dnsPendingSelector" placeholder="e.g. scph0226" class="form-control" style="width:160px; font-size:12px;"/>
+                <button @click="dnsSaveSelector(dnsShowSelectorInput)" class="btn btn-primary" style="font-size:12px;">Save</button>
+                <button @click="dnsShowSelectorInput=null" class="btn btn-secondary" style="font-size:12px;">Cancel</button>
               </div>
-              </teleport>
 
               <!-- Domain Detail Panel - opens as modal on row click -->
 
@@ -5416,6 +5412,7 @@
                         {label:'BIMI',s:dnsLookupResult.bimi.status},
                         {label:'MTA-STS',s:dnsLookupResult.mta_sts.status},
                         {label:'TLS-RPT',s:dnsLookupResult.tls_rpt.status},
+                        {label:'PTR',s:dnsLookupResult.ptr.status},
                       ]" :key="rec.label"
                       :style="{display:'inline-flex',alignItems:'center',gap:'4px',padding:'4px 10px',borderRadius:'20px',fontSize:'12px',fontWeight:'600',
                         background:rec.s==='pass'?'#f0fdf4':rec.s==='warn'?'#fffbeb':'#fef2f2',
@@ -5446,6 +5443,7 @@
                         {label:'BIMI', s:dnsLookupResult.bimi.status, val:dnsLookupResult.bimi.value, sub:dnsLookupResult.bimi.explanation, fix:dnsLookupResult.bimi.fix},
                         {label:'MTA-STS', s:dnsLookupResult.mta_sts.status, val:dnsLookupResult.mta_sts.mode?'Mode: '+dnsLookupResult.mta_sts.mode:null, sub:dnsLookupResult.mta_sts.explanation, fix:dnsLookupResult.mta_sts.fix},
                         {label:'TLS-RPT', s:dnsLookupResult.tls_rpt.status, val:dnsLookupResult.tls_rpt.value, sub:dnsLookupResult.tls_rpt.explanation, fix:dnsLookupResult.tls_rpt.fix},
+                        {label:'PTR/rDNS', s:dnsLookupResult.ptr.status, val:dnsLookupResult.ptr.value?dnsLookupResult.ptr.value.map(p=>p.ip+' → '+(p.ptr||'no PTR')).join('\n'):null, sub:dnsLookupResult.ptr.explanation, fix:null},
                       ]" :key="rec.label"
                       style="padding:11px 13px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;">
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
@@ -5518,6 +5516,7 @@
                     {label:'BIMI',s:dnsDetailData.bimi_status},
                     {label:'MTA-STS',s:dnsDetailData.mta_sts_status},
                     {label:'TLS-RPT',s:dnsDetailData.tls_rpt_status},
+                    {label:'PTR',s:dnsDetailData.ptr_status},
                   ]" :key="rec.label"
                   :style="{display:'inline-flex',alignItems:'center',gap:'4px',padding:'4px 10px',borderRadius:'20px',fontSize:'12px',fontWeight:'600',
                     background:rec.s==='pass'?'#f0fdf4':rec.s==='warn'?'#fffbeb':'#fef2f2',
@@ -5550,6 +5549,7 @@
                       {label:'BIMI', s:dnsDetailData.bimi_status, val:dnsDetailData.bimi_value, sub:''},
                       {label:'MTA-STS', s:dnsDetailData.mta_sts_status, val:dnsDetailData.mta_sts_mode?'Mode: '+dnsDetailData.mta_sts_mode:null, sub:''},
                       {label:'TLS-RPT', s:dnsDetailData.tls_rpt_status, val:dnsDetailData.tls_rpt_value, sub:''},
+                      {label:'PTR/rDNS', s:dnsDetailData.ptr_status, val:dnsDetailData.ptr_value?dnsDetailData.ptr_value.map(p=>p.ip+' → '+(p.ptr||'no PTR')).join('\n'):null, sub:''},
                     ]" :key="rec.label"
                     style="padding:11px 13px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;">
                       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
@@ -5588,6 +5588,7 @@
                       <thead>
                         <tr style="background:#f8fafc;">
                           <th style="padding:8px 12px;text-align:left;color:#64748b;font-weight:600;border-bottom:1px solid #e2e8f0;">Date</th>
+                          <th v-for="col in ['SPF','DKIM','DMARC','MX','BIMI','MTA-STS','TLS-RPT','PTR']" :key="col" style="padding:8px 6px;text-align:center;color:#64748b;font-weight:600;border-bottom:1px solid #e2e8f0;">{{ col }}</th>
                           <th style="padding:8px 12px;color:#64748b;font-weight:600;border-bottom:1px solid #e2e8f0;">DMARC Policy</th>
                         </tr>
                       </thead>
@@ -5601,6 +5602,7 @@
                           <td style="padding:7px 6px;text-align:center;">{{ dnsStatusIcon(h.bimi_status) }}</td>
                           <td style="padding:7px 6px;text-align:center;">{{ dnsStatusIcon(h.mta_sts_status) }}</td>
                           <td style="padding:7px 6px;text-align:center;">{{ dnsStatusIcon(h.tls_rpt_status) }}</td>
+                          <td style="padding:7px 6px;text-align:center;">{{ dnsStatusIcon(h.ptr_status) }}</td>
                           <td style="padding:7px 12px;">
                             <span :style="{fontSize:'10px',padding:'2px 7px',borderRadius:'10px',fontWeight:'600',
                               background:h.dmarc_policy_level>=3?'#f0fdf4':h.dmarc_policy_level>=2?'#eff6ff':h.dmarc_policy_level>=1?'#fffbeb':'#f1f5f9',
@@ -6260,7 +6262,6 @@
           dnsAlertRecipients: [],
           dnsNewSelectorEsp: '',
           dnsNewSelectorVal: '',
-          dnsNewSelectorDomain: '',
           dnsSettingsSec1Open: false,
           dnsSettingsSec2Open: false,
           pages: [
@@ -10882,32 +10883,21 @@
         },
 
         async dnsAddSelector() {
-          if (!this.dnsNewSelectorEsp || !this.dnsNewSelectorDomain.trim() || !this.dnsNewSelectorVal.trim()) return;
+          if (!this.dnsNewSelectorEsp || !this.dnsNewSelectorVal.trim()) return;
           this.dnsSettingsError = null;
           try {
-            // Save as domain-specific custom selector
-            const res = await fetch(`${this.API_BASE}/api/dns/monitor/selector`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                domain: this.dnsNewSelectorDomain.trim().toLowerCase(),
-                selector: this.dnsNewSelectorVal.trim()
-              })
-            });
-            if (!res.ok) {
-              this.dnsSettingsError = 'Failed to save selector.';
-              return;
-            }
-            // Also save to esp_selectors for display
-            await fetch(`${this.API_BASE}/api/dns/settings/esp-selectors`, {
+            const res = await fetch(`${this.API_BASE}/api/dns/settings/esp-selectors`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ esp: this.dnsNewSelectorEsp, selector: this.dnsNewSelectorVal.trim() })
             });
-            const data = await (await fetch(`${this.API_BASE}/api/dns/settings/esp-selectors`)).json();
+            if (res.status === 409) {
+              this.dnsSettingsError = 'Selector already exists for this ESP.';
+              return;
+            }
+            const data = await res.json();
             this.dnsEspSelectors = data.selectors || {};
             this.dnsNewSelectorEsp = '';
-            this.dnsNewSelectorDomain = '';
             this.dnsNewSelectorVal = '';
           } catch (e) {
             this.dnsSettingsError = 'Failed to add selector.';
