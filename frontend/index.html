@@ -1184,6 +1184,27 @@
     .eml-pill-slightneg { background: #f5f0fb; color: #5b3e9e; }
 
     .eml-signal-empty { text-align: center; padding: 24px; color: #94a3b8; font-size: 13px; }
+
+    .email-analysis-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .email-analysis-tab { padding: 9px 14px; border-radius: 999px; border: 1px solid #dbe4f0; background: #fff; color: #475569; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s ease; }
+    .email-analysis-tab:hover { border-color: #93c5fd; color: #1d4ed8; }
+    .email-analysis-tab.active { background: linear-gradient(135deg, #2563eb, #1d4ed8); border-color: transparent; color: #fff; box-shadow: 0 8px 20px rgba(37, 99, 235, .18); }
+    .email-analysis-grid { display: grid; gap: 16px; }
+    .email-analysis-grid.two-col { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .email-analysis-mini { display: flex; flex-wrap: wrap; gap: 10px; }
+    .email-analysis-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; }
+    .email-analysis-pre { white-space: pre-wrap; word-break: break-word; background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 14px; font-size: 12px; line-height: 1.55; max-height: 320px; overflow: auto; }
+    .email-analysis-textarea { width: 100%; min-height: 220px; resize: vertical; border: 1px solid #dbe4f0; border-radius: 12px; padding: 12px; font-size: 13px; font-family: inherit; outline: none; }
+    .email-analysis-input { width: 100%; border: 1px solid #dbe4f0; border-radius: 12px; padding: 10px 12px; font-size: 13px; font-family: inherit; outline: none; }
+    .email-analysis-empty { padding: 18px; color: #64748b; font-size: 13px; text-align: center; background: #f8fafc; border: 1px dashed #dbe4f0; border-radius: 12px; }
+    .email-preview-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .email-preview-toggle { padding: 6px 12px; border-radius: 999px; border: 1px solid #dbe4f0; background: #fff; color: #475569; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .email-preview-toggle.active { background: #2563eb; color: #fff; border-color: transparent; }
+    .email-preview-shell { background: #e2e8f0; border-radius: 16px; padding: 14px; overflow-x: auto; }
+    .email-preview-frame { margin: 0 auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 14px; box-shadow: 0 12px 30px rgba(15,23,42,0.08); overflow: hidden; }
+    .email-preview-frame iframe { display: block; width: 100%; border: 0; min-height: 480px; background: #fff; }
+    .email-preview-empty { padding: 18px; background: #f8fafc; border: 1px dashed #dbe4f0; border-radius: 12px; color: #64748b; font-size: 13px; text-align: center; }
+    .email-size-warning { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 700; margin-left: 8px; }
     
   </style>
 </head>
@@ -1226,7 +1247,7 @@
               <button
                 class="nav-item"
                 :class="{ active: activePage === 'deliverability-analysis' || daSubTabOpen }"
-                @click="daSubTabOpen = !daSubTabOpen; activePage = 'deliverability-analysis'; daActiveSubTab = 'header-analysis';"
+                @click="daSubTabOpen = !daSubTabOpen; activePage = 'deliverability-analysis'; daActiveSubTab = 'email-spam-analysis'; emailAnalysisTab = 'send-test-email';"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="page.icon"></svg>
                 <span class="nav-item-text">{{ page.label }}</span>
@@ -1236,13 +1257,13 @@
               <div v-if="daSubTabOpen && !sidebarCollapsed" style="margin-left: 14px; border-left: 1px solid rgba(255,255,255,0.12); padding-left: 8px; margin-top: 2px; margin-bottom: 2px;">
                 <button
                   class="nav-item"
-                  :class="{ active: daActiveSubTab === 'header-analysis' && activePage === 'deliverability-analysis' }"
+                  :class="{ active: daActiveSubTab === 'email-spam-analysis' && activePage === 'deliverability-analysis' }"
                   style="font-size: 12px; padding: 6px 10px; font-weight: 400; color: rgba(255,255,255,0.55); background: transparent;"
-                  :style="daActiveSubTab === 'header-analysis' && activePage === 'deliverability-analysis' ? { fontWeight: '600', color: 'rgba(255,255,255,0.95)', background: 'rgba(59,130,246,0.2)' } : { fontWeight: '400', color: 'rgba(255,255,255,0.5)', background: 'transparent' }"
-                  @click="daActiveSubTab = 'header-analysis'; activePage = 'deliverability-analysis';"
+                  :style="daActiveSubTab === 'email-spam-analysis' && activePage === 'deliverability-analysis' ? { fontWeight: '600', color: 'rgba(255,255,255,0.95)', background: 'rgba(59,130,246,0.2)' } : { fontWeight: '400', color: 'rgba(255,255,255,0.5)', background: 'transparent' }"
+                  @click="daActiveSubTab = 'email-spam-analysis'; activePage = 'deliverability-analysis'; emailAnalysisTab = 'send-test-email';"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"/></svg>
-                  <span class="nav-item-text">Header Analysis</span>
+                  <span class="nav-item-text">Message Quality Analysis</span>
                 </button>
                 <button
                   class="nav-item"
@@ -1306,6 +1327,9 @@
                 <option value="yesterday">Yesterday</option>
                 <option value="7day">Last 7 Days</option>
                 <option value="30day">Last 30 Days</option>
+                <option value="60day">Last 60 Days</option>
+                <option value="90day">Last 90 Days</option>
+                <option value="120day">Last 120 Days</option>
               </select>
             </div>
 
@@ -4803,7 +4827,7 @@
 
         <!-- Deliverability Analysis Page -->
         <div v-if="activePage === 'deliverability-analysis'">
-          <div v-if="daActiveSubTab === 'header-analysis'">
+          <div v-if="daActiveSubTab === 'email-spam-analysis'">
           <div class="page-header">
             <div class="page-header-orb-1"></div>
             <div class="page-header-orb-2"></div>
@@ -4816,11 +4840,444 @@
                 </svg>
               </div>
               <div>
-                <h1 class="page-header-title">Deliverability Analysis</h1>
-                <p class="page-header-subtitle">Upload .eml files to analyze authentication, content risks, and link quality.</p>
+                <h1 class="page-header-title">{{ emailAnalysisPageTitle }}</h1>
+                <p class="page-header-subtitle">{{ emailAnalysisPageSubtitle }}</p>
               </div>
             </div>
           </div>
+
+          <div style="margin-bottom: 16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <div class="email-analysis-tabs">
+              <button
+                :class="['btn', emailAnalysisTab === 'send-test-email' ? 'btn-primary' : 'btn-secondary']"
+                @click="emailAnalysisTab = 'send-test-email'"
+                style="font-size:13px;"
+              >
+                Send Test Email
+              </button>
+              <button
+                :class="['btn', emailAnalysisTab === 'quick-html-check' ? 'btn-primary' : 'btn-secondary']"
+                @click="emailAnalysisTab = 'quick-html-check'"
+                style="font-size:13px;"
+              >
+                Quick HTML Check
+              </button>
+              <button
+                :class="['btn', emailAnalysisTab === 'upload-eml' ? 'btn-primary' : 'btn-secondary']"
+                @click="emailAnalysisTab = 'upload-eml'"
+                style="font-size:13px;"
+              >
+                Upload EML
+              </button>
+            </div>
+          </div>
+
+          <template v-if="emailAnalysisTab === 'send-test-email'">
+            <div class="card-section" style="margin-bottom: 20px;">
+              <div class="da-sec-header" style="cursor: default;">
+                <div class="da-dot" style="background:#A32D2D"></div>
+                <span class="da-sec-title">Send Test Email</span>
+                <span class="da-badge" style="background:#FCEBEB;color:#A32D2D">Inbound</span>
+              </div>
+              <div class="da-items open">
+                <div class="da-item">
+                  <div class="da-item-name">Generated address</div>
+                  <div class="da-item-desc">
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                      <code style="padding: 8px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">{{ inboundAnalysisEmail || 'Click Generate Address' }}</code>
+                      <button class="btn btn-secondary" @click="copyText(inboundAnalysisEmail, 'Address Copied', 'Inbound address copied')" :disabled="!inboundAnalysisEmail">Copy</button>
+                    </div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 8px;">
+                      Generate an inbound address, send a test email manually from your client, then poll for the result.
+                    </div>
+                  </div>
+                </div>
+                <div class="da-item">
+                  <div class="da-item-name">Actions</div>
+                  <div class="da-item-desc">
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                      <button class="btn btn-primary" @click="generateInboundAnalysisAddress" :disabled="inboundAnalysisLoading">
+                        <span v-if="inboundAnalysisLoading">⏳</span>
+                        <span v-else>📮</span>
+                        {{ inboundAnalysisLoading ? 'Generating...' : 'Generate Address' }}
+                      </button>
+                      <button class="btn btn-secondary" @click="pollInboundAnalysisResult" :disabled="!inboundAnalysisToken || inboundAnalysisPolling">
+                        <span v-if="inboundAnalysisPolling">⏳</span>
+                        <span v-else>🔄</span>
+                        {{ inboundAnalysisPolling ? 'Polling...' : 'Poll Result' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="da-item">
+                  <div class="da-item-name">Status</div>
+                  <div class="da-item-desc">
+                    <div><strong>{{ inboundAnalysisStatus.toUpperCase() }}</strong></div>
+                    <div v-if="inboundAnalysisExpiresAt" style="font-size: 12px; color: #64748b;">Expires: {{ inboundAnalysisExpiresAt }}</div>
+                    <div v-if="inboundAnalysisLastPolledAt" style="font-size: 12px; color: #64748b;">Last polled: {{ inboundAnalysisLastPolledAt }}</div>
+                  </div>
+                </div>
+              </div>
+              <div v-if="inboundAnalysisError" style="margin: 10px 14px 12px; color: #dc2626; font-size: 13px;">{{ inboundAnalysisError }}</div>
+            </div>
+
+            <div v-if="inboundAnalysisReport" class="da-wrap">
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleEmailAnalysisSection('overview')">
+                  <div class="da-dot" style="background:#0F6E56"></div>
+                  <span class="da-sec-title">Overview</span>
+                  <span class="da-badge" style="background:#E1F5EE;color:#0F6E56">Inbound</span>
+                  <span class="da-arrow" :class="{ open: emailAnalysisSectionsOpen.overview }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: emailAnalysisSectionsOpen.overview }">
+                  <div class="da-item"><div class="da-item-name">From</div><div class="da-item-desc">{{ inboundAnalysisReport.from || '—' }}</div></div>
+                  <div class="da-item"><div class="da-item-name">Subject</div><div class="da-item-desc">{{ inboundAnalysisReport.subject || '—' }}</div></div>
+                  <div class="da-item"><div class="da-item-name">Date</div><div class="da-item-desc">{{ inboundAnalysisReport.date || '—' }}</div></div>
+                  <div class="da-item"><div class="da-item-name">Message-ID</div><div class="da-item-desc">{{ inboundAnalysisReport.message_id || '—' }}</div></div>
+                  <div class="da-item"><div class="da-item-name">Sending IP</div><div class="da-item-desc">{{ inboundAnalysisReport.sending_ip || '—' }}</div></div>
+                  <div class="da-item"><div class="da-item-name">Received chain</div><div class="da-item-desc">{{ inboundAnalysisReport.hops ? inboundAnalysisReport.hops.length : 0 }} hop(s)</div></div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleEmailAnalysisSection('auth')">
+                  <div class="da-dot" style="background:#A32D2D"></div>
+                  <span class="da-sec-title">Authentication</span>
+                  <span class="da-badge" style="background:#FCEBEB;color:#A32D2D">Critical</span>
+                  <span class="da-arrow" :class="{ open: emailAnalysisSectionsOpen.auth }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: emailAnalysisSectionsOpen.auth }">
+                  <div class="da-item"><div class="da-item-name">SPF</div><div class="da-item-desc">{{ (inboundAnalysisReport.auth?.spf || 'unknown').toUpperCase() }}</div></div>
+                  <div class="da-item"><div class="da-item-name">DKIM</div><div class="da-item-desc">{{ (inboundAnalysisReport.auth?.dkim || 'unknown').toUpperCase() }}</div></div>
+                  <div class="da-item"><div class="da-item-name">DMARC</div><div class="da-item-desc">{{ (inboundAnalysisReport.auth?.dmarc || 'unknown').toUpperCase() }}</div></div>
+                  <div class="da-item"><div class="da-item-name">ARC</div><div class="da-item-desc">{{ (inboundAnalysisReport.auth?.arc || 'unknown').toUpperCase() }}</div></div>
+                  <div class="da-item"><div class="da-item-name">DKIM Domain</div><div class="da-item-desc">{{ inboundAnalysisReport.auth?.dkim_domain || '—' }}</div></div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleEmailAnalysisSection('headers')">
+                  <div class="da-dot" style="background:#185FA5"></div>
+                  <span class="da-sec-title">Headers</span>
+                  <span class="da-badge" style="background:#E6F1FB;color:#185FA5">Headers</span>
+                  <span class="da-arrow" :class="{ open: emailAnalysisSectionsOpen.headers }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: emailAnalysisSectionsOpen.headers }">
+                  <div class="da-item"><div class="da-item-name">List-Unsubscribe</div><div class="da-item-desc">{{ (inboundAnalysisReport.header_checks || []).find(x => x.name === 'List-Unsubscribe')?.detail || '—' }}</div></div>
+                  <div class="da-item"><div class="da-item-name">Reply-To</div><div class="da-item-desc">{{ (inboundAnalysisReport.header_checks || []).find(x => x.name === 'Reply-To Match')?.detail || '—' }}</div></div>
+                  <div class="da-item"><div class="da-item-name">Feedback-ID</div><div class="da-item-desc">{{ (inboundAnalysisReport.header_checks || []).find(x => x.name === 'Feedback-ID')?.detail || '—' }}</div></div>
+                  <div class="da-item"><div class="da-item-name">TLS</div><div class="da-item-desc">{{ (inboundAnalysisReport.header_checks || []).find(x => x.name === 'TLS Encryption')?.detail || '—' }}</div></div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleEmailAnalysisSection('subject')">
+                  <div class="da-dot" style="background:#3B6D11"></div>
+                  <span class="da-sec-title">Subject Analysis</span>
+                  <span class="da-badge" style="background:#EAF3DE;color:#3B6D11">Spam</span>
+                  <span class="da-arrow" :class="{ open: emailAnalysisSectionsOpen.subject }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: emailAnalysisSectionsOpen.subject }">
+                  <div class="da-item">
+                    <div class="da-item-name">Subject checks</div>
+                    <div class="da-item-desc">
+                      <div v-if="(inboundAnalysisReport.subject_analysis?.checks || []).length">
+                        <div v-for="(check, idx) in inboundAnalysisReport.subject_analysis.checks" :key="'subj-check-'+idx" style="margin-bottom: 8px;">
+                          <strong>{{ check.name }}</strong> — {{ check.status }} — {{ check.detail }}
+                        </div>
+                      </div>
+                      <div v-else>—</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleEmailAnalysisSection('html')">
+                  <div class="da-dot" style="background:#533AB7"></div>
+                  <span class="da-sec-title">HTML Analysis</span>
+                  <span class="da-badge" style="background:#EEEDFE;color:#533AB7">HTML</span>
+                  <span class="da-arrow" :class="{ open: emailAnalysisSectionsOpen.html }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: emailAnalysisSectionsOpen.html }">
+                  <div class="da-item"><div class="da-item-name">Score / Grade</div><div class="da-item-desc">{{ inboundAnalysisHtml ? (inboundAnalysisHtml.score || '—') + ' / ' + (inboundAnalysisHtml.grade || '—') : '—' }}</div></div>
+                  <div class="da-item">
+                    <div class="da-item-name">HTML File Size</div>
+                    <div class="da-item-desc">
+                      <span>{{ getHtmlSizeKb(inboundAnalysisHtml) !== null ? getHtmlSizeKb(inboundAnalysisHtml).toFixed(1) + ' KB' : '—' }}</span>
+                      <span v-if="getHtmlSizeWarning(inboundAnalysisHtml)" class="email-size-warning">⚠️ Gmail clips above 102 KB</span>
+                    </div>
+                  </div>
+                  <div class="da-item">
+                    <div class="da-item-name">Structure</div>
+                    <div class="da-item-desc">
+                      <div v-for="(row, idx) in (inboundAnalysisHtml?.structure || [])" :key="'in-structure-'+idx" style="margin-bottom: 8px;">
+                        <strong>{{ row.name }}</strong> — {{ row.status }} — {{ row.detail }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="da-item">
+                    <div class="da-item-name">Spam Triggers</div>
+                    <div class="da-item-desc">
+                      <div v-for="(row, idx) in (inboundAnalysisHtml?.spam || [])" :key="'in-spam-'+idx" style="margin-bottom: 8px;">
+                        <strong>{{ row.name }}</strong> — {{ row.status }} — {{ row.detail }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="da-item">
+                    <div class="da-item-name">Accessibility</div>
+                    <div class="da-item-desc">
+                      <div v-for="(row, idx) in (inboundAnalysisHtml?.accessibility || [])" :key="'in-a11y-'+idx" style="margin-bottom: 8px;">
+                        <strong>{{ row.name }}</strong> — {{ row.status }} — {{ row.detail }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="da-item">
+                    <div class="da-item-name">CSS</div>
+                    <div class="da-item-desc">
+                      <div v-for="(row, idx) in (inboundAnalysisHtml?.css || [])" :key="'in-css-'+idx" style="margin-bottom: 8px;">
+                        <strong>{{ row.name }}</strong> — {{ row.status }} — {{ row.detail }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="da-item">
+                    <div class="da-item-name">Client Compat</div>
+                    <div class="da-item-desc">
+                      <div v-for="(row, idx) in Object.entries(inboundAnalysisHtml?.client_compat || {})" :key="'in-compat-'+idx" style="margin-bottom: 8px;">
+                        <strong>{{ row[0] }}</strong> — {{ row[1].detail }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="da-item">
+                    <div class="da-item-name">HTML Source Code</div>
+                    <div class="da-item-desc"><div class="email-analysis-pre">{{ inboundAnalysisHtml?.html_preview || '—' }}</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleEmailAnalysisSection('raw')">
+                  <div class="da-dot" style="background:#0f172a"></div>
+                  <span class="da-sec-title">Preview / Raw Headers</span>
+                  <span class="da-badge" style="background:#e2e8f0;color:#0f172a">Raw</span>
+                  <span class="da-arrow" :class="{ open: emailAnalysisSectionsOpen.raw }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: emailAnalysisSectionsOpen.raw }">
+                  <div class="da-item">
+                    <div class="da-item-name">Preview</div>
+                    <div class="da-item-desc">
+                      <div class="email-preview-controls">
+                        <button class="email-preview-toggle" :class="{ active: inboundAnalysisPreviewMode === 'desktop' }" @click="inboundAnalysisPreviewMode = 'desktop'">Desktop</button>
+                        <button class="email-preview-toggle" :class="{ active: inboundAnalysisPreviewMode === 'mobile' }" @click="inboundAnalysisPreviewMode = 'mobile'">Mobile</button>
+                      </div>
+                      <div class="email-preview-shell">
+                        <div :class="previewFrameClass(inboundAnalysisPreviewMode)">
+                          <iframe
+                            v-if="inboundAnalysisHtml?.html_preview"
+                            :key="`inbound-${inboundAnalysisPreviewMode}`"
+                            :srcdoc="renderEmailPreviewSrcdoc(inboundAnalysisHtml.html_preview, inboundAnalysisPreviewMode)"
+                            :style="{ width: inboundAnalysisPreviewMode === 'mobile' ? '390px' : '640px' }"
+                            sandbox
+                            referrerpolicy="no-referrer"
+                          ></iframe>
+                          <div v-else class="email-preview-empty">No HTML preview available.</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="da-item"><div class="da-item-name">Raw Headers</div><div class="da-item-desc"><div class="email-analysis-pre">{{ inboundAnalysisReport.raw_headers || '—' }}</div></div></div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <template v-else-if="emailAnalysisTab === 'quick-html-check'">
+            <div class="card-section" style="margin-bottom: 20px;">
+              <div class="da-sec-header" style="cursor: default;">
+                <div class="da-dot" style="background:#533AB7"></div>
+                <span class="da-sec-title">Quick HTML Check</span>
+                <span class="da-badge" style="background:#EEEDFE;color:#533AB7">No Email</span>
+              </div>
+              <div class="da-items open">
+                <div class="da-item">
+                  <div class="da-item-name">Input mode</div>
+                  <div class="da-item-desc">
+                    <div class="email-analysis-tabs" style="margin-bottom: 12px;">
+                      <button class="email-analysis-tab" :class="{ active: quickHtmlInputMode === 'upload' }" @click="quickHtmlInputMode = 'upload'">Upload .html</button>
+                      <button class="email-analysis-tab" :class="{ active: quickHtmlInputMode === 'paste' }" @click="quickHtmlInputMode = 'paste'">Paste HTML</button>
+                      <button class="email-analysis-tab" :class="{ active: quickHtmlInputMode === 'url' }" @click="quickHtmlInputMode = 'url'">Fetch URL</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="da-item" v-if="quickHtmlInputMode === 'upload'">
+                  <div class="da-item-name">Upload .html file</div>
+                  <div class="da-item-desc">
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                      <input id="quickHtmlUploadInput" type="file" accept=".html,.htm,text/html" @change="event => { const file = event.target.files && event.target.files[0] ? event.target.files[0] : null; quickHtmlFile = file; quickHtmlFileName = file ? file.name : ''; quickHtmlError = null; }" style="display:none;" />
+                      <label for="quickHtmlUploadInput" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px; border-radius: 8px;">Choose file</label>
+                      <span style="font-size: 13px; color: #64748b;">{{ quickHtmlFileName || 'No file chosen' }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="da-item" v-else-if="quickHtmlInputMode === 'paste'">
+                  <div class="da-item-name">Paste raw HTML</div>
+                  <div class="da-item-desc"><textarea class="email-analysis-textarea" v-model="quickHtmlRawHtml" placeholder="Paste raw HTML here..."></textarea></div>
+                </div>
+                <div class="da-item" v-else>
+                  <div class="da-item-name">Fetch from URL</div>
+                  <div class="da-item-desc"><input class="email-analysis-input" v-model="quickHtmlUrl" type="url" placeholder="https://example.com/email.html" /></div>
+                </div>
+                <div class="da-item">
+                  <div class="da-item-name">Actions</div>
+                  <div class="da-item-desc">
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                      <button class="btn btn-primary" @click="analyzeQuickHtmlFromCurrentMode" :disabled="quickHtmlLoading">
+                        <span v-if="quickHtmlLoading">⏳</span>
+                        <span v-else>🔍</span>
+                        {{ quickHtmlLoading ? 'Analyzing...' : 'Analyze HTML' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-if="quickHtmlError" style="margin: 10px 14px 12px; color: #dc2626; font-size: 13px;">{{ quickHtmlError }}</div>
+            </div>
+
+            <div v-if="quickHtmlReport" class="da-wrap">
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleQuickHtmlSection('overview')">
+                  <div class="da-dot" style="background:#0F6E56"></div>
+                  <span class="da-sec-title">Overview</span>
+                  <span class="da-badge" style="background:#E1F5EE;color:#0F6E56">HTML</span>
+                  <span class="da-arrow" :class="{ open: quickHtmlSectionsOpen.overview }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: quickHtmlSectionsOpen.overview }">
+                  <div class="da-item"><div class="da-item-name">Score / Grade</div><div class="da-item-desc">{{ quickHtmlReport.score || '—' }} / {{ quickHtmlReport.grade || '—' }}</div></div>
+                  <div class="da-item">
+                    <div class="da-item-name">HTML File Size</div>
+                    <div class="da-item-desc">
+                      <span>{{ getHtmlSizeKb(quickHtmlReport) !== null ? getHtmlSizeKb(quickHtmlReport).toFixed(1) + ' KB' : '—' }}</span>
+                      <span v-if="getHtmlSizeWarning(quickHtmlReport)" class="email-size-warning">⚠️ Gmail clips above 102 KB</span>
+                    </div>
+                  </div>
+                  <div class="da-item"><div class="da-item-name">Errors</div><div class="da-item-desc">{{ quickHtmlReport.errors || 0 }}</div></div>
+                  <div class="da-item"><div class="da-item-name">Warnings</div><div class="da-item-desc">{{ quickHtmlReport.warnings || 0 }}</div></div>
+                  <div class="da-item"><div class="da-item-name">Passed</div><div class="da-item-desc">{{ quickHtmlReport.passed || 0 }}</div></div>
+                  <div class="da-item"><div class="da-item-name">Source</div><div class="da-item-desc">{{ quickHtmlSourceLabel || '—' }}</div></div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleQuickHtmlSection('structure')">
+                  <div class="da-dot" style="background:#0F6E56"></div>
+                  <span class="da-sec-title">Structure</span>
+                  <span class="da-badge" style="background:#E1F5EE;color:#0F6E56">Structure</span>
+                  <span class="da-arrow" :class="{ open: quickHtmlSectionsOpen.structure }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: quickHtmlSectionsOpen.structure }">
+                  <div class="da-item" v-for="(row, idx) in (quickHtmlReport.structure || [])" :key="'q-structure-'+idx">
+                    <div class="da-item-name">{{ row.name }}</div>
+                    <div class="da-item-desc">{{ row.detail }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleQuickHtmlSection('spam')">
+                  <div class="da-dot" style="background:#A32D2D"></div>
+                  <span class="da-sec-title">Spam Triggers</span>
+                  <span class="da-badge" style="background:#FCEBEB;color:#A32D2D">Spam</span>
+                  <span class="da-arrow" :class="{ open: quickHtmlSectionsOpen.spam }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: quickHtmlSectionsOpen.spam }">
+                  <div class="da-item" v-for="(row, idx) in (quickHtmlReport.spam || [])" :key="'q-spam-'+idx">
+                    <div class="da-item-name">{{ row.name }}</div>
+                    <div class="da-item-desc">{{ row.detail }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleQuickHtmlSection('accessibility')">
+                  <div class="da-dot" style="background:#185FA5"></div>
+                  <span class="da-sec-title">Accessibility</span>
+                  <span class="da-badge" style="background:#E6F1FB;color:#185FA5">A11y</span>
+                  <span class="da-arrow" :class="{ open: quickHtmlSectionsOpen.accessibility }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: quickHtmlSectionsOpen.accessibility }">
+                  <div class="da-item" v-for="(row, idx) in (quickHtmlReport.accessibility || [])" :key="'q-a11y-'+idx">
+                    <div class="da-item-name">{{ row.name }}</div>
+                    <div class="da-item-desc">{{ row.detail }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleQuickHtmlSection('css')">
+                  <div class="da-dot" style="background:#533AB7"></div>
+                  <span class="da-sec-title">CSS</span>
+                  <span class="da-badge" style="background:#EEEDFE;color:#533AB7">CSS</span>
+                  <span class="da-arrow" :class="{ open: quickHtmlSectionsOpen.css }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: quickHtmlSectionsOpen.css }">
+                  <div class="da-item" v-for="(row, idx) in (quickHtmlReport.css || [])" :key="'q-css-'+idx">
+                    <div class="da-item-name">{{ row.name }}</div>
+                    <div class="da-item-desc">{{ row.detail }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleQuickHtmlSection('compat')">
+                  <div class="da-dot" style="background:#3B6D11"></div>
+                  <span class="da-sec-title">Client Compatibility</span>
+                  <span class="da-badge" style="background:#EAF3DE;color:#3B6D11">Clients</span>
+                  <span class="da-arrow" :class="{ open: quickHtmlSectionsOpen.compat }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: quickHtmlSectionsOpen.compat }">
+                  <div class="da-item" v-for="(row, idx) in Object.entries(quickHtmlReport.client_compat || {})" :key="'q-compat-'+idx">
+                    <div class="da-item-name">{{ row[0] }}</div>
+                    <div class="da-item-desc">{{ row[1].detail }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="da-section">
+                <div class="da-sec-header" @click.prevent="toggleQuickHtmlSection('preview')">
+                  <div class="da-dot" style="background:#0f172a"></div>
+                  <span class="da-sec-title">Preview</span>
+                  <span class="da-badge" style="background:#e2e8f0;color:#0f172a">Preview</span>
+                  <span class="da-arrow" :class="{ open: quickHtmlSectionsOpen.preview }">▶</span>
+                </div>
+                <div class="da-items" :class="{ open: quickHtmlSectionsOpen.preview }">
+                  <div class="da-item">
+                    <div class="da-item-name">HTML Preview</div>
+                    <div class="da-item-desc">
+                      <div class="email-preview-controls">
+                        <button class="email-preview-toggle" :class="{ active: quickHtmlPreviewMode === 'desktop' }" @click="quickHtmlPreviewMode = 'desktop'">Desktop</button>
+                        <button class="email-preview-toggle" :class="{ active: quickHtmlPreviewMode === 'mobile' }" @click="quickHtmlPreviewMode = 'mobile'">Mobile</button>
+                      </div>
+                      <div class="email-preview-shell">
+                        <div :class="previewFrameClass(quickHtmlPreviewMode)">
+                          <iframe
+                            v-if="quickHtmlReport?.html_preview"
+                            :key="`quick-${quickHtmlPreviewMode}`"
+                            :srcdoc="renderEmailPreviewSrcdoc(quickHtmlReport.html_preview, quickHtmlPreviewMode)"
+                            :style="{ width: quickHtmlPreviewMode === 'mobile' ? '390px' : '640px' }"
+                            sandbox
+                            referrerpolicy="no-referrer"
+                          ></iframe>
+                          <div v-else class="email-preview-empty">No HTML preview available.</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <template v-else>
 
           <div class="card-section" style="margin-bottom: 20px;">
             <div class="da-sec-header" style="cursor: default;">
@@ -4857,9 +5314,9 @@
                 </div>
               </div>
             </div>
-
-            <div v-if="emlAnalysisError" style="margin: 10px 14px 12px; color: #dc2626; font-size: 13px;">{{ emlAnalysisError }}</div>
           </div>
+
+          <div v-if="emlAnalysisError" style="margin: 10px 14px 12px; color: #dc2626; font-size: 13px;">{{ emlAnalysisError }}</div>
 
           <div v-if="emlAnalysisReport" class="da-wrap">
             <div class="da-section">
@@ -5144,7 +5601,8 @@
           </div>
 
           <div v-else class="card-section" style="padding: 24px; text-align: center; color: #64748b;">Upload a .eml file to see the full deliverability checklist.</div>
-          </div><!-- end header-analysis -->
+          </template>
+          </div><!-- end email-spam-analysis -->
 
           <!-- DNS Looker Sub-tab -->
           <div v-if="daActiveSubTab === 'dns-looker'">
@@ -6228,7 +6686,8 @@
           sidebarCollapsed: false,
           activePage: 'pulsation',
           daSubTabOpen: false,
-          daActiveSubTab: 'header-analysis',
+          daActiveSubTab: 'email-spam-analysis',
+          emailAnalysisTab: 'send-test-email',
 
           // DNS Looker state
           dnsLookerTab: 'monitor',          // 'monitor' | 'lookup'
@@ -6520,6 +6979,48 @@
           domainLiveBouncesResolvedESP: null,
           domainLiveBouncesESPError: null,
           domainLiveBouncesError: null,
+
+          // Email & Spam Analysis state
+          emailAnalysisTab: 'send-test-email',
+          inboundAnalysisLoading: false,
+          inboundAnalysisPolling: false,
+          inboundAnalysisError: null,
+          inboundAnalysisToken: '',
+          inboundAnalysisEmail: '',
+          inboundAnalysisExpiresAt: '',
+          inboundAnalysisStatus: 'idle',
+          inboundAnalysisLastPolledAt: null,
+          inboundAnalysisReport: null,
+          inboundAnalysisPollTimer: null,
+          emailAnalysisSectionsOpen: {
+            overview: true,
+            auth: true,
+            headers: true,
+            subject: true,
+            html: true,
+            raw: false
+          },
+          inboundAnalysisPreviewMode: 'desktop',
+          quickHtmlInputMode: 'upload',
+          quickHtmlFile: null,
+          quickHtmlFileName: '',
+          quickHtmlRawHtml: '',
+          quickHtmlUrl: '',
+          quickHtmlLoading: false,
+          quickHtmlError: null,
+          quickHtmlReport: null,
+          quickHtmlSourceLabel: '',
+          quickHtmlSectionsOpen: {
+            overview: true,
+            structure: true,
+            spam: true,
+            accessibility: false,
+            css: false,
+            compat: false,
+            preview: false
+          },
+        quickHtmlPreviewMode: 'desktop',
+
           // Industry Updates State
           industryUpdates: [],
           industrySources: [],
@@ -6850,6 +7351,26 @@
           }
           return data;
         },
+        emailAnalysisPageTitle() {
+          if (this.emailAnalysisTab === 'quick-html-check') return 'Quick HTML Check';
+          if (this.emailAnalysisTab === 'upload-eml') return 'Upload EML';
+          return 'Message Quality Analysis';
+        },
+        emailAnalysisPageSubtitle() {
+          if (this.emailAnalysisTab === 'quick-html-check') {
+            return 'Check raw HTML without sending email. Use file upload, paste, or URL fetch.';
+          }
+          if (this.emailAnalysisTab === 'upload-eml') {
+            return 'Upload .eml files to inspect authentication, headers, content, and link quality.';
+          }
+          return 'Generate a unique inbound address, send a test email manually, then poll for the analysis.';
+        },
+        inboundAnalysisHtml() {
+          return this.inboundAnalysisReport?.html_analysis || null;
+        },
+        quickHtmlAnalysisHtml() {
+          return this.quickHtmlReport || null;
+        },
         filteredAccountInfo() {
           if (!this.accountInfo || !this.accountInfo.data) return [];
 
@@ -6960,6 +7481,227 @@
         toggleDeliverabilitySection(key) {
           this.deliverabilitySectionsOpen = this.deliverabilitySectionsOpen || { auth: true, routing: false, identity: false, structure: false, content: true, links: false, mime: false, infra: false, compliance: false, misc: false, blocklist: false, signalScore: false };
           this.deliverabilitySectionsOpen[key] = !this.deliverabilitySectionsOpen[key];
+        },
+        toggleEmailAnalysisSection(key) {
+          if (!this.emailAnalysisSectionsOpen) {
+            this.emailAnalysisSectionsOpen = { overview: true, auth: true, headers: true, subject: true, html: true, raw: false };
+          }
+          this.emailAnalysisSectionsOpen[key] = !this.emailAnalysisSectionsOpen[key];
+        },
+        toggleQuickHtmlSection(key) {
+          if (!this.quickHtmlSectionsOpen) {
+            this.quickHtmlSectionsOpen = { overview: true, structure: true, spam: true, accessibility: false, css: false, compat: false, preview: false };
+          }
+          this.quickHtmlSectionsOpen[key] = !this.quickHtmlSectionsOpen[key];
+        },
+        async copyText(text, okTitle = 'Copied', okMessage = 'Copied to clipboard') {
+          const value = text || '';
+          if (!value) return;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(value);
+            } else {
+              const ta = document.createElement('textarea');
+              ta.value = value;
+              ta.setAttribute('readonly', 'true');
+              ta.style.position = 'absolute';
+              ta.style.left = '-9999px';
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            }
+            this.showToast('success', okTitle, okMessage);
+          } catch (e) {
+            this.showToast('error', 'Copy Failed', 'Could not copy text.');
+          }
+        },
+        renderEmailPreviewSrcdoc(html, mode = 'desktop') {
+          const source = (html || '').toString();
+          if (!source.trim()) return '';
+          const previewWidth = mode === 'mobile' ? 390 : 640;
+          const cleaned = source
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/\son\w+=(["']).*?\1/gi, '');
+          const hasHtmlTag = /<html[\s>]/i.test(cleaned);
+          const viewport = `<meta name="viewport" content="width=${previewWidth}, initial-scale=1.0">`;
+          const baseStyle = '<style>html,body{margin:0;padding:0;background:#ffffff;} body{font-family:Arial,Helvetica,sans-serif;}</style>';
+          if (hasHtmlTag) {
+            if (/<meta[^>]+name=["']viewport["'][^>]*>/i.test(cleaned)) {
+              return cleaned.replace(/<meta[^>]+name=["']viewport["'][^>]*>/i, viewport);
+            }
+            if (/<head[^>]*>/i.test(cleaned)) {
+              return cleaned.replace(/<head[^>]*>/i, match => `${match}${viewport}${baseStyle}`);
+            }
+            return `${viewport}${baseStyle}${cleaned}`;
+          }
+          return `<!doctype html><html><head><meta charset="utf-8">${viewport}${baseStyle}</head><body>${cleaned}</body></html>`;
+        },
+        getHtmlSizeKb(report) {
+          const size = report?.stats?.html_size_kb;
+          if (size === null || size === undefined || size === '') return null;
+          const num = Number(size);
+          return Number.isFinite(num) ? num : null;
+        },
+        getHtmlSizeWarning(report) {
+          const size = this.getHtmlSizeKb(report);
+          return size !== null && size >= 102;
+        },
+        previewFrameClass(mode) {
+          return mode === 'mobile' ? 'email-preview-frame mobile' : 'email-preview-frame desktop';
+        },
+        cleanupInboundPolling() {
+          if (this.inboundAnalysisPollTimer) {
+            clearInterval(this.inboundAnalysisPollTimer);
+            this.inboundAnalysisPollTimer = null;
+          }
+          this.inboundAnalysisPolling = false;
+        },
+        resetInboundAnalysisState() {
+          this.cleanupInboundPolling();
+          this.inboundAnalysisLoading = false;
+          this.inboundAnalysisError = null;
+          this.inboundAnalysisToken = '';
+          this.inboundAnalysisEmail = '';
+          this.inboundAnalysisExpiresAt = '';
+          this.inboundAnalysisStatus = 'idle';
+          this.inboundAnalysisLastPolledAt = null;
+          this.inboundAnalysisReport = null;
+        },
+        async generateInboundAnalysisAddress() {
+          this.inboundAnalysisLoading = true;
+          this.inboundAnalysisError = null;
+          this.inboundAnalysisStatus = 'generating';
+          try {
+            const response = await fetch(`${this.API_BASE}/api/email-analysis/generate-address`, { method: 'POST' });
+            if (!response.ok) {
+              const err = await response.text();
+              throw new Error(err || 'Failed to generate inbound address');
+            }
+            const result = await response.json();
+            this.inboundAnalysisToken = result.token || '';
+            this.inboundAnalysisEmail = result.email || '';
+            this.inboundAnalysisExpiresAt = result.expires_at || '';
+            this.inboundAnalysisStatus = 'waiting';
+            this.inboundAnalysisReport = null;
+            this.showToast('success', 'Address Generated', 'Send a test email to the generated address, then poll for results.');
+          } catch (error) {
+            this.inboundAnalysisError = error.message || 'Failed to generate inbound address.';
+            this.inboundAnalysisStatus = 'error';
+            this.showToast('error', 'Generation Failed', this.inboundAnalysisError);
+          } finally {
+            this.inboundAnalysisLoading = false;
+          }
+        },
+        async pollInboundAnalysisResult() {
+          if (!this.inboundAnalysisToken) {
+            this.showToast('warning', 'Generate Address First', 'Please generate an inbound address before polling.');
+            return;
+          }
+
+          this.inboundAnalysisPolling = true;
+          this.inboundAnalysisError = null;
+          this.inboundAnalysisStatus = 'polling';
+          try {
+            const response = await fetch(`${this.API_BASE}/api/email-analysis/poll/${encodeURIComponent(this.inboundAnalysisToken)}`);
+            if (!response.ok) {
+              const err = await response.text();
+              throw new Error(err || 'Failed to poll analysis result');
+            }
+            const result = await response.json();
+            this.inboundAnalysisLastPolledAt = new Date().toISOString();
+
+            if (result.status === 'completed' && result.result) {
+              this.inboundAnalysisReport = result.result;
+              this.inboundAnalysisStatus = 'completed';
+              this.cleanupInboundPolling();
+              this.showToast('success', 'Analysis Ready', 'Inbound email analysis completed.');
+              return;
+            }
+
+            if (result.status === 'expired') {
+              this.inboundAnalysisStatus = 'expired';
+              this.cleanupInboundPolling();
+              this.showToast('warning', 'Address Expired', result.message || 'Generate a new address.');
+              return;
+            }
+
+            this.inboundAnalysisStatus = 'waiting';
+            this.inboundAnalysisPolling = false;
+            this.showToast('info', 'Still Waiting', result.message || 'Waiting for email to arrive.');
+          } catch (error) {
+            this.inboundAnalysisError = error.message || 'Polling failed.';
+            this.inboundAnalysisStatus = 'error';
+            this.cleanupInboundPolling();
+            this.showToast('error', 'Polling Failed', this.inboundAnalysisError);
+          }
+        },
+        async analyzeQuickHtmlFromCurrentMode() {
+          this.quickHtmlError = null;
+          this.quickHtmlLoading = true;
+          this.quickHtmlReport = null;
+          try {
+            if (this.quickHtmlInputMode === 'upload') {
+              if (!this.quickHtmlFile) {
+                throw new Error('Please choose an .html file first.');
+              }
+              const html = await this.quickHtmlFile.text();
+              await this.analyzeQuickHtmlPayload(html, this.quickHtmlFile.name || 'uploaded.html');
+              return;
+            }
+
+            if (this.quickHtmlInputMode === 'paste') {
+              const html = (this.quickHtmlRawHtml || '').trim();
+              if (!html) {
+                throw new Error('Paste raw HTML before analyzing.');
+              }
+              await this.analyzeQuickHtmlPayload(html, 'Pasted HTML');
+              return;
+            }
+
+            if (this.quickHtmlInputMode === 'url') {
+              const url = (this.quickHtmlUrl || '').trim();
+              if (!url) {
+                throw new Error('Please enter a URL to fetch.');
+              }
+              const response = await fetch(`${this.API_BASE}/api/email-analysis/analyze-url`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+              });
+              if (!response.ok) {
+                const err = await response.text();
+                throw new Error(err || 'Failed to fetch URL.');
+              }
+              const result = await response.json();
+              this.quickHtmlReport = result.result || null;
+              this.quickHtmlSourceLabel = result.url || url;
+              this.showToast('success', 'Analysis Complete', 'Quick HTML analysis generated.');
+              return;
+            }
+
+            throw new Error('Unknown HTML input mode.');
+          } catch (error) {
+            this.quickHtmlError = error.message || 'Failed to analyze HTML.';
+            this.showToast('error', 'Analysis Failed', this.quickHtmlError);
+          } finally {
+            this.quickHtmlLoading = false;
+          }
+        },
+        async analyzeQuickHtmlPayload(html, sourceLabel) {
+          const response = await fetch(`${this.API_BASE}/api/email-analysis/analyze-html`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ html })
+          });
+          if (!response.ok) {
+            const err = await response.text();
+            throw new Error(err || 'Failed to analyze HTML.');
+          }
+          const result = await response.json();
+          this.quickHtmlReport = result.result || null;
+          this.quickHtmlSourceLabel = sourceLabel || 'HTML';
+          this.showToast('success', 'Analysis Complete', 'Quick HTML analysis generated.');
         },
         setEmlSignalFilter(filter) {
           this.emlSignalFilter = filter;
@@ -10941,14 +11683,6 @@
           }
         }
       },
-      watch: {
-        daActiveSubTab(newVal) {
-          if (newVal === 'dns-looker') {
-            if (this.dnsMonitorDomains.length === 0) this.dnsLoadMonitor();
-            this.dnsLoadUnreadCount();
-          }
-        }
-      },
       mounted() {
         // Auto-load pulsation data
         this.fetchPulsationData();
@@ -10965,7 +11699,16 @@
         // Load industry updates
         this.loadIndustryUpdates();
       },
+      beforeDestroy() {
+        this.cleanupInboundPolling();
+      },
       watch: {
+        daActiveSubTab(newVal) {
+          if (newVal === 'dns-looker') {
+            if (this.dnsMonitorDomains.length === 0) this.dnsLoadMonitor();
+            this.dnsLoadUnreadCount();
+          }
+        },
         gptTimePeriod() {
           if (this.gptAuthorized) {
             this.loadGPTData();

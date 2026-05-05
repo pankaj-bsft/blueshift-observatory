@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, UploadFile, File
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -412,7 +412,29 @@ async def export_pdf(date_range: DateRange):
 # -------------------------
 
 class PulsationViewType(BaseModel):
-    view_type: str  # 'yesterday', '7day', or '30day'
+    view_type: str  # 'yesterday', '7day', '30day', '60day', '90day', or '120day'
+
+
+def get_pulsation_date_range(view_type: str):
+    """Map a Pulsation view type to a concrete date range."""
+    today = datetime.utcnow().date()
+
+    if view_type == 'yesterday':
+        return today - timedelta(days=1), today
+    if view_type == '7day':
+        return today - timedelta(days=7), today
+    if view_type == '30day':
+        return today - timedelta(days=30), today
+    if view_type == '60day':
+        return today - timedelta(days=60), today
+    if view_type == '90day':
+        return today - timedelta(days=90), today
+    if view_type == '120day':
+        return today - timedelta(days=120), today
+    raise HTTPException(
+        status_code=400,
+        detail='Invalid view_type. Must be yesterday, 7day, 30day, 60day, 90day, or 120day'
+    )
 
 
 @app.get('/api/pulsation/init')
@@ -520,19 +542,7 @@ async def collect_custom_date(date: str = Query(...)):
 async def query_pulsation_data(view: PulsationViewType):
     """Query Pulsation data by view type"""
     try:
-        today = datetime.utcnow().date()
-
-        if view.view_type == 'yesterday':
-            start_date = today - timedelta(days=1)
-            end_date = today
-        elif view.view_type == '7day':
-            start_date = today - timedelta(days=7)
-            end_date = today
-        elif view.view_type == '30day':
-            start_date = today - timedelta(days=30)
-            end_date = today
-        else:
-            raise HTTPException(status_code=400, detail='Invalid view_type. Must be yesterday, 7day, or 30day')
+        start_date, end_date = get_pulsation_date_range(view.view_type)
 
         # Query data
         df_all = query_date_range(start_date, end_date)
@@ -583,19 +593,7 @@ async def query_pulsation_data(view: PulsationViewType):
 async def pulsation_summary(view: PulsationViewType):
     """Return a narrative summary payload for Pulsation"""
     try:
-        today = datetime.utcnow().date()
-
-        if view.view_type == 'yesterday':
-            start_date = today - timedelta(days=1)
-            end_date = today
-        elif view.view_type == '7day':
-            start_date = today - timedelta(days=7)
-            end_date = today
-        elif view.view_type == '30day':
-            start_date = today - timedelta(days=30)
-            end_date = today
-        else:
-            raise HTTPException(status_code=400, detail='Invalid view_type. Must be yesterday, 7day, or 30day')
+        start_date, end_date = get_pulsation_date_range(view.view_type)
 
         summary = get_pulsation_summary(start_date, end_date)
         if not summary:
@@ -721,18 +719,7 @@ async def get_pulsation_daily_summary(mode: str = 'daily', days: int = 30):
 async def get_spamhaus_status(view: PulsationViewType, background_tasks: BackgroundTasks):
     """Get Spamhaus status map for domains in the selected view."""
     try:
-        today = datetime.utcnow().date()
-        if view.view_type == 'yesterday':
-            start_date = today - timedelta(days=1)
-            end_date = today
-        elif view.view_type == '7day':
-            start_date = today - timedelta(days=7)
-            end_date = today
-        elif view.view_type == '30day':
-            start_date = today - timedelta(days=30)
-            end_date = today
-        else:
-            raise HTTPException(status_code=400, detail='Invalid view_type. Must be yesterday, 7day, or 30day')
+        start_date, end_date = get_pulsation_date_range(view.view_type)
 
         df_all = query_date_range(start_date, end_date)
         domains = sorted([d for d in df_all['From_domain'].unique() if d])
@@ -2355,6 +2342,8 @@ from dns_change_detector import (
 )
 from dns_alert_service import send_dns_alert
 from esp_domain_sync_service import run_esp_domain_sync, get_all_registry_domains
+from inbound_service import generate_test_address, poll_for_email
+from email_analyzer import analyze_html, analyze_headers
 
 
 class DnsCustomSelector(BaseModel):
@@ -2665,6 +2654,66 @@ async def dns_mark_one_read(event_id: int):
     try:
         mark_event_read(event_id)
         return {'status': 'success'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Email & Spam Analysis Endpoints ──
+
+@app.post('/api/email-analysis/generate-address')
+async def generate_address():
+    """Generate a unique test email address for inbound testing."""
+    try:
+        result = generate_test_address()
+        return {'status': 'success', **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get('/api/email-analysis/poll/{token}')
+async def poll_result(token: str):
+    """Poll for email arrival and analysis result."""
+    try:
+        result = poll_for_email(token)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/api/email-analysis/analyze-html')
+async def analyze_html_endpoint(request: Request):
+    """Analyze raw HTML content."""
+    try:
+        body = await request.json()
+        html = body.get('html', '')
+        if not html:
+            raise HTTPException(status_code=400, detail='No HTML provided.')
+        result = analyze_html(html)
+        return {'status': 'success', 'result': result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/api/email-analysis/analyze-url')
+async def analyze_url_endpoint(request: Request):
+    """Fetch HTML from URL and analyze."""
+    import httpx
+    try:
+        body = await request.json()
+        url = body.get('url', '')
+        if not url:
+            raise HTTPException(status_code=400, detail='No URL provided.')
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url, follow_redirects=True)
+            if resp.status_code != 200:
+                raise HTTPException(status_code=400, detail=f'Failed to fetch URL: {resp.status_code}')
+            html = resp.text
+        result = analyze_html(html)
+        return {'status': 'success', 'result': result, 'url': url}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
