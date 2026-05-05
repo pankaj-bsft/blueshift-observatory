@@ -1,6 +1,12 @@
 import re
 from email import message_from_string
-from bs4 import BeautifulSoup
+from html import unescape
+from html.parser import HTMLParser
+
+try:
+    from bs4 import BeautifulSoup  # type: ignore
+except ImportError:
+    BeautifulSoup = None
 
 SPAM_TRIGGERS = [
     "free","winner","won","prize","claim","urgent","act now","limited time",
@@ -28,6 +34,57 @@ CLIENT_COMPAT = {
 
 def _chk(name, status, detail, fix=None):
     return {"name": name, "status": status, "detail": detail, "fix": fix}
+
+
+class _EmailHTMLInspector(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.text_parts = []
+        self.images = []
+        self.links = []
+        self.tables = []
+        self.inline_styles = []
+        self.style_blocks = []
+        self.meta_tags = []
+        self.html_tag_attrs = {}
+        self.body_attrs = {}
+        self.link_tags = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = {k.lower(): v or "" for k, v in attrs}
+        if tag == "html" and not self.html_tag_attrs:
+            self.html_tag_attrs = attrs
+        elif tag == "body" and not self.body_attrs:
+            self.body_attrs = attrs
+        elif tag == "img":
+            self.images.append(attrs)
+        elif tag == "a":
+            self.links.append(attrs)
+        elif tag == "link":
+            self.link_tags.append(attrs)
+        elif tag == "table":
+            self.tables.append(attrs)
+        elif "style" in attrs:
+            self.inline_styles.append(attrs.get("style", ""))
+        if tag == "meta":
+            self.meta_tags.append(attrs)
+
+    def handle_data(self, data):
+        if data:
+            self.text_parts.append(data)
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+
+    def get_text(self):
+        return " ".join(" ".join(self.text_parts).split())
+
+
+def _inspect_html(html):
+    inspector = _EmailHTMLInspector()
+    inspector.feed(html or "")
+    inspector.close()
+    return inspector
 
 
 def analyze_subject(subject):
@@ -77,32 +134,46 @@ def analyze_subject(subject):
 def analyze_html(html):
     if not html:
         return None
-    soup = BeautifulSoup(html, "html.parser")
-    text = soup.get_text(" ", strip=True)
+
+    inspector = _inspect_html(html)
+    text = inspector.get_text()
+    soup = None
+    if BeautifulSoup is not None:
+        soup = BeautifulSoup(html, "html.parser")
 
     html_size_kb = round(len(html.encode("utf-8")) / 1024, 1)
-    images = soup.find_all("img")
-    links = soup.find_all("a", href=True)
-    tables = soup.find_all("table")
-    inline_styles = soup.find_all(style=True)
+    images = inspector.images
+    links = [a for a in inspector.links if a.get("href")]
+    tables = inspector.tables
+    inline_styles = inspector.inline_styles
     link_urls = [a.get("href", "") for a in links]
 
     plain_text = re.sub(r'<[^>]+>', '', html)
     text_ratio = round((len(text) / max(len(plain_text), 1)) * 100)
 
     has_doctype = "<!doctype" in html.lower()
-    charset_tag = bool(soup.find("meta", attrs={"charset": True}))
-    viewport_tag = bool(soup.find("meta", attrs={"name": re.compile("viewport", re.I)}))
+    charset_tag = any("charset" in meta for meta in inspector.meta_tags)
+    viewport_tag = any(re.search(r'viewport', meta.get("name", ""), re.I) for meta in inspector.meta_tags)
 
     max_width = None
     width_ok = False
-    for el in [soup.find("body"), soup.find("table")]:
-        if el:
-            w = re.search(r'max-width\s*:\s*(\d+)px', el.get("style", ""))
+    for style_value in [inspector.body_attrs.get("style", ""), *(inspector.inline_styles[:1])]:
+        w = re.search(r'max-width\s*:\s*(\d+)px', style_value)
+        if w:
+            max_width = int(w.group(1))
+            width_ok = 500 <= max_width <= 680
+            break
+    if max_width is None:
+        table_style = None
+        if soup is not None:
+            table = soup.find("table")
+            if table:
+                table_style = table.get("style", "")
+        if table_style:
+            w = re.search(r'max-width\s*:\s*(\d+)px', table_style)
             if w:
                 max_width = int(w.group(1))
                 width_ok = 500 <= max_width <= 680
-                break
 
     text_lower = text.lower()
     found_triggers = [t for t in SPAM_TRIGGERS if t in text_lower]
@@ -112,28 +183,28 @@ def analyze_html(html):
     shorteners = [u for u in link_urls if any(s in u for s in URL_SHORTENERS)]
     susp_tlds = [u for u in link_urls if any(t in u for t in SUSPICIOUS_TLDS)]
 
-    all_css = " ".join([el.get("style", "") for el in soup.find_all(style=True)])
-    for s in soup.find_all("style"):
-        if s.string:
-            all_css += " " + s.string
+    all_css = " ".join(inspector.inline_styles)
+    if soup is not None:
+        for s in soup.find_all("style"):
+            if s.string:
+                all_css += " " + s.string
 
     has_flex = "flex" in all_css.lower()
     has_grid = "grid" in all_css.lower()
     has_float = "float" in all_css.lower()
     has_mq = "@media" in all_css
     important_count = all_css.count("!important")
-    ext_fonts = any("font" in (l.get("href", "").lower()) for l in soup.find_all("link"))
+    ext_fonts = any("font" in (l.get("href", "").lower()) for l in inspector.link_tags)
 
     imgs_no_alt = [i for i in images if not i.get("alt")]
     small_fonts = 0
-    for el in soup.find_all(style=True):
-        m = re.search(r'font-size\s*:\s*(\d+)px', el.get("style", ""))
+    for style_value in inline_styles:
+        m = re.search(r'font-size\s*:\s*(\d+)px', style_value)
         if m and int(m.group(1)) < 11:
             small_fonts += 1
 
-    html_tag = soup.find("html")
-    has_lang = bool(html_tag and html_tag.get("lang"))
-    white_text = len(soup.find_all(style=re.compile(r'color\s*:\s*(#fff|#ffffff|white)', re.I))) > 0
+    has_lang = bool(inspector.html_tag_attrs.get("lang"))
+    white_text = any(re.search(r'color\s*:\s*(#fff|#ffffff|white)', style_value, re.I) for style_value in inline_styles)
 
     structure = [
         _chk("DOCTYPE Declaration", "pass" if has_doctype else "fail",
