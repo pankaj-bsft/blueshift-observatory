@@ -7,7 +7,7 @@ and daily check results.
 import sqlite3
 import json
 from datetime import datetime, date
-from typing import Optional
+from typing import List, Dict, Tuple, Optional
 from data_paths import data_path
 
 DNS_DB_PATH = data_path('dns_looker.db')
@@ -210,7 +210,7 @@ def save_dns_result(result: dict, account: str = None, esp: str = None, check_da
 
 # ─── Fetch latest per domain ──────────────────────────────────────────────────
 
-def get_latest_all_domains() -> list[dict]:
+def get_latest_all_domains() -> List[dict]:
     """
     Return latest DNS check row for every domain in dns_history.
     Used to populate the Domain Monitor table.
@@ -270,7 +270,7 @@ def get_domain_latest(domain: str) -> Optional[dict]:
 
 # ─── History for charts ───────────────────────────────────────────────────────
 
-def get_domain_history(domain: str, days: int = 90) -> list[dict]:
+def get_domain_history(domain: str, days: int = 90) -> List[dict]:
     """
     Return daily DNS check rows for a domain (last N days).
     Used for historical trend charts.

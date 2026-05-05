@@ -8,7 +8,7 @@ import dns.reversename
 import dns.exception
 import requests
 import re
-from typing import Optional
+from typing import Optional, List, Tuple
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ ESP_NAME_MAP = {
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
-def _query_txt(name: str) -> list[str]:
+def _query_txt(name: str) -> List[str]:
     """Return list of TXT record strings for a DNS name, or empty list."""
     try:
         answers = dns.resolver.resolve(name, "TXT", lifetime=3)
@@ -41,7 +41,7 @@ def _query_txt(name: str) -> list[str]:
         return []
 
 
-def _query_mx(domain: str) -> list[dict]:
+def _query_mx(domain: str) -> List[dict]:
     try:
         answers = dns.resolver.resolve(domain, "MX", lifetime=3)
         return sorted(
@@ -52,7 +52,7 @@ def _query_mx(domain: str) -> list[dict]:
         return []
 
 
-def _query_a(domain: str) -> list[str]:
+def _query_a(domain: str) -> List[str]:
     try:
         answers = dns.resolver.resolve(domain, "A", lifetime=3)
         return [str(r) for r in answers]
@@ -126,7 +126,7 @@ def check_spf(domain: str) -> dict:
     }
 
 
-def _count_spf_lookups(domain: str, _visited: set = None, _depth: int = 0) -> tuple[int, bool]:
+def _count_spf_lookups(domain: str, _visited: set = None, _depth: int = 0) -> Tuple[int, bool]:
     """Recursively count SPF DNS lookups. Returns (count, over_limit)."""
     if _visited is None:
         _visited = set()
