@@ -7053,6 +7053,8 @@
             start_row: 0,
             end_row: 0
           },
+          domainLiveBouncesRefreshJobId: null,
+          domainLiveBouncesRefreshPollTimer: null,
           domainLiveBouncesSearchTimer: null,
 
           // Email & Spam Analysis state
@@ -8132,6 +8134,7 @@
           return result;
         },
         viewDomainCharts(domain) {
+          this.clearDomainLiveBouncesRefreshPolling();
           this.pulsationTrendMode = 'domain';
           this.selectedAccount = '';
           this.selectedDomain = domain;
@@ -8171,6 +8174,7 @@
               end_row: 0
             };
             this.domainLiveBouncesPage = 1;
+            this.clearDomainLiveBouncesRefreshPolling();
             return;
           }
 
@@ -8229,6 +8233,7 @@
                 end_row: 0
               };
               this.domainLiveBouncesPage = 1;
+              this.clearDomainLiveBouncesRefreshPolling();
             }
             } else {
               this.chartData = null;
@@ -8289,6 +8294,70 @@
             this.domainLiveBouncesLoading = false;
           }
         },
+        clearDomainLiveBouncesRefreshPolling() {
+          if (this.domainLiveBouncesRefreshPollTimer) {
+            clearTimeout(this.domainLiveBouncesRefreshPollTimer);
+            this.domainLiveBouncesRefreshPollTimer = null;
+          }
+          this.domainLiveBouncesRefreshJobId = null;
+        },
+        scheduleDomainLiveBouncesRefreshPolling() {
+          if (!this.domainLiveBouncesRefreshJobId) return;
+          if (this.domainLiveBouncesRefreshPollTimer) {
+            clearTimeout(this.domainLiveBouncesRefreshPollTimer);
+          }
+
+          const poll = async () => {
+            if (!this.domainLiveBouncesRefreshJobId) return;
+            const done = await this.pollDomainLiveBouncesRefreshStatus();
+            if (!done && this.domainLiveBouncesRefreshJobId) {
+              this.domainLiveBouncesRefreshPollTimer = setTimeout(poll, 2000);
+            }
+          };
+
+          this.domainLiveBouncesRefreshPollTimer = setTimeout(poll, 1200);
+        },
+        async pollDomainLiveBouncesRefreshStatus() {
+          if (!this.selectedDomain || !this.domainLiveBouncesRefreshJobId) return true;
+
+          try {
+            const query = new URLSearchParams({
+              job_id: this.domainLiveBouncesRefreshJobId
+            });
+            const response = await fetch(`${this.API_BASE}/api/pulsation/domain-live-bounces/${encodeURIComponent(this.selectedDomain)}/refresh-status?${query.toString()}`);
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.detail || 'Failed to check refresh status');
+            }
+
+            const job = result.job || {};
+            if (job.status === 'queued' || job.status === 'running') {
+              return false;
+            }
+
+            this.clearDomainLiveBouncesRefreshPolling();
+            this.domainLiveBouncesRefreshing = false;
+
+            if (job.status === 'completed') {
+              await this.loadDomainLiveBounces();
+              if (this.domainLiveBouncesPagination.total_count > 0) {
+                const label = this.domainLiveBouncesView === 'summary' ? 'grouped bounce reasons' : 'bounce details';
+                this.showToast('success', 'Live Bounces Refreshed', `Loaded ${formatNumber(this.domainLiveBouncesPagination.total_count)} ${label}`);
+              } else {
+                this.showToast('info', 'No Bounce Records', 'No bounce records were found for the selected domain and time window');
+              }
+              return true;
+            }
+
+            throw new Error(job.error || job.message || 'Live bounce refresh failed');
+          } catch (err) {
+            this.clearDomainLiveBouncesRefreshPolling();
+            this.domainLiveBouncesRefreshing = false;
+            this.domainLiveBouncesError = err.message;
+            this.showToast('error', 'Refresh Failed', err.message);
+            return true;
+          }
+        },
         async refreshDomainLiveBounces(windowType = this.domainLiveBouncesWindowType, snapshotDate = null) {
           if (!this.selectedDomain) return;
           if (windowType === 'daily') {
@@ -8321,6 +8390,7 @@
           }
           this.domainLiveBouncesRefreshing = true;
           this.domainLiveBouncesError = null;
+          this.clearDomainLiveBouncesRefreshPolling();
           try {
             const query = new URLSearchParams({
               window_type: this.domainLiveBouncesWindowType,
@@ -8340,25 +8410,22 @@
             if (!response.ok) {
               throw new Error(result.detail || 'Failed to refresh live bounces');
             }
-            this.domainLiveBouncesSummary = result.summary || null;
-            this.domainLiveBouncesCache = result.cache || null;
-            this.domainLiveBouncesWindow = result.window || null;
-            await this.loadDomainLiveBounces();
-            if (this.domainLiveBouncesPagination.total_count > 0) {
-              const label = this.domainLiveBouncesView === 'summary' ? 'grouped bounce reasons' : 'bounce details';
-              this.showToast('success', 'Live Bounces Refreshed', `Loaded ${formatNumber(this.domainLiveBouncesPagination.total_count)} ${label}`);
-            } else {
-              this.showToast('info', 'No Bounce Records', 'No bounce records were found for the selected domain and time window');
-            }
+            this.domainLiveBouncesRefreshJobId = result.job_id || result.job?.job_id || null;
+            this.showToast('info', 'Refresh Started', result.message || 'Live bounce refresh is running in background');
+            this.scheduleDomainLiveBouncesRefreshPolling();
           } catch (err) {
             console.error('Error refreshing domain live bounces:', err);
+            this.clearDomainLiveBouncesRefreshPolling();
             this.domainLiveBouncesError = err.message;
             this.showToast('error', 'Refresh Failed', err.message);
           } finally {
-            this.domainLiveBouncesRefreshing = false;
+            if (!this.domainLiveBouncesRefreshJobId) {
+              this.domainLiveBouncesRefreshing = false;
+            }
           }
         },
         async setDomainLiveBouncesWindow(windowType) {
+          this.clearDomainLiveBouncesRefreshPolling();
           this.domainLiveBouncesWindowType = windowType;
           if (windowType === 'daily' && !this.domainLiveBouncesDailyDate) {
             this.domainLiveBouncesDailyDate = this.yesterdayDateString;
@@ -11871,6 +11938,11 @@
       },
       beforeDestroy() {
         this.cleanupInboundPolling();
+        if (this.domainLiveBouncesSearchTimer) {
+          clearTimeout(this.domainLiveBouncesSearchTimer);
+          this.domainLiveBouncesSearchTimer = null;
+        }
+        this.clearDomainLiveBouncesRefreshPolling();
       },
       watch: {
         daActiveSubTab(newVal) {

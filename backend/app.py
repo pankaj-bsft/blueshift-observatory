@@ -6,9 +6,11 @@ from datetime import datetime
 import os
 import subprocess
 import io
+import uuid
 from typing import Dict, Optional, List
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
+from threading import Lock
 
 from druid_service import (
     fetch_region_data,
@@ -112,6 +114,7 @@ from bounce_analytics_service import (
     get_domain_live_bounce_payload,
     get_bounces,
     get_sending_domains,
+    normalize_esp_name,
     cleanup_old_data as cleanup_bounce_data,
     init_bounce_database
 )
@@ -174,6 +177,124 @@ def run_daily_bounce_cleanup():
     print('[Scheduler] Running bounce cleanup...')
     deleted = cleanup_bounce_data(365)
     print(f'[Scheduler] Done: deleted {deleted} old bounce rows')
+
+
+DOMAIN_LIVE_BOUNCE_REFRESH_JOBS: Dict[str, Dict] = {}
+DOMAIN_LIVE_BOUNCE_REFRESH_ACTIVE: Dict[str, str] = {}
+DOMAIN_LIVE_BOUNCE_REFRESH_LOCK = Lock()
+
+
+def _domain_live_bounce_refresh_key(domain: str, window_type: str, snapshot_date: Optional[str], esp: Optional[str]) -> str:
+    normalized_esp = normalize_esp_name(esp) or 'unknown'
+    suffix = snapshot_date or 'rolling'
+    return f'{domain.lower()}::{window_type}::{suffix}::{normalized_esp}'
+
+
+def _snapshot_domain_live_bounce_job(job: Dict) -> Dict:
+    return dict(job)
+
+
+def _get_domain_live_bounce_refresh_job(job_id: str) -> Optional[Dict]:
+    with DOMAIN_LIVE_BOUNCE_REFRESH_LOCK:
+        job = DOMAIN_LIVE_BOUNCE_REFRESH_JOBS.get(job_id)
+        return _snapshot_domain_live_bounce_job(job) if job else None
+
+
+def _register_domain_live_bounce_refresh_job(
+    domain: str,
+    window_type: str,
+    snapshot_date: Optional[str],
+    esp: Optional[str],
+    view: str,
+    search: str,
+    page: int,
+    page_size: int
+) -> Dict:
+    cache_key = _domain_live_bounce_refresh_key(domain, window_type, snapshot_date, esp)
+    now = datetime.utcnow().isoformat()
+
+    with DOMAIN_LIVE_BOUNCE_REFRESH_LOCK:
+        active_job_id = DOMAIN_LIVE_BOUNCE_REFRESH_ACTIVE.get(cache_key)
+        if active_job_id:
+            active_job = DOMAIN_LIVE_BOUNCE_REFRESH_JOBS.get(active_job_id)
+            if active_job and active_job.get('status') in {'queued', 'running'}:
+                return _snapshot_domain_live_bounce_job(active_job)
+
+        job_id = uuid.uuid4().hex
+        job = {
+            'job_id': job_id,
+            'cache_key': cache_key,
+            'domain': domain.lower(),
+            'window_type': window_type,
+            'snapshot_date': snapshot_date,
+            'esp': normalize_esp_name(esp),
+            'view': view,
+            'search': search or '',
+            'page': page,
+            'page_size': page_size,
+            'status': 'queued',
+            'message': 'Refresh queued',
+            'created_at': now,
+            'started_at': None,
+            'completed_at': None,
+            'error': None,
+            'result_total_count': None,
+        }
+        DOMAIN_LIVE_BOUNCE_REFRESH_JOBS[job_id] = job
+        DOMAIN_LIVE_BOUNCE_REFRESH_ACTIVE[cache_key] = job_id
+        return _snapshot_domain_live_bounce_job(job)
+
+
+def _complete_domain_live_bounce_refresh_job(job_id: str, status: str, message: str, error: Optional[str] = None, result_total_count: Optional[int] = None):
+    with DOMAIN_LIVE_BOUNCE_REFRESH_LOCK:
+        job = DOMAIN_LIVE_BOUNCE_REFRESH_JOBS.get(job_id)
+        if not job:
+            return
+        now = datetime.utcnow().isoformat()
+        job['status'] = status
+        job['message'] = message
+        job['completed_at'] = now
+        if job.get('started_at') is None:
+            job['started_at'] = now
+        job['error'] = error
+        if result_total_count is not None:
+            job['result_total_count'] = result_total_count
+
+        if status not in {'queued', 'running'}:
+            cache_key = job.get('cache_key')
+            if cache_key and DOMAIN_LIVE_BOUNCE_REFRESH_ACTIVE.get(cache_key) == job_id:
+                DOMAIN_LIVE_BOUNCE_REFRESH_ACTIVE.pop(cache_key, None)
+
+
+def _run_domain_live_bounce_refresh_job(job_id: str):
+    with DOMAIN_LIVE_BOUNCE_REFRESH_LOCK:
+        job = DOMAIN_LIVE_BOUNCE_REFRESH_JOBS.get(job_id)
+        if not job:
+            return
+        job['status'] = 'running'
+        job['message'] = 'Refreshing live bounces'
+        job['started_at'] = datetime.utcnow().isoformat()
+
+    try:
+        result = fetch_domain_live_bounces(
+            job['domain'],
+            job['window_type'],
+            job.get('snapshot_date'),
+            job.get('esp')
+        )
+        _complete_domain_live_bounce_refresh_job(
+            job_id,
+            'completed',
+            'Live bounce refresh completed',
+            result_total_count=int(result.get('total_count') or 0)
+        )
+    except Exception as exc:
+        _complete_domain_live_bounce_refresh_job(
+            job_id,
+            'failed',
+            'Live bounce refresh failed',
+            error=str(exc)
+        )
 
 
 @asynccontextmanager
@@ -805,6 +926,7 @@ async def get_domain_live_bounces_endpoint(
 @app.post('/api/pulsation/domain-live-bounces/{domain}/refresh')
 async def refresh_domain_live_bounces_endpoint(
     domain: str,
+    background_tasks: BackgroundTasks,
     window_type: str = 'last_24h',
     snapshot_date: str = None,
     esp: str = None,
@@ -813,22 +935,46 @@ async def refresh_domain_live_bounces_endpoint(
     page: int = 1,
     page_size: int = 100
 ):
-    """Refresh live bounce reasons for a sending domain from ESP APIs."""
+    """Start a background refresh for live bounce reasons for a sending domain."""
     try:
-        fetch_domain_live_bounces(domain, window_type, snapshot_date, esp)
-        return get_domain_live_bounce_payload(
+        normalized_esp = normalize_esp_name(esp)
+        if not normalized_esp:
+            raise HTTPException(status_code=400, detail='ESP could not be determined')
+
+        job = _register_domain_live_bounce_refresh_job(
             domain,
             window_type,
             snapshot_date,
-            esp,
-            30,
-            view=view,
-            search=search,
-            page=page,
-            page_size=page_size
+            normalized_esp,
+            view,
+            search,
+            page,
+            page_size
         )
+        if job['status'] == 'queued':
+            background_tasks.add_task(_run_domain_live_bounce_refresh_job, job['job_id'])
+        return {
+            'status': 'started' if job['status'] == 'queued' else 'running',
+            'message': job.get('message') or 'Live bounce refresh is running in background',
+            'job_id': job['job_id'],
+            'job': job
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error refreshing domain live bounces: {str(e)}')
+
+
+@app.get('/api/pulsation/domain-live-bounces/{domain}/refresh-status')
+async def domain_live_bounces_refresh_status_endpoint(domain: str, job_id: str):
+    """Check the status of a background live bounce refresh job."""
+    job = _get_domain_live_bounce_refresh_job(job_id)
+    if not job or job.get('domain') != domain.lower():
+        raise HTTPException(status_code=404, detail='Refresh job not found')
+    return {
+        'status': 'success',
+        'job': job
+    }
 
 
 @app.get('/api/pulsation/domain-live-bounces/{domain}/export-csv')
