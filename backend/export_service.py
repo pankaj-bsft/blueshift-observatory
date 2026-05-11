@@ -97,6 +97,21 @@ def _format_label_value(value: float, suffix: str = "") -> str:
         return "0.0" + suffix
 
 
+def _pdf_header(text: str, font_size: int = 7):
+    styles = getSampleStyleSheet()
+    header_style = ParagraphStyle(
+        'PdfHeaderCell',
+        parent=styles['BodyText'],
+        fontName='Helvetica-Bold',
+        fontSize=font_size,
+        leading=font_size + 1,
+        textColor=colors.white,
+        alignment=1,
+        wordWrap='LTR',
+    )
+    return Paragraph(text, header_style)
+
+
 def export_to_excel(esp_data: Dict, df_combined: pd.DataFrame, from_date: str, to_date: str) -> bytes:
     """Export all data to Excel file"""
     output = io.BytesIO()
@@ -160,7 +175,7 @@ def create_summary_table(summary_data: Dict, title: str):
         return []
 
     data = [
-        ['Metric', 'Value'],
+        [_pdf_header('Metric'), _pdf_header('Value')],
         ['Total Sent', f"{summary_data['Total_Sent']:,}"],
         ['Total Delivered', f"{summary_data['Total_Delivered']:,}"],
         ['Delivery Rate', f"{summary_data['Delivery_Rate_%']}%"],
@@ -171,7 +186,7 @@ def create_summary_table(summary_data: Dict, title: str):
         ['Total Unsubscribes', f"{summary_data['Total_Unsubscribes']:,}"],
         ['Unsubscribe Rate', f"{summary_data['Unsub_Rate_%']}%"],
         ['Total Unique Opens', f"{summary_data['Total_Unique_Opens']:,}"],
-        ['Open Rate', f"{summary_data['Open_Rate_%']}%"],
+        ['User Open Rate', f"{summary_data['Open_Rate_%']}%"],
         ['Total Unique Clicks', f"{summary_data['Total_Unique_Clicks']:,}"],
         ['Click Rate', f"{summary_data['Click_Rate_%']}%"],
         ['Click-to-Open Rate', f"{summary_data['CTOR_%']}%"],
@@ -214,7 +229,17 @@ def create_esp_summary_table(esp_info: Dict, esp_name: str):
         return []
 
     # Header row
-    data = [['Region', 'Sent', 'Delivered', 'Delivery %', 'Bounce %', 'Open %', 'Click %', 'CTOR %', 'Health Score']]
+    data = [[
+        _pdf_header('Region'),
+        _pdf_header('Sent'),
+        _pdf_header('Delivered'),
+        _pdf_header('Delivery %'),
+        _pdf_header('Bounce %'),
+        _pdf_header('User Open %'),
+        _pdf_header('Click %'),
+        _pdf_header('CTOR %'),
+        _pdf_header('Health Score'),
+    ]]
 
     # US row
     if esp_info.get('us_summary'):
@@ -266,7 +291,7 @@ def create_esp_summary_table(esp_info: Dict, esp_name: str):
         f"{health_score} ({health_rating})",
     ])
 
-    table = Table(data, colWidths=[0.7*inch, 0.9*inch, 0.9*inch, 0.75*inch, 0.7*inch, 0.65*inch, 0.65*inch, 0.65*inch, 1.0*inch])
+    table = Table(data, colWidths=[0.72*inch, 0.88*inch, 0.88*inch, 0.82*inch, 0.82*inch, 0.92*inch, 0.72*inch, 0.72*inch, 1.04*inch])
 
     style_commands = [
         ('BACKGROUND', (0, 0), (-1, 0), BRAND["table_header"]),
@@ -275,6 +300,8 @@ def create_esp_summary_table(esp_info: Dict, esp_name: str):
         ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, 0), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
         ('TOPPADDING', (0, 1), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
         ('GRID', (0, 0), (-1, -1), 0.4, BRAND["accent"]),
@@ -328,7 +355,16 @@ def create_domain_table(domains: List[Dict], title: str):
         return []
 
     # Header row
-    data = [['Domain', 'Sent', 'MoM Send %', 'Delivered', 'Delivery %', 'Bounce %', 'Open %', 'Click %']]
+    data = [[
+        _pdf_header('Domain'),
+        _pdf_header('Sent'),
+        _pdf_header('MoM Send %'),
+        _pdf_header('Delivered'),
+        _pdf_header('Delivery %'),
+        _pdf_header('Bounce %'),
+        _pdf_header('User Open %'),
+        _pdf_header('Click %'),
+    ]]
 
     # Data rows
     for domain in domains[:10]:  # Top 10
@@ -382,7 +418,16 @@ def create_account_table(accounts: List[Dict], title: str):
     is_affiliate = 'Affiliate' in title
 
     # Header row
-    data = [['Rank', 'Account Name', 'Sent', 'MoM Send %', 'Delivered', 'Delivery %', 'Open %', 'Click %']]
+    data = [[
+        _pdf_header('Rank'),
+        _pdf_header('Account Name'),
+        _pdf_header('Sent'),
+        _pdf_header('MoM Send %'),
+        _pdf_header('Delivered'),
+        _pdf_header('Delivery %'),
+        _pdf_header('User Open %'),
+        _pdf_header('Click %'),
+    ]]
 
     # Data rows
     for account in accounts[:10]:  # Top 10
@@ -474,7 +519,7 @@ def create_esp_comparison_chart(esp_data: Dict):
     metrics = [
         ('Delivery_Rate_%', 'Delivery %'),
         ('Bounce_Rate_%', 'Bounce %'),
-        ('Open_Rate_%', 'Open %'),
+        ('Open_Rate_%', 'User Open %'),
         ('Click_Rate_%', 'Click %'),
         ('CTOR_%', 'CTOR %'),
     ]

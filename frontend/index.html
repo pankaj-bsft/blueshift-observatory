@@ -2111,10 +2111,10 @@
                   </span>
                 </div>
 
-                <div style="padding: 0 24px 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesWindowType === 'last_24h' }" @click="setDomainLiveBouncesWindow('last_24h')">
-                    Past 24h
-                  </button>
+              <div style="padding: 0 24px 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesWindowType === 'last_24h' }" @click="setDomainLiveBouncesWindow('last_24h')">
+                  Past 24h
+                </button>
                   <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesWindowType === 'daily' }" @click="setDomainLiveBouncesWindow('daily')">
                     Daily Snapshot
                   </button>
@@ -2145,14 +2145,25 @@
                   <button class="btn btn-sm btn-primary" @click="refreshDomainLiveBounces('daily', yesterdayDateString)" :disabled="domainLiveBouncesRefreshing">
                     {{ domainLiveBouncesRefreshing && domainLiveBouncesWindowType === 'daily' && domainLiveBouncesDailyDate === yesterdayDateString ? "Fetching..." : "Fetch Yesterday's Bounces" }}
                   </button>
-                  <button class="btn btn-sm btn-secondary" @click="exportDomainLiveBouncesCSV" :disabled="domainLiveBouncesView === 'summary' ? !domainLiveBouncesData.length : !domainLiveBouncesDetailData.length">
+                  <button class="btn btn-sm btn-secondary" @click="exportDomainLiveBouncesCSV" :disabled="domainLiveBouncesView === 'summary' ? !filteredDomainLiveBouncesData.length : !filteredDomainLiveBouncesDetailData.length">
                     Export CSV
                   </button>
                 </div>
 
-                <div style="padding: 0 24px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesView === 'summary' }" @click="setDomainLiveBouncesView('summary')">
-                    Summary
+              <div style="padding: 0 24px 12px;">
+                <input
+                  type="search"
+                  class="date-input"
+                  v-model="domainLiveBouncesSearch"
+                  placeholder="Search bounce reason, ESP, domain, recipient, code..."
+                  :disabled="domainLiveBouncesLoading || domainLiveBouncesRefreshing"
+                  style="width: 100%; max-width: 540px;"
+                />
+              </div>
+
+              <div style="padding: 0 24px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesView === 'summary' }" @click="setDomainLiveBouncesView('summary')">
+                  Summary
                   </button>
                   <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesView === 'detail' }" @click="setDomainLiveBouncesView('detail')">
                     Details
@@ -2162,8 +2173,14 @@
                 <div v-if="domainLiveBouncesLoading" class="summary-empty" style="padding: 0 24px 24px;">Loading cached bounce data...</div>
                 <div v-else-if="domainLiveBouncesESPError" class="summary-empty" style="padding: 0 24px 24px; color: #b45309;">{{ domainLiveBouncesESPError }}</div>
                 <div v-else-if="domainLiveBouncesError" class="summary-empty" style="padding: 0 24px 24px; color: #dc2626;">{{ domainLiveBouncesError }}</div>
+                <div v-else-if="domainLiveBouncesView === 'summary' && !filteredDomainLiveBouncesData.length && domainLiveBouncesData.length" class="summary-empty" style="padding: 0 24px 24px;">
+                  No matching bounce reasons found for the current search.
+                </div>
                 <div v-else-if="domainLiveBouncesView === 'summary' && !domainLiveBouncesData.length" class="summary-empty" style="padding: 0 24px 24px;">
                   No cached bounce reasons found for this view. Use one of the fetch buttons to load data from the ESPs.
+                </div>
+                <div v-else-if="domainLiveBouncesView === 'detail' && !filteredDomainLiveBouncesDetailData.length && domainLiveBouncesDetailData.length" class="summary-empty" style="padding: 0 24px 24px;">
+                  No matching bounce details found for the current search.
                 </div>
                 <div v-else-if="domainLiveBouncesView === 'detail' && !domainLiveBouncesDetailData.length" class="summary-empty" style="padding: 0 24px 24px;">
                   No bounce details found for this view. Use one of the fetch buttons to load data from the ESPs.
@@ -2182,7 +2199,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(row, idx) in domainLiveBouncesData" :key="`${row.esp}-${row.region}-${idx}`">
+                        <tr v-for="(row, idx) in filteredDomainLiveBouncesData" :key="`${row.esp}-${row.region}-${idx}`">
                           <td>{{ row.esp }}</td>
                           <td>{{ row.region }}</td>
                           <td>{{ row.account_name }}</td>
@@ -2209,7 +2226,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(row, idx) in domainLiveBouncesDetailData" :key="`${row.esp}-${row.region}-${row.event_timestamp}-${idx}`">
+                        <tr v-for="(row, idx) in filteredDomainLiveBouncesDetailData" :key="`${row.esp}-${row.region}-${row.event_timestamp}-${idx}`">
                           <td>{{ row.esp }}</td>
                           <td>{{ row.region }}</td>
                           <td>{{ row.account_name }}</td>
@@ -2431,7 +2448,7 @@
                       <th>Unsub</th>
                       <th>Unsub %</th>
                       <th>Opens</th>
-                      <th>Open %</th>
+                      <th>User Open %</th>
                       <th>Clicks</th>
                       <th>Click %</th>
                       <th>CTOR %</th>
@@ -2493,7 +2510,7 @@
                       <th>Spam</th>
                       <th>Spam %</th>
                       <th>Opens</th>
-                      <th>Open %</th>
+                      <th>User Open %</th>
                       <th>Clicks</th>
                       <th>Click %</th>
                       <th>Health Score</th>
@@ -2564,7 +2581,7 @@
                         <th>Delivery %</th>
                         <th>Bounces</th>
                         <th>Bounce %</th>
-                        <th>Open %</th>
+                        <th>User Open %</th>
                         <th>Click %</th>
                         <th>CTOR %</th>
                       </tr>
@@ -2613,7 +2630,7 @@
                       <th>MoM Send %</th>
                       <th>Delivered</th>
                       <th>Delivery %</th>
-                      <th>Open %</th>
+                      <th>User Open %</th>
                       <th>Click %</th>
                     </tr>
                   </thead>
@@ -2664,7 +2681,7 @@
                       <th>Spam</th>
                       <th>Spam %</th>
                       <th>Opens</th>
-                      <th>Open %</th>
+                      <th>User Open %</th>
                       <th>Clicks</th>
                       <th>Click %</th>
                     </tr>
@@ -2726,7 +2743,7 @@
                       <th>Spam</th>
                       <th>Spam %</th>
                       <th>Opens</th>
-                      <th>Open %</th>
+                      <th>User Open %</th>
                       <th>Clicks</th>
                       <th>Click %</th>
                     </tr>
@@ -2794,7 +2811,7 @@
                       <th>Spam</th>
                       <th>Spam %</th>
                       <th>Opens</th>
-                      <th>Open %</th>
+                      <th>User Open %</th>
                       <th>Clicks</th>
                       <th>Click %</th>
                     </tr>
@@ -3304,23 +3321,26 @@
               </div>
               <div>
                 <h1 class="page-header-title">Account Info — ESP Integration</h1>
-                <p class="page-header-subtitle">Real-time account information from Mailgun, Sparkpost, and Sendgrid</p>
+                <p class="page-header-subtitle">Locally stored account information from Mailgun, Sparkpost, and Sendgrid</p>
               </div>
             </div>
           </div>
 
           <!-- Control Panel -->
           <div class="control-panel" style="margin-bottom: 24px;">
-            <div v-if="accountInfo" style="font-size: 13px; color: #64748b; display: flex; align-items: center; gap: 16px;">
+            <div v-if="accountInfo" style="font-size: 13px; color: #64748b; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
               <span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
                   <circle cx="12" cy="12" r="10"/>
                   <polyline points="12 6 12 12 16 14"/>
                 </svg>
-                Last updated: {{ formatDateTime(accountInfo.last_updated) }}
+                Last Synced At: {{ formatDateTime(accountInfo.last_synced_at || accountInfo.last_updated) }}
               </span>
-              <span v-if="accountInfo.cached" style="background: #f0f9ff; padding: 4px 10px; border-radius: 6px; color: #0369a1; font-weight: 500;">
-                📦 Cached (expires in {{ Math.floor(accountInfo.cache_expires_in / 60) }}m)
+              <span v-if="accountInfo.source === 'db'" style="background: #f0f9ff; padding: 4px 10px; border-radius: 6px; color: #0369a1; font-weight: 500;">
+                📦 Local DB
+              </span>
+              <span v-else style="background: #ecfccb; padding: 4px 10px; border-radius: 6px; color: #3f6212; font-weight: 500;">
+                🔄 Live Sync
               </span>
             </div>
 
@@ -3335,20 +3355,12 @@
 
               <button
                 class="btn btn-primary"
-                @click="fetchAccountInfo(false)"
+                @click="fetchAccountInfo(true)"
                 :disabled="accountInfoLoading"
               >
                 <span v-if="accountInfoLoading" class="loading-spinner" style="width: 14px; height: 14px;"></span>
                 <span v-else>🔄</span>
-                {{ accountInfoLoading ? 'Loading...' : 'Refresh' }}
-              </button>
-
-              <button
-                class="btn btn-secondary"
-                @click="clearAccountInfoCache"
-                :disabled="accountInfoLoading"
-              >
-                🗑️ Clear Cache
+                {{ accountInfoLoading ? 'Syncing...' : 'Refresh Account Info' }}
               </button>
             </div>
           </div>
@@ -3371,7 +3383,7 @@
           <!-- Loading State -->
           <div v-if="accountInfoLoading && !accountInfo" style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
             <span class="loading-spinner" style="width: 40px; height: 40px;"></span>
-            <p style="margin-top: 20px; color: #64748b; font-size: 14px;">Fetching data from ESPs...</p>
+            <p style="margin-top: 20px; color: #64748b; font-size: 14px;">Loading account info from local DB...</p>
           </div>
 
           <!-- Data Table -->
@@ -3552,7 +3564,7 @@
           <div v-if="!accountInfo && !accountInfoLoading" style="text-align: center; padding: 60px 20px;">
             <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
             <h3 style="font-size: 18px; color: #1e293b; margin-bottom: 8px;">No Data Loaded</h3>
-            <p style="font-size: 14px; color: #64748b; margin-bottom: 24px;">Click "Refresh" to fetch ESP account information</p>
+            <p style="font-size: 14px; color: #64748b; margin-bottom: 24px;">Click "Refresh Account Info" to sync the latest ESP snapshot</p>
           </div>
         </div>
 
@@ -4947,9 +4959,25 @@
                   <span class="da-arrow" :class="{ open: emailAnalysisSectionsOpen.auth }">▶</span>
                 </div>
                 <div class="da-items" :class="{ open: emailAnalysisSectionsOpen.auth }">
-                  <div class="da-item"><div class="da-item-name">SPF</div><div class="da-item-desc">{{ (inboundAnalysisReport.auth?.spf || 'unknown').toUpperCase() }}</div></div>
+                  <div class="da-item">
+                    <div class="da-item-name">SPF</div>
+                    <div class="da-item-desc">
+                      <div>{{ (inboundAnalysisReport.auth?.spf || 'unknown').toUpperCase() }}</div>
+                      <div v-if="inboundAnalysisReport.auth?.spf_dns_record" style="margin-top:4px; font-size:12px; color:#64748b; white-space:pre-wrap; word-break:break-word;">
+                        DNS: {{ inboundAnalysisReport.auth.spf_dns_record }}
+                      </div>
+                    </div>
+                  </div>
                   <div class="da-item"><div class="da-item-name">DKIM</div><div class="da-item-desc">{{ (inboundAnalysisReport.auth?.dkim || 'unknown').toUpperCase() }}</div></div>
-                  <div class="da-item"><div class="da-item-name">DMARC</div><div class="da-item-desc">{{ (inboundAnalysisReport.auth?.dmarc || 'unknown').toUpperCase() }}</div></div>
+                  <div class="da-item">
+                    <div class="da-item-name">DMARC</div>
+                    <div class="da-item-desc">
+                      <div>{{ (inboundAnalysisReport.auth?.dmarc || 'unknown').toUpperCase() }}</div>
+                      <div v-if="inboundAnalysisReport.auth?.dmarc_dns_record" style="margin-top:4px; font-size:12px; color:#64748b; white-space:pre-wrap; word-break:break-word;">
+                        DNS: {{ inboundAnalysisReport.auth.dmarc_dns_record }}
+                      </div>
+                    </div>
+                  </div>
                   <div class="da-item"><div class="da-item-name">ARC</div><div class="da-item-desc">{{ (inboundAnalysisReport.auth?.arc || 'unknown').toUpperCase() }}</div></div>
                   <div class="da-item"><div class="da-item-name">DKIM Domain</div><div class="da-item-desc">{{ inboundAnalysisReport.auth?.dkim_domain || '—' }}</div></div>
                 </div>
@@ -5001,6 +5029,16 @@
                 </div>
                 <div class="da-items" :class="{ open: emailAnalysisSectionsOpen.html }">
                   <div class="da-item"><div class="da-item-name">Score / Grade</div><div class="da-item-desc">{{ inboundAnalysisHtml ? (inboundAnalysisHtml.score || '—') + ' / ' + (inboundAnalysisHtml.grade || '—') : '—' }}</div></div>
+                  <div class="da-item" v-if="inboundAnalysisHtml?.score_reasons?.length">
+                    <div class="da-item-name">Why this score</div>
+                    <div class="da-item-desc">
+                      <ul style="margin:0; padding-left:18px; color:#475569;">
+                        <li v-for="reason in inboundAnalysisHtml.score_reasons" :key="'in-score-'+reason.name+reason.reason" style="margin-bottom:4px;">
+                          {{ reason.reason }}
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
                   <div class="da-item">
                     <div class="da-item-name">HTML File Size</div>
                     <div class="da-item-desc">
@@ -5153,6 +5191,16 @@
                 </div>
                 <div class="da-items" :class="{ open: quickHtmlSectionsOpen.overview }">
                   <div class="da-item"><div class="da-item-name">Score / Grade</div><div class="da-item-desc">{{ quickHtmlReport.score || '—' }} / {{ quickHtmlReport.grade || '—' }}</div></div>
+                  <div class="da-item" v-if="quickHtmlReport?.score_reasons?.length">
+                    <div class="da-item-name">Why this score</div>
+                    <div class="da-item-desc">
+                      <ul style="margin:0; padding-left:18px; color:#475569;">
+                        <li v-for="reason in quickHtmlReport.score_reasons" :key="'q-score-'+reason.name+reason.reason" style="margin-bottom:4px;">
+                          {{ reason.reason }}
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
                   <div class="da-item">
                     <div class="da-item-name">HTML File Size</div>
                     <div class="da-item-desc">
@@ -6979,6 +7027,7 @@
           domainLiveBouncesResolvedESP: null,
           domainLiveBouncesESPError: null,
           domainLiveBouncesError: null,
+          domainLiveBouncesSearch: '',
 
           // Email & Spam Analysis state
           emailAnalysisTab: 'send-test-email',
@@ -7088,6 +7137,12 @@
         },
         filteredRiskData() {
           return this.getFilteredAndSorted(this.pulsationData?.top20_risk || []);
+        },
+        filteredDomainLiveBouncesData() {
+          return this.filterDomainLiveBounceRows(this.domainLiveBouncesData, 'summary');
+        },
+        filteredDomainLiveBouncesDetailData() {
+          return this.filterDomainLiveBounceRows(this.domainLiveBouncesDetailData, 'detail');
         },
         pulsationDomainOptions() {
           const rows = this.pulsationData?.overall_data || [];
@@ -8054,6 +8109,7 @@
           this.pulsationTrendMode = 'domain';
           this.selectedAccount = '';
           this.selectedDomain = domain;
+          this.domainLiveBouncesSearch = '';
           this.chartDays = 30;
           this.pulsationTab = 'charts';
           this.pulsationTrendSubTab = 'trend';
@@ -8277,36 +8333,102 @@
             this.showToast('warning', 'ESP Not Determined', espResolution.error || 'ESP could not be determined for this domain');
             return;
           }
-          try {
-            const query = new URLSearchParams({
-              window_type: this.domainLiveBouncesWindowType,
-              esp: espResolution.esp,
-              view: this.domainLiveBouncesView
-            });
-            let filenameSuffix = 'last_24h';
-            if (this.domainLiveBouncesWindowType === 'daily' && this.domainLiveBouncesDailyDate) {
-              query.set('snapshot_date', this.domainLiveBouncesDailyDate);
-              filenameSuffix = this.domainLiveBouncesDailyDate;
-            }
-            const response = await fetch(`${this.API_BASE}/api/pulsation/domain-live-bounces/${encodeURIComponent(this.selectedDomain)}/export-csv?${query.toString()}`);
-            if (!response.ok) {
-              const errorText = await response.text();
-              throw new Error(errorText || 'Failed to export CSV');
-            }
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `domain_live_bounces_${this.selectedDomain}_${filenameSuffix}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            this.showToast('success', 'Exported', 'Live bounce CSV downloaded successfully');
-          } catch (err) {
-            console.error('Error exporting live bounce CSV:', err);
-            this.showToast('error', 'Export Failed', err.message);
+
+          const isSummary = this.domainLiveBouncesView === 'summary';
+          const rows = isSummary ? this.filteredDomainLiveBouncesData : this.filteredDomainLiveBouncesDetailData;
+          if (!rows.length) {
+            this.showToast('info', 'No Rows', 'No rows match the current search filters.');
+            return;
           }
+
+          const filenameSuffix = this.domainLiveBouncesWindowType === 'daily' && this.domainLiveBouncesDailyDate
+            ? this.domainLiveBouncesDailyDate
+            : 'last_24h';
+          const headers = isSummary
+            ? ['ESP', 'Region', 'Account', 'Email Domain', 'Bounce Reason', 'Count']
+            : ['ESP', 'Region', 'Account', 'Sending Domain', 'Recipient Email', 'Recipient Domain', 'Bounce Type', 'Bounce Reason', 'Bounce Code', 'Event Time'];
+
+          const csv = this.rowsToCsv(headers, rows, isSummary);
+          this.downloadTextFile(csv, `domain_live_bounces_${this.selectedDomain}_${filenameSuffix}.csv`, 'text/csv;charset=utf-8;');
+          this.showToast('success', 'Exported', 'Live bounce CSV downloaded successfully');
+        },
+        rowsToCsv(headers, rows, isSummary) {
+          const escapeCsv = (value) => {
+            const text = value === null || value === undefined ? '' : String(value);
+            if (/[",\n]/.test(text)) {
+              return `"${text.replace(/"/g, '""')}"`;
+            }
+            return text;
+          };
+
+          const dataRows = rows.map((row) => {
+            const values = isSummary
+              ? [
+                  row.esp,
+                  row.region,
+                  row.account_name,
+                  row.sending_domain,
+                  row.bounce_reason,
+                  row.count
+                ]
+              : [
+                  row.esp,
+                  row.region,
+                  row.account_name,
+                  row.sending_domain,
+                  row.recipient_email,
+                  row.recipient_domain,
+                  row.bounce_type,
+                  row.bounce_reason,
+                  row.bounce_code,
+                  row.event_timestamp
+                ];
+            return values.map(escapeCsv).join(',');
+          });
+
+          return [headers.join(','), ...dataRows].join('\n');
+        },
+        downloadTextFile(content, filename, mimeType) {
+          const blob = new Blob([content], { type: mimeType });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        },
+        filterDomainLiveBounceRows(rows, mode) {
+          const list = rows || [];
+          const term = (this.domainLiveBouncesSearch || '').trim().toLowerCase();
+          if (!term) return list;
+
+          return list.filter((row) => {
+            const values = mode === 'summary'
+              ? [
+                  row.esp,
+                  row.region,
+                  row.account_name,
+                  row.sending_domain,
+                  row.bounce_reason,
+                  row.count
+                ]
+              : [
+                  row.esp,
+                  row.region,
+                  row.account_name,
+                  row.sending_domain,
+                  row.recipient_email,
+                  row.recipient_domain,
+                  row.bounce_type,
+                  row.bounce_reason,
+                  row.bounce_code,
+                  row.event_timestamp
+                ];
+
+            return values.some((value) => (value === null || value === undefined ? '' : String(value)).toLowerCase().includes(term));
+          });
         },
         resolveSelectedDomainESP() {
           const rows = this.pulsationData?.overall_data || [];
@@ -8985,7 +9107,7 @@
                   datasets: [
                     { label: 'Delivery %', data: metrics.delivery, backgroundColor: '#22c55e' },
                     { label: 'Bounce %', data: metrics.bounce, backgroundColor: '#f59e0b' },
-                    { label: 'Open %', data: metrics.open, backgroundColor: '#3b82f6' },
+                    { label: 'User Open %', data: metrics.open, backgroundColor: '#3b82f6' },
                     { label: 'Click %', data: metrics.click, backgroundColor: '#8b5cf6' },
                     { label: 'CTOR %', data: metrics.ctor, backgroundColor: '#ec4899' }
                   ]
@@ -10076,7 +10198,12 @@
 
             if (result.status === 'success') {
               this.accountInfo = result;
-              this.showToast('success', 'Data Loaded', `Loaded ${result.total_records} ESP account records`);
+              const isDb = result.source === 'db' || result.cached;
+              const toastTitle = forceRefresh || !isDb ? 'Account Info Synced' : 'Data Loaded';
+              const toastBody = isDb
+                ? `Loaded ${result.total_records} ESP account records from local DB`
+                : `Synced ${result.total_records} ESP account records from ESPs`;
+              this.showToast('success', toastTitle, toastBody);
             } else {
               this.accountInfoError = result.detail || 'Failed to fetch account info';
               this.showToast('error', 'Load Failed', this.accountInfoError);
@@ -10108,22 +10235,7 @@
 
         // Clear Account Info Cache
         async clearAccountInfoCache() {
-          try {
-            const response = await fetch(`${this.API_BASE}/api/account-info/clear-cache`, {
-              method: 'POST'
-            });
-            const result = await response.json();
-
-            if (result.status === 'success') {
-              this.showToast('success', 'Cache Cleared', 'Account info cache has been cleared');
-              // Refresh data after clearing cache
-              this.fetchAccountInfo(true);
-            } else {
-              this.showToast('error', 'Clear Failed', result.detail || 'Failed to clear cache');
-            }
-          } catch (err) {
-            this.showToast('error', 'Clear Error', 'Error clearing cache: ' + err.message);
-          }
+          this.fetchAccountInfo(true);
         },
 
         // ======================

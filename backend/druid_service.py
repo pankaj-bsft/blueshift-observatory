@@ -81,7 +81,7 @@ def calculate_metrics(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     df['Open_Rate_%'] = df.apply(
-        lambda row: round((row['Total_Unique_Opens'] / row['Delivered'] * 100), 2)
+        lambda row: round((row['Unique_user_open'] / row['Delivered'] * 100), 2)
         if row['Delivered'] > 0 else 0.0, axis=1
     )
 
@@ -119,7 +119,7 @@ def aggregate_region_summary(df: pd.DataFrame) -> Optional[Dict]:
     bounce_rate = round((total_bounces / total_sent * 100), 4) if total_sent > 0 else 0.0
     spam_rate = round((total_spam / total_delivered * 100), 4) if total_delivered > 0 else 0.0
     unsub_rate = round((total_unsub / total_delivered * 100), 4) if total_delivered > 0 else 0.0
-    open_rate = round((total_unique_opens / total_delivered * 100), 2) if total_delivered > 0 else 0.0
+    open_rate = round((total_user_opens / total_delivered * 100), 2) if total_delivered > 0 else 0.0
     click_rate = round((total_unique_clicks / total_delivered * 100), 2) if total_delivered > 0 else 0.0
     ctor = round((total_unique_clicks / total_unique_opens * 100), 2) if total_unique_opens > 0 else 0.0
 

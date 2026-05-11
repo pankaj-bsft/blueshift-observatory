@@ -18,6 +18,18 @@ def _fmt_pct(value, digits=2):
 
 
 def _build_table(headers: List[str], rows: List[List[str]]) -> str:
+    col_count = max(len(headers), 1)
+    if col_count == 1:
+        widths = ["100%"]
+    elif col_count == 2:
+        widths = ["36%", "64%"]
+    else:
+        first_col = 18 if col_count >= 6 else 24
+        remaining = max(100 - first_col, 0)
+        other = remaining / (col_count - 1)
+        widths = [f"{first_col}%"] + [f"{other:.2f}%"] * (col_count - 1)
+
+    colgroup = "".join([f'<col style="width:{width};" />' for width in widths])
     head = "".join([f"<th>{h}</th>" for h in headers])
     body = "".join(
         [
@@ -28,6 +40,7 @@ def _build_table(headers: List[str], rows: List[List[str]]) -> str:
     return f"""
     <div class="table-wrap">
       <table class="data-table">
+        <colgroup>{colgroup}</colgroup>
         <thead><tr>{head}</tr></thead>
         <tbody>{body}</tbody>
       </table>
@@ -46,7 +59,7 @@ def build_mbr_html_report(esp_data: Dict, overall_summary: Dict, top10_overall: 
         ("Total Bounces", _fmt_int(overall_summary.get("Total_Bounces", 0)), f"{_fmt_pct(overall_summary.get('Bounce_Rate_%', 0), 4)} rate"),
         ("Spam Reports", _fmt_int(overall_summary.get("Total_Spam_Reports", 0)), f"{_fmt_pct(overall_summary.get('Spam_Rate_%', 0), 4)} rate"),
         ("Unsubscribes", _fmt_int(overall_summary.get("Total_Unsubscribes", 0)), f"{_fmt_pct(overall_summary.get('Unsub_Rate_%', 0), 4)} rate"),
-        ("Unique Opens", _fmt_int(overall_summary.get("Total_Unique_Opens", 0)), f"{_fmt_pct(overall_summary.get('Open_Rate_%', 0), 2)} rate"),
+        ("User Opens", _fmt_int(overall_summary.get("Unique_user_open", overall_summary.get("Total_Unique_Opens", 0))), f"{_fmt_pct(overall_summary.get('Open_Rate_%', 0), 2)} rate"),
         ("Unique Clicks", _fmt_int(overall_summary.get("Total_Unique_Clicks", 0)), f"{_fmt_pct(overall_summary.get('Click_Rate_%', 0), 2)} rate"),
         ("Click-to-Open", _fmt_pct(overall_summary.get("CTOR_%", 0), 2), "CTOR"),
     ]
@@ -76,7 +89,7 @@ def build_mbr_html_report(esp_data: Dict, overall_summary: Dict, top10_overall: 
         ["Total Unsubscribes", _fmt_int(overall_summary.get("Total_Unsubscribes", 0))],
         ["Unsubscribe Rate", _fmt_pct(overall_summary.get("Unsub_Rate_%", 0), 4)],
         ["Total Unique Opens", _fmt_int(overall_summary.get("Total_Unique_Opens", 0))],
-        ["Open Rate", _fmt_pct(overall_summary.get("Open_Rate_%", 0), 2)],
+        ["User Open Rate", _fmt_pct(overall_summary.get("Open_Rate_%", 0), 2)],
         ["Total Unique Clicks", _fmt_int(overall_summary.get("Total_Unique_Clicks", 0))],
         ["Click Rate", _fmt_pct(overall_summary.get("Click_Rate_%", 0), 2)],
         ["Click-to-Open Rate", _fmt_pct(overall_summary.get("CTOR_%", 0), 2)],
@@ -148,7 +161,7 @@ def build_mbr_html_report(esp_data: Dict, overall_summary: Dict, top10_overall: 
         <div class="card">
           <div class="section-title">{esp_name} — Summary Metrics</div>
           {_build_table(
-              ["Region", "Sent", "Delivered", "Delivery %", "Bounce %", "Open %", "Click %", "CTOR %", "Health"],
+              ["Region", "Sent", "Delivered", "Delivery %", "Bounce %", "User Open %", "Click %", "CTOR %", "Health"],
               rows
           )}
         </div>
@@ -168,7 +181,7 @@ def build_mbr_html_report(esp_data: Dict, overall_summary: Dict, top10_overall: 
         ])
 
     top10_table = _build_table(
-        ["Domain", "Sent", "Delivered", "Delivery %", "Bounce %", "Open %", "Click %"],
+        ["Domain", "Sent", "Delivered", "Delivery %", "Bounce %", "User Open %", "Click %"],
         top10_rows
     )
 
@@ -191,7 +204,7 @@ def build_mbr_html_report(esp_data: Dict, overall_summary: Dict, top10_overall: 
             account_sections.append(f"""
             <div class="card">
               <div class="section-title">Top 10 Accounts — All ESPs</div>
-              {_build_table(["#", "Account", "Sent", "Delivered", "Delivery %", "Open %", "Click %"], rows)}
+              {_build_table(["#", "Account", "Sent", "Delivered", "Delivery %", "User Open %", "Click %"], rows)}
             </div>
             """)
 
@@ -214,7 +227,7 @@ def build_mbr_html_report(esp_data: Dict, overall_summary: Dict, top10_overall: 
             account_sections.append(f"""
             <div class="card">
               <div class="section-title">{esp_name} — Top 10 Accounts</div>
-              {_build_table(["#", "Account", "Sent", "Delivered", "Delivery %", "Open %", "Click %"], rows)}
+              {_build_table(["#", "Account", "Sent", "Delivered", "Delivery %", "User Open %", "Click %"], rows)}
             </div>
             """)
 
@@ -236,7 +249,7 @@ def build_mbr_html_report(esp_data: Dict, overall_summary: Dict, top10_overall: 
         affiliate_section = f"""
         <div class="card">
           <div class="section-title">Affiliate Accounts — IsAffiliate = Yes</div>
-          {_build_table(["#", "Account", "Sent", "Delivered", "Delivery %", "Open %", "Click %"], rows)}
+          {_build_table(["#", "Account", "Sent", "Delivered", "Delivery %", "User Open %", "Click %"], rows)}
         </div>
         """
 
@@ -309,9 +322,17 @@ def build_mbr_html_report(esp_data: Dict, overall_summary: Dict, top10_overall: 
       padding: 10px 12px;
     }}
     .table-wrap {{ overflow: hidden; border-radius: 10px; border: 1px solid #1e293b; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 11px; }}
+    table {{ width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px; }}
     thead tr {{ background: #0f172a; }}
-    th, td {{ padding: 8px 10px; text-align: right; }}
+    th, td {{
+      padding: 7px 8px;
+      text-align: right;
+      vertical-align: top;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      line-height: 1.15;
+    }}
     th:first-child, td:first-child {{ text-align: left; }}
     th {{ color: #64748b; font-weight: 600; border-bottom: 1px solid #1e293b; }}
     td {{ color: #94a3b8; border-bottom: 1px solid #1e293b22; }}
@@ -427,7 +448,7 @@ def build_mbr_html_report(esp_data: Dict, overall_summary: Dict, top10_overall: 
         labels: DATA.espPerformance.map(d => d.esp),
         datasets: [
           {{ label: 'Delivery %', data: DATA.espPerformance.map(d => d.delivery), backgroundColor: '#10b981' }},
-          {{ label: 'Open %', data: DATA.espPerformance.map(d => d.open), backgroundColor: '#3b82f6' }},
+          {{ label: 'User Open %', data: DATA.espPerformance.map(d => d.open), backgroundColor: '#3b82f6' }},
           {{ label: 'Click %', data: DATA.espPerformance.map(d => d.click), backgroundColor: '#f59e0b' }},
           {{ label: 'CTOR %', data: DATA.espPerformance.map(d => d.ctor), backgroundColor: '#8b5cf6' }},
         ]

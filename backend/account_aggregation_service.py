@@ -108,10 +108,10 @@ def aggregate_by_account(df: pd.DataFrame) -> pd.DataFrame:
             .round(2)
         )
 
-    # Calculate Open Rate using Total_Unique_Opens
-    if 'Total_Unique_Opens' in df_agg.columns and 'Delivered' in df_agg.columns:
+    # Calculate Open Rate using unique user opens only
+    if 'Unique_user_open' in df_agg.columns and 'Delivered' in df_agg.columns:
         df_agg['Open_Rate_%'] = (
-            (df_agg['Total_Unique_Opens'] / df_agg['Delivered'] * 100)
+            (df_agg['Unique_user_open'] / df_agg['Delivered'] * 100)
             .fillna(0)
             .replace([float('inf'), float('-inf')], 0)
             .round(2)
@@ -245,9 +245,9 @@ def get_top_accounts_overall(df: pd.DataFrame, top_n: int = 10) -> List[Dict]:
             .round(2)
         )
 
-    if 'Total_Unique_Opens' in df_agg.columns and 'Delivered' in df_agg.columns:
+    if 'Unique_user_open' in df_agg.columns and 'Delivered' in df_agg.columns:
         df_agg['Open_Rate_%'] = (
-            (df_agg['Total_Unique_Opens'] / df_agg['Delivered'] * 100)
+            (df_agg['Unique_user_open'] / df_agg['Delivered'] * 100)
             .fillna(0)
             .replace([float('inf'), float('-inf')], 0)
             .round(2)
@@ -408,9 +408,9 @@ def get_affiliate_accounts_data(df: pd.DataFrame) -> List[Dict]:
             .round(2)
         )
 
-    if 'Total_Unique_Opens' in df_agg.columns and 'Delivered' in df_agg.columns:
+    if 'Unique_user_open' in df_agg.columns and 'Delivered' in df_agg.columns:
         df_agg['Open_Rate_%'] = (
-            (df_agg['Total_Unique_Opens'] / df_agg['Delivered'] * 100)
+            (df_agg['Unique_user_open'] / df_agg['Delivered'] * 100)
             .fillna(0)
             .replace([float('inf'), float('-inf')], 0)
             .round(2)

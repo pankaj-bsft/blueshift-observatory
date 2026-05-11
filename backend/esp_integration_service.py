@@ -2,9 +2,10 @@ from data_paths import data_path
 """
 ESP Integration Service
 Fetches account info (domains, IPs, subaccounts, pools) from Mailgun, Sparkpost, and Sendgrid
-Implements 15-minute caching to avoid rate limits
+Persists the latest snapshot in SQLite for fast local reads
 Uses concurrent requests for faster IP fetching
 """
+import json
 import requests
 import sqlite3
 from datetime import datetime, timedelta
@@ -18,8 +19,9 @@ from config import (
 
 # Account mappings database path
 ACCOUNT_MAPPINGS_DB = data_path('account_mappings.db')
+ACCOUNT_INFO_DB = data_path('account_info.db')
 
-# Cache storage
+# Kept for backward compatibility with legacy clear-cache behavior
 _cache = {
     'data': None,
     'timestamp': None,
@@ -56,26 +58,108 @@ def get_account_name_mapping() -> Dict[str, str]:
     return mapping
 
 
-def is_cache_valid() -> bool:
-    """Check if cached data is still valid (< 24 hours old)"""
-    if _cache['data'] is None or _cache['timestamp'] is None:
-        return False
+def init_account_info_database():
+    """Initialize the account info snapshot database"""
+    conn = sqlite3.connect(ACCOUNT_INFO_DB)
+    cursor = conn.cursor()
 
-    elapsed = datetime.utcnow() - _cache['timestamp']
-    return elapsed < timedelta(minutes=_cache['expiry_minutes'])
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS account_info_snapshot (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            data_json TEXT NOT NULL,
+            errors_json TEXT,
+            last_synced_at TEXT NOT NULL,
+            total_records INTEGER NOT NULL DEFAULT 0,
+            source TEXT NOT NULL DEFAULT 'live',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_account_info_snapshot_updated
+        ON account_info_snapshot (updated_at)
+    ''')
+
+    conn.commit()
+    conn.close()
+    print(f'Account info database initialized at {ACCOUNT_INFO_DB}')
 
 
-def get_cached_data() -> Optional[Dict]:
-    """Get cached data if valid"""
-    if is_cache_valid():
-        return _cache['data']
-    return None
+def _load_account_info_snapshot() -> Optional[Dict]:
+    """Load the latest stored account info snapshot from SQLite."""
+    conn = sqlite3.connect(ACCOUNT_INFO_DB)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT * FROM account_info_snapshot WHERE id = 1')
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    data = json.loads(row['data_json']) if row['data_json'] else []
+    errors = json.loads(row['errors_json']) if row['errors_json'] else {
+        'mailgun': None,
+        'sparkpost': None,
+        'sendgrid': None
+    }
+
+    return {
+        'status': 'success',
+        'cached': True,
+        'source': 'db',
+        'last_updated': row['last_synced_at'],
+        'last_synced_at': row['last_synced_at'],
+        'cache_expires_in': 0,
+        'total_records': row['total_records'] or len(data),
+        'data': data,
+        'errors': errors
+    }
 
 
-def set_cache(data: Dict):
-    """Store data in cache with current timestamp"""
-    _cache['data'] = data
-    _cache['timestamp'] = datetime.utcnow()
+def _save_account_info_snapshot(response: Dict, source: str = 'live') -> None:
+    """Persist the latest account info snapshot to SQLite."""
+    now = datetime.utcnow().isoformat()
+    data = response.get('data', [])
+    errors = response.get('errors', {})
+    last_synced_at = response.get('last_synced_at') or response.get('last_updated') or now
+
+    conn = sqlite3.connect(ACCOUNT_INFO_DB)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO account_info_snapshot
+            (id, data_json, errors_json, last_synced_at, total_records, source, created_at, updated_at)
+        VALUES
+            (1, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            data_json = excluded.data_json,
+            errors_json = excluded.errors_json,
+            last_synced_at = excluded.last_synced_at,
+            total_records = excluded.total_records,
+            source = excluded.source,
+            updated_at = excluded.updated_at
+    ''', (
+        json.dumps(data, ensure_ascii=False),
+        json.dumps(errors, ensure_ascii=False),
+        last_synced_at,
+        len(data),
+        source,
+        now,
+        now,
+    ))
+    conn.commit()
+    conn.close()
+
+
+def _apply_account_names(rows: List[Dict]) -> List[Dict]:
+    """Refresh account_name values from the local mapping database."""
+    account_mapping = get_account_name_mapping()
+    for item in rows:
+        domain = str(item.get('domain', '')).lower()
+        item['account_name'] = account_mapping.get(domain, item.get('account_name', 'Unmapped'))
+    return rows
 
 
 def fetch_mailgun_domain_ips(base_url: str, domain_name: str) -> str:
@@ -517,10 +601,10 @@ def fetch_sendgrid_data() -> List[Dict]:
 
 def get_all_account_info(force_refresh: bool = False) -> Dict:
     """
-    Fetch account info from all ESPs with 24-hour caching
+    Fetch account info from local DB, refreshing from ESPs only when requested
 
     Args:
-        force_refresh: If True, bypass cache and fetch fresh data
+        force_refresh: If True, bypass the DB snapshot and fetch fresh data
 
     Returns:
         Dict with structure:
@@ -538,26 +622,14 @@ def get_all_account_info(force_refresh: bool = False) -> Dict:
             }
         }
     """
-    # Check cache first
     if not force_refresh:
-        cached = get_cached_data()
-        if cached:
-            # Calculate time until expiry
-            elapsed = datetime.utcnow() - _cache['timestamp']
-            remaining = timedelta(minutes=_cache['expiry_minutes']) - elapsed
+        snapshot = _load_account_info_snapshot()
+        if snapshot:
+            snapshot['data'] = _apply_account_names(snapshot.get('data', []))
+            snapshot['total_records'] = len(snapshot.get('data', []))
+            return snapshot
 
-            # IMPORTANT: Always refresh account mappings even on cached ESP data
-            # because mappings can be updated independently
-            account_mapping = get_account_name_mapping()
-            for item in cached['data']:
-                domain = item['domain'].lower()
-                item['account_name'] = account_mapping.get(domain, 'Unmapped')
-
-            return {
-                **cached,
-                'cached': True,
-                'cache_expires_in': int(remaining.total_seconds())
-            }
+    existing_snapshot = _load_account_info_snapshot()
 
     # Fetch fresh data from all ESPs
     errors = {
@@ -592,31 +664,37 @@ def get_all_account_info(force_refresh: bool = False) -> Dict:
         errors['sendgrid'] = str(e)
         print(f'Sendgrid fetch failed: {e}')
 
-    # Add account names from account mappings
-    account_mapping = get_account_name_mapping()
+    all_data = _apply_account_names(all_data)
 
-    for item in all_data:
-        domain = item['domain'].lower()
-        item['account_name'] = account_mapping.get(domain, 'Unmapped')
-
-    # Build response
+    now = datetime.utcnow().isoformat()
     response = {
         'status': 'success',
         'cached': False,
-        'last_updated': datetime.utcnow().isoformat(),
-        'cache_expires_in': _cache['expiry_minutes'] * 60,
+        'source': 'live',
+        'last_updated': now,
+        'last_synced_at': now,
+        'cache_expires_in': 0,
         'total_records': len(all_data),
         'data': all_data,
         'errors': errors
     }
 
-    # Store in cache
-    set_cache(response)
+    has_errors = any(errors.values())
+    if not all_data and has_errors and existing_snapshot:
+        fallback = dict(existing_snapshot)
+        fallback['errors'] = errors
+        fallback['source'] = 'db'
+        fallback['cached'] = True
+        fallback['last_updated'] = fallback.get('last_synced_at', fallback.get('last_updated'))
+        fallback['data'] = _apply_account_names(fallback.get('data', []))
+        fallback['total_records'] = len(fallback.get('data', []))
+        return fallback
 
+    _save_account_info_snapshot(response, source='live')
     return response
 
 
 def clear_cache():
-    """Manually clear the cache"""
+    """Legacy cache reset helper kept for compatibility."""
     _cache['data'] = None
     _cache['timestamp'] = None

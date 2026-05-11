@@ -158,6 +158,7 @@ from email_service import (
     get_recipient_statistics
 )
 from esp_integration_service import (
+    init_account_info_database,
     get_all_account_info,
     clear_cache
 )
@@ -178,6 +179,7 @@ def run_daily_bounce_cleanup():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_bounce_database()
+    init_account_info_database()
 
     scheduler = BackgroundScheduler()
     scheduler.add_job(run_daily_spamhaus_refresh, 'cron', hour=3, minute=15)
@@ -1503,12 +1505,12 @@ async def get_account_info(force_refresh: bool = False):
 
 @app.post('/api/account-info/clear-cache')
 async def clear_account_info_cache():
-    """Clear the account info cache (force next request to fetch fresh data)"""
+    """Legacy compatibility endpoint; clears only in-process cache state."""
     try:
         clear_cache()
         return {
             'status': 'success',
-            'message': 'Cache cleared successfully'
+            'message': 'Legacy cache state cleared successfully'
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error clearing cache: {str(e)}')

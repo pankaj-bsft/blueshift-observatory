@@ -1,4 +1,5 @@
 import re
+from functools import lru_cache
 from email import message_from_string
 from html import unescape
 from html.parser import HTMLParser
@@ -7,6 +8,13 @@ try:
     from bs4 import BeautifulSoup  # type: ignore
 except ImportError:
     BeautifulSoup = None
+
+try:
+    import dns.resolver  # type: ignore
+except ImportError:
+    dns = None
+else:
+    dns = dns.resolver
 
 SPAM_TRIGGERS = [
     "free","winner","won","prize","claim","urgent","act now","limited time",
@@ -34,6 +42,102 @@ CLIENT_COMPAT = {
 
 def _chk(name, status, detail, fix=None):
     return {"name": name, "status": status, "detail": detail, "fix": fix}
+
+
+def _normalize_txt_record(record):
+    if not record:
+        return ""
+    if isinstance(record, bytes):
+        return record.decode("utf-8", errors="ignore")
+    return str(record).strip().strip('"')
+
+
+@lru_cache(maxsize=2048)
+def _lookup_txt_records(name):
+    if not dns or not name:
+        return []
+    try:
+        resolver = dns.Resolver()
+        resolver.timeout = 2.0
+        resolver.lifetime = 3.0
+        answers = resolver.resolve(name, "TXT")
+    except Exception:
+        return []
+
+    records = []
+    for answer in answers:
+        txt = ""
+        strings = getattr(answer, "strings", None)
+        if strings:
+            txt = "".join(
+                part.decode("utf-8", errors="ignore") if isinstance(part, bytes) else str(part)
+                for part in strings
+            )
+        else:
+            txt = _normalize_txt_record(answer.to_text()).replace('" "', "").replace('"', "")
+        if txt:
+            records.append(txt)
+    return records
+
+
+def _find_spf_record(domain):
+    if not domain:
+        return ""
+    for record in _lookup_txt_records(domain):
+        if record.lower().startswith("v=spf1"):
+            return record
+    return ""
+
+
+def _find_dmarc_record(domain, parent_domain):
+    candidates = []
+    if domain:
+        candidates.append(f"_dmarc.{domain}")
+    if parent_domain and parent_domain != domain:
+        candidates.append(f"_dmarc.{parent_domain}")
+
+    for candidate in candidates:
+        for record in _lookup_txt_records(candidate):
+            if record.lower().startswith("v=dmarc1"):
+                return record
+    return ""
+
+
+def _extract_dmarc_policy(record):
+    if not record:
+        return ""
+    match = re.search(r'\bp\s*=\s*([a-z]+)\b', record, re.I)
+    return match.group(1).lower() if match else ""
+
+
+def _build_score_reasons(*check_groups):
+    reasons = []
+    seen = set()
+
+    priority = {"fail": 0, "warn": 1, "info": 2, "pass": 3}
+    for group in check_groups:
+        for check in group or []:
+            status = (check.get("status") or "").lower()
+            if status not in ("fail", "warn", "info"):
+                continue
+            detail = (check.get("detail") or "").strip()
+            name = (check.get("name") or "").strip()
+            reason = detail if detail else name
+            if not reason:
+                continue
+            key = reason.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            reasons.append({
+                "name": name,
+                "status": status,
+                "reason": reason,
+                "priority": priority.get(status, 9),
+            })
+
+    reasons.sort(key=lambda item: (item["priority"], item["name"]))
+    return reasons[:5]
 
 
 class _EmailHTMLInspector(HTMLParser):
@@ -301,6 +405,7 @@ def analyze_html(html):
     passed = sum(1 for c in all_checks if c["status"] == "pass")
     score = max(0, 100 - errors * 15 - warnings * 5)
     grade = "Excellent" if score >= 90 else "Good" if score >= 75 else "Fair" if score >= 50 else "Poor"
+    score_reasons = _build_score_reasons(structure, spam, accessibility, css)
 
     return {
         "score": score, "grade": grade,
@@ -318,6 +423,7 @@ def analyze_html(html):
         "accessibility": accessibility,
         "css": css,
         "client_compat": client_compat,
+        "score_reasons": score_reasons,
         "html_preview": html,
     }
 
@@ -377,25 +483,41 @@ def analyze_headers(mime_content):
     dmarc = _extract_status(auth_text, "dmarc")
     arc = _extract_status(auth_text, "arc")
     dkim_domain = _extract_dkim_domain(auth_text)
+    spf_dns_record = ""
+    dmarc_dns_record = ""
+    spf_source = "unknown"
+    dmarc_source = "unknown"
+    dmarc_policy = ""
 
     raw_lower = raw_text.lower()
 
     if not spf:
+        spf_dns_record = _find_spf_record(from_domain)
         received_spf_text = " ".join(received_spf).lower()
-        if re.search(r'\bpass\b', received_spf_text):
+        if spf_dns_record:
+            spf = "present"
+            spf_source = "dns"
+        elif re.search(r'\bpass\b', received_spf_text):
             spf = "pass"
+            spf_source = "header"
         elif re.search(r'\bsoftfail\b', received_spf_text):
             spf = "softfail"
+            spf_source = "header"
         elif re.search(r'\bfail\b', received_spf_text):
             spf = "fail"
+            spf_source = "header"
         elif re.search(r'\bneutral\b', received_spf_text):
             spf = "neutral"
+            spf_source = "header"
         elif re.search(r'\btemperror\b', received_spf_text):
             spf = "temperror"
+            spf_source = "header"
         elif re.search(r'\bpermerror\b', received_spf_text):
             spf = "permerror"
+            spf_source = "header"
         elif "spf" in received_spf_text:
             spf = "present"
+            spf_source = "header"
 
     if not dkim:
         if dkim_signatures:
@@ -411,19 +533,30 @@ def analyze_headers(mime_content):
         dkim_domain = _extract_dkim_domain(" ".join(dkim_signatures))
 
     if not dmarc:
+        dmarc_dns_record = _find_dmarc_record(from_domain, parent_domain)
         auth_lower = auth_text.lower()
-        if re.search(r'\bdmarc\s*=\s*pass\b', auth_lower) or re.search(r'\bdmarc\s+pass\b', auth_lower):
+        if dmarc_dns_record:
+            dmarc = "present"
+            dmarc_source = "dns"
+            dmarc_policy = _extract_dmarc_policy(dmarc_dns_record)
+        elif re.search(r'\bdmarc\s*=\s*pass\b', auth_lower) or re.search(r'\bdmarc\s+pass\b', auth_lower):
             dmarc = "pass"
+            dmarc_source = "header"
         elif re.search(r'\bdmarc\s*=\s*fail\b', auth_lower) or re.search(r'\bdmarc\s+fail\b', auth_lower):
             dmarc = "fail"
+            dmarc_source = "header"
         elif re.search(r'\bdmarc\s*=\s*quarantine\b', auth_lower) or re.search(r'\bdmarc\s+quarantine\b', auth_lower):
             dmarc = "quarantine"
+            dmarc_source = "header"
         elif re.search(r'\bdmarc\s*=\s*reject\b', auth_lower) or re.search(r'\bdmarc\s+reject\b', auth_lower):
             dmarc = "reject"
+            dmarc_source = "header"
         elif re.search(r'\bdmarc\s*=\s*none\b', auth_lower) or re.search(r'\bdmarc\s+none\b', auth_lower):
             dmarc = "none"
+            dmarc_source = "header"
         elif "dmarc" in raw_lower:
             dmarc = "present"
+            dmarc_source = "header"
 
     if not arc:
         arc_lower = auth_text.lower()
@@ -483,11 +616,19 @@ def analyze_headers(mime_content):
     subject_analysis = analyze_subject(subject)
 
     header_checks = [
-        _chk("SPF",  "pass" if spf == "pass" else "fail",  "SPF: " + spf),
+        _chk(
+            "SPF",
+            "pass" if spf == "pass" else ("info" if spf == "present" else "fail"),
+            "SPF: " + spf + ((" | DNS: " + spf_dns_record) if spf_dns_record else "")
+        ),
         _chk("DKIM", "pass" if dkim == "pass" else "fail",
              "DKIM: " + dkim + (" (domain: " + dkim_domain + ")" if dkim_domain else "")),
-        _chk("DMARC", "pass" if dmarc == "pass" else ("warn" if dmarc == "none" else "fail"),
-             "DMARC: " + dmarc + " | From: " + from_domain + " | Parent: " + parent_domain),
+        _chk(
+            "DMARC",
+            "pass" if dmarc == "pass" else ("info" if dmarc == "present" else ("warn" if dmarc == "none" else "fail")),
+            "DMARC: " + dmarc + ((" | DNS: " + dmarc_dns_record) if dmarc_dns_record else "") +
+            " | From: " + from_domain + " | Parent: " + parent_domain
+        ),
         _chk("ARC",  "pass" if arc == "pass" else "info",  "ARC: " + arc),
         _chk("DKIM Alignment", "pass" if dkim_aligned else "warn",
              "From: " + from_domain + " | DKIM: " + dkim_domain if dkim_domain else "DKIM domain unknown."),
@@ -513,7 +654,18 @@ def analyze_headers(mime_content):
         "message_id": msg_id,
         "sending_ip": sending_ip,
         "hops": hops,
-        "auth": {"spf": spf, "dkim": dkim, "dmarc": dmarc, "arc": arc, "dkim_domain": dkim_domain},
+        "auth": {
+            "spf": spf,
+            "dkim": dkim,
+            "dmarc": dmarc,
+            "arc": arc,
+            "dkim_domain": dkim_domain,
+            "spf_dns_record": spf_dns_record,
+            "dmarc_dns_record": dmarc_dns_record,
+            "spf_source": spf_source,
+            "dmarc_source": dmarc_source,
+            "dmarc_policy": dmarc_policy,
+        },
         "auth_headers": {
             "authentication_results": auth_results,
             "arc_authentication_results": arc_auth_results,
