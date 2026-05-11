@@ -779,11 +779,25 @@ async def get_domain_live_bounces_endpoint(
     window_type: str = 'last_24h',
     snapshot_date: str = None,
     esp: str = None,
-    cache_age_minutes: int = 30
+    cache_age_minutes: int = 30,
+    view: str = 'summary',
+    search: str = '',
+    page: int = 1,
+    page_size: int = 100
 ):
     """Get cached grouped live bounce reasons for a sending domain."""
     try:
-        return get_domain_live_bounce_payload(domain, window_type, snapshot_date, esp, cache_age_minutes)
+        return get_domain_live_bounce_payload(
+            domain,
+            window_type,
+            snapshot_date,
+            esp,
+            cache_age_minutes,
+            view=view,
+            search=search,
+            page=page,
+            page_size=page_size
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error fetching domain live bounces: {str(e)}')
 
@@ -793,11 +807,26 @@ async def refresh_domain_live_bounces_endpoint(
     domain: str,
     window_type: str = 'last_24h',
     snapshot_date: str = None,
-    esp: str = None
+    esp: str = None,
+    view: str = 'summary',
+    search: str = '',
+    page: int = 1,
+    page_size: int = 100
 ):
     """Refresh live bounce reasons for a sending domain from ESP APIs."""
     try:
-        return fetch_domain_live_bounces(domain, window_type, snapshot_date, esp)
+        fetch_domain_live_bounces(domain, window_type, snapshot_date, esp)
+        return get_domain_live_bounce_payload(
+            domain,
+            window_type,
+            snapshot_date,
+            esp,
+            30,
+            view=view,
+            search=search,
+            page=page,
+            page_size=page_size
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error refreshing domain live bounces: {str(e)}')
 
@@ -808,11 +837,12 @@ async def export_domain_live_bounces_endpoint(
     window_type: str = 'last_24h',
     snapshot_date: str = None,
     esp: str = None,
-    view: str = 'summary'
+    view: str = 'summary',
+    search: str = ''
 ):
     """Export grouped live bounce reasons for a sending domain to CSV."""
     try:
-        csv_content = export_domain_live_bounces_csv(domain, window_type, snapshot_date, esp, view)
+        csv_content = export_domain_live_bounces_csv(domain, window_type, snapshot_date, esp, view, search)
         filename_suffix = snapshot_date if window_type == 'daily' and snapshot_date else window_type
         filename = f'domain_live_bounces_{domain}_{filename_suffix}_{view}.csv'
         return StreamingResponse(

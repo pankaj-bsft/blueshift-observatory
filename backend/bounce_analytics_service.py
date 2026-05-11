@@ -5,6 +5,7 @@ Collects and analyzes email bounce data from Mailgun, SparkPost, and SendGrid
 Automatically discovers sending domains from each ESP
 """
 import sqlite3
+import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from email.utils import parseaddr
 from urllib.parse import urlparse, parse_qsl, urljoin
@@ -795,6 +796,83 @@ def _group_live_bounces(rows: List[Dict]) -> List[Dict]:
     return result
 
 
+def _filter_live_bounce_rows(rows: List[Dict], search: str) -> List[Dict]:
+    term = (search or '').strip().lower()
+    if not term:
+        return list(rows)
+
+    filtered = []
+    search_fields = (
+        'esp',
+        'region',
+        'account_name',
+        'sending_domain',
+        'event_timestamp',
+        'event_date',
+        'sending_ip',
+        'recipient',
+        'recipient_domain',
+        'isp',
+        'bounce_type',
+        'bounce_reason',
+        'bounce_code',
+        'raw_status'
+    )
+
+    for row in rows:
+        values = [row.get(field) for field in search_fields]
+        if any(term in ('' if value is None else str(value)).lower() for value in values):
+            filtered.append(row)
+
+    return filtered
+
+
+def _paginate_rows(rows: List[Dict], page: Optional[int], page_size: Optional[int]) -> Dict:
+    total_count = len(rows)
+    if page_size is None:
+        return {
+            'rows': rows,
+            'page': 1,
+            'page_size': total_count if total_count else 0,
+            'total_count': total_count,
+            'total_pages': 1 if total_count else 0,
+            'has_prev': False,
+            'has_next': False,
+            'start_row': 0,
+            'end_row': total_count
+        }
+
+    try:
+        page_size_val = max(1, int(page_size))
+    except Exception:
+        page_size_val = 100
+
+    try:
+        page_val = max(1, int(page or 1))
+    except Exception:
+        page_val = 1
+
+    total_pages = max(1, math.ceil(total_count / page_size_val)) if total_count else 0
+    if total_pages and page_val > total_pages:
+        page_val = total_pages
+
+    start_idx = (page_val - 1) * page_size_val
+    end_idx = start_idx + page_size_val
+    page_rows = rows[start_idx:end_idx]
+
+    return {
+        'rows': page_rows,
+        'page': page_val,
+        'page_size': page_size_val,
+        'total_count': total_count,
+        'total_pages': total_pages,
+        'has_prev': page_val > 1,
+        'has_next': bool(total_pages and page_val < total_pages),
+        'start_row': start_idx + 1 if total_count else 0,
+        'end_row': min(end_idx, total_count)
+    }
+
+
 def _build_live_bounce_summary(domain: str, rows: List[Dict]) -> Dict:
     return {
         'domain': domain,
@@ -986,11 +1064,16 @@ def get_domain_live_bounce_payload(
     window_type: str = LIVE_BOUNCE_WINDOW_LAST_24H,
     snapshot_date: Optional[str] = None,
     esp: Optional[str] = None,
-    cache_age_minutes: int = LIVE_BOUNCE_CACHE_WINDOW_MINUTES
+    cache_age_minutes: int = LIVE_BOUNCE_CACHE_WINDOW_MINUTES,
+    view: str = 'summary',
+    search: str = '',
+    page: Optional[int] = 1,
+    page_size: Optional[int] = 100
 ) -> Dict:
     window = _resolve_live_bounce_window(window_type, snapshot_date)
     normalized_esp = normalize_esp_name(esp)
     rows = _load_domain_live_bounces(domain, window['window_type'], window['snapshot_date'], normalized_esp)
+    filtered_rows = _filter_live_bounce_rows(rows, search)
     metadata = _get_live_cache_metadata(domain, window['window_type'], window['snapshot_date'], normalized_esp)
     now = datetime.utcnow()
     is_stale = window['window_type'] == LIVE_BOUNCE_WINDOW_LAST_24H
@@ -1004,12 +1087,31 @@ def get_domain_live_bounce_payload(
         except Exception:
             is_stale = window['window_type'] == LIVE_BOUNCE_WINDOW_LAST_24H
 
+    active_view = view if view in {'summary', 'detail'} else 'summary'
+    if active_view == 'detail':
+        visible_source = filtered_rows
+    else:
+        visible_source = _group_live_bounces(filtered_rows)
+
+    pagination = _paginate_rows(visible_source, page, page_size)
+
     return {
         'status': 'success',
-        'summary': _build_live_bounce_summary(domain, rows),
-        'table_rows': _group_live_bounces(rows),
-        'detail_rows': rows,
+        'summary': _build_live_bounce_summary(domain, filtered_rows),
+        'table_rows': pagination['rows'] if active_view == 'summary' else [],
+        'detail_rows': pagination['rows'] if active_view == 'detail' else [],
+        'rows': pagination['rows'],
         'raw_row_count': len(rows),
+        'filtered_row_count': len(filtered_rows),
+        'total_count': pagination['total_count'],
+        'page': pagination['page'],
+        'page_size': pagination['page_size'],
+        'total_pages': pagination['total_pages'],
+        'has_prev': pagination['has_prev'],
+        'has_next': pagination['has_next'],
+        'start_row': pagination['start_row'],
+        'end_row': pagination['end_row'],
+        'view': active_view,
         'window': {
             'window_type': window['window_type'],
             'snapshot_date': window['snapshot_date'],
@@ -1079,9 +1181,20 @@ def export_domain_live_bounces_csv(
     window_type: str = LIVE_BOUNCE_WINDOW_LAST_24H,
     snapshot_date: Optional[str] = None,
     esp: Optional[str] = None,
-    view: str = 'summary'
+    view: str = 'summary',
+    search: str = ''
 ) -> str:
-    payload = get_domain_live_bounce_payload(domain, window_type, snapshot_date, esp, LIVE_BOUNCE_CACHE_WINDOW_MINUTES)
+    payload = get_domain_live_bounce_payload(
+        domain,
+        window_type,
+        snapshot_date,
+        esp,
+        LIVE_BOUNCE_CACHE_WINDOW_MINUTES,
+        view=view,
+        search=search,
+        page=None,
+        page_size=None
+    )
     output = io.StringIO()
     writer = csv.writer(output)
     if view == 'detail':
