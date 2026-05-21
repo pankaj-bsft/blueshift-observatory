@@ -1300,6 +1300,80 @@
 
       <!-- Main Content -->
       <div class="main-content">
+        <!-- Home Page -->
+        <div v-if="activePage === 'home'">
+          <div class="page-header">
+            <div class="page-header-orb-1"></div>
+            <div class="page-header-orb-2"></div>
+            <div class="page-header-content">
+              <div class="page-header-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+                  <path d="M3 3v18h18"/>
+                  <path d="M7 15l4-4 3 3 5-6"/>
+                  <path d="M17 8h2v2"/>
+                </svg>
+              </div>
+              <div>
+                <h1 class="page-header-title">Blueshift Observatory</h1>
+                <p class="page-header-subtitle">Overall sending pattern from Pulsation Daily Summary</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-section">
+            <div class="card-header">
+              <h3 class="card-title">Daily Summary</h3>
+              <span class="card-meta" v-if="homeDailySummaryData?.range_start">
+                {{ homeDailySummaryData.range_start }} → {{ homeDailySummaryData.range_end }}
+              </span>
+            </div>
+
+            <div style="padding: 16px 24px 0; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+              <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Range:</label>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': homeDailySummaryRangeDays === 7 }" @click="setHomeDailySummaryRange(7)">7d</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': homeDailySummaryRangeDays === 30 }" @click="setHomeDailySummaryRange(30)">30d</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': homeDailySummaryRangeDays === 60 }" @click="setHomeDailySummaryRange(60)">60d</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': homeDailySummaryRangeDays === 90 }" @click="setHomeDailySummaryRange(90)">90d</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': homeDailySummaryRangeDays === 365 }" @click="setHomeDailySummaryRange(365)">365d</button>
+                </div>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Aggregation:</label>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': homeDailySummaryMode === 'daily' }" @click="switchHomeDailySummaryMode('daily')">Daily</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': homeDailySummaryMode === 'weekly' }" @click="switchHomeDailySummaryMode('weekly')">Weekly</button>
+                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': homeDailySummaryMode === 'monthly' }" @click="switchHomeDailySummaryMode('monthly')">Monthly</button>
+                </div>
+              </div>
+
+              <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b;">
+                  <input type="checkbox" v-model="homeDailySummaryExcludeClassdojo" @change="toggleHomeDailySummaryExclude" />
+                  Exclude classdojo.com from Delivery Rate
+                </label>
+              </div>
+            </div>
+
+            <div style="padding: 24px;">
+              <div v-if="homeDailySummaryLoading" class="summary-empty">Loading daily summary...</div>
+              <div v-else-if="!homeDailySummaryData || !getHomeDailySummaryRows().length" class="summary-empty">No summary data for the selected range.</div>
+              <div v-else class="chart-grid">
+                <div class="chart-container">
+                  <h4>Sent Volume</h4>
+                  <canvas ref="homeDailySummarySentChart"></canvas>
+                </div>
+                <div class="chart-container">
+                  <h4>Delivery Rate (%)</h4>
+                  <canvas ref="homeDailySummaryDeliveryRateChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Pulsation Page -->
         <div v-if="activePage === 'pulsation'">
           <!-- Page Header -->
@@ -6305,7 +6379,7 @@
         </div>
 
         <!-- Placeholder for other pages -->
-        <div v-if="activePage !== 'pulsation' && activePage !== 'mbr' && activePage !== 'mappings' && activePage !== 'mappings_rails' && activePage !== 'deliverability-analysis' && activePage !== 'info' && activePage !== 'snds' && activePage !== 'gpt' && activePage !== 'bounces' && activePage !== 'updates'" style="text-align: center; padding: 60px 20px;">
+        <div v-if="activePage !== 'home' && activePage !== 'pulsation' && activePage !== 'mbr' && activePage !== 'mappings' && activePage !== 'mappings_rails' && activePage !== 'deliverability-analysis' && activePage !== 'info' && activePage !== 'snds' && activePage !== 'gpt' && activePage !== 'bounces' && activePage !== 'updates'" style="text-align: center; padding: 60px 20px;">
           <div style="font-size: 48px; margin-bottom: 16px;">🚧</div>
           <h3 style="font-size: 18px; color: #1e293b; margin-bottom: 8px;">Page Under Construction</h3>
           <p style="font-size: 14px; color: #64748b;">This page will be available soon with the premium design</p>
@@ -6746,7 +6820,7 @@
 
           // UI State
           sidebarCollapsed: false,
-          activePage: 'pulsation',
+          activePage: 'home',
           daSubTabOpen: false,
           daActiveSubTab: 'email-spam-analysis',
           emailAnalysisTab: 'send-test-email',
@@ -6785,6 +6859,7 @@
           dnsSettingsSec1Open: false,
           dnsSettingsSec2Open: false,
           pages: [
+            { key: 'home', label: 'Home', icon: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>' },
             { key: 'pulsation', label: 'Pulsation', icon: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>' },
             { key: 'mbr', label: 'MBR Deliverability', icon: '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>' },
             { key: 'mappings', label: 'Account Mappings', icon: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>' },
@@ -6816,6 +6891,11 @@
           dailySummaryExcludeClassdojo: true,
           dailySummaryData: null,
           dailySummaryLoading: false,
+          homeDailySummaryMode: 'daily',
+          homeDailySummaryRangeDays: 30,
+          homeDailySummaryExcludeClassdojo: true,
+          homeDailySummaryData: null,
+          homeDailySummaryLoading: false,
           pulsationSummaryLoading: false,
           pulsationSummary: null,
           spamhausStatusMap: {},
@@ -7103,7 +7183,7 @@
           industrySources: [],
           industrySourceType: '',
           industrySeverity: '',
-          industryDays: 30,
+          industryDays: 60,
           industryLoading: false,
 
           // Deliverability Analysis (EML) State
@@ -8622,6 +8702,60 @@
             }
           });
         },
+        // Home Daily Summary
+        async loadHomeDailySummary() {
+          this.homeDailySummaryLoading = true;
+          try {
+            const response = await fetch(`${this.API_BASE}/api/pulsation/daily-summary?mode=${this.homeDailySummaryMode}&days=${this.homeDailySummaryRangeDays}`);
+            const result = await response.json();
+            if (result.status === 'success') {
+              this.homeDailySummaryData = result;
+              this.$nextTick(() => {
+                this.renderHomeDailySummaryCharts();
+              });
+            } else {
+              this.showToast('error', 'Load Failed', result.detail || 'Failed to load home daily summary');
+            }
+          } catch (err) {
+            this.showToast('error', 'Load Error', 'Error loading home daily summary: ' + err.message);
+          } finally {
+            this.homeDailySummaryLoading = false;
+          }
+        },
+
+        switchHomeDailySummaryMode(mode) {
+          this.homeDailySummaryMode = mode;
+          this.loadHomeDailySummary();
+        },
+
+        setHomeDailySummaryRange(days) {
+          this.homeDailySummaryRangeDays = days;
+          this.loadHomeDailySummary();
+        },
+
+        toggleHomeDailySummaryExclude() {
+          this.renderHomeDailySummaryCharts();
+        },
+
+        getHomeDailySummaryRows() {
+          if (!this.homeDailySummaryData) return [];
+          return this.homeDailySummaryExcludeClassdojo
+            ? (this.homeDailySummaryData.excluding_classdojo || [])
+            : (this.homeDailySummaryData.all || []);
+        },
+
+        renderHomeDailySummaryCharts() {
+          if (!this.homeDailySummaryData) return;
+          const allData = this.homeDailySummaryData.all || [];
+          const exclData = this.homeDailySummaryData.excluding_classdojo || [];
+          const labels = allData.map(d => d.period);
+          const sentSeries = allData.map(d => d.total_sent || 0);
+          const deliverySeries = (this.homeDailySummaryExcludeClassdojo ? exclData : allData).map(d => d.delivery_rate || 0);
+
+          this.renderChart('homeDailySummarySentChart', labels, sentSeries, 'Total Sent', '#3b82f6');
+          this.renderChart('homeDailySummaryDeliveryRateChart', labels, deliverySeries, 'Delivery Rate (%)', '#10b981');
+        },
+
         // Daily Summary
         async loadDailySummary() {
           this.dailySummaryLoading = true;
@@ -11921,6 +12055,8 @@
         }
       },
       mounted() {
+        // Auto-load home dashboard
+        this.loadHomeDailySummary();
         // Auto-load pulsation data
         this.fetchPulsationData();
         // Set default dates for MBR
@@ -11959,6 +12095,11 @@
 
         // Auto-load data when navigating to specific pages
         activePage(newPage, oldPage) {
+          // Auto-load Home dashboard data
+          if (newPage === 'home') {
+            this.loadHomeDailySummary();
+          }
+
           // Auto-load SNDS data
           if (newPage === 'snds') {
             this.loadSNDSData();
