@@ -115,9 +115,11 @@ from bounce_analytics_service import (
     get_bounces,
     get_sending_domains,
     normalize_esp_name,
+    resolve_mailgun_bounce_sources,
     cleanup_old_data as cleanup_bounce_data,
     init_bounce_database
 )
+from email_domain_stats_service import get_email_domain_stats, export_email_domain_stats_csv
 from jira_service import create_jira_ticket
 from industry_updates_service import (
     init_database as init_industry_database,
@@ -184,10 +186,17 @@ DOMAIN_LIVE_BOUNCE_REFRESH_ACTIVE: Dict[str, str] = {}
 DOMAIN_LIVE_BOUNCE_REFRESH_LOCK = Lock()
 
 
-def _domain_live_bounce_refresh_key(domain: str, window_type: str, snapshot_date: Optional[str], esp: Optional[str]) -> str:
+def _domain_live_bounce_refresh_key(
+    domain: str,
+    window_type: str,
+    snapshot_date: Optional[str],
+    esp: Optional[str],
+    source: Optional[str] = None
+) -> str:
     normalized_esp = normalize_esp_name(esp) or 'unknown'
     suffix = snapshot_date or 'rolling'
-    return f'{domain.lower()}::{window_type}::{suffix}::{normalized_esp}'
+    source_suffix = (source or '').strip().lower() or 'auto'
+    return f'{domain.lower()}::{window_type}::{suffix}::{normalized_esp}::{source_suffix}'
 
 
 def _snapshot_domain_live_bounce_job(job: Dict) -> Dict:
@@ -208,9 +217,10 @@ def _register_domain_live_bounce_refresh_job(
     view: str,
     search: str,
     page: int,
-    page_size: int
+    page_size: int,
+    source: Optional[str] = None
 ) -> Dict:
-    cache_key = _domain_live_bounce_refresh_key(domain, window_type, snapshot_date, esp)
+    cache_key = _domain_live_bounce_refresh_key(domain, window_type, snapshot_date, esp, source)
     now = datetime.utcnow().isoformat()
 
     with DOMAIN_LIVE_BOUNCE_REFRESH_LOCK:
@@ -228,6 +238,7 @@ def _register_domain_live_bounce_refresh_job(
             'window_type': window_type,
             'snapshot_date': snapshot_date,
             'esp': normalize_esp_name(esp),
+            'source': (source or '').strip().lower() or None,
             'view': view,
             'search': search or '',
             'page': page,
@@ -280,14 +291,36 @@ def _run_domain_live_bounce_refresh_job(job_id: str):
             job['domain'],
             job['window_type'],
             job.get('snapshot_date'),
-            job.get('esp')
+            job.get('esp'),
+            source=job.get('source')
         )
-        _complete_domain_live_bounce_refresh_job(
-            job_id,
-            'completed',
-            'Live bounce refresh completed',
-            result_total_count=int(result.get('total_count') or 0)
-        )
+        total_count = int(result.get('total_count') or 0)
+        fetch_errors = (result.get('fetch') or {}).get('errors') or []
+        # A fetch that returned nothing because every ESP call failed used to report
+        # "completed", which read as "no bounces". Report what actually happened.
+        if fetch_errors and total_count == 0:
+            _complete_domain_live_bounce_refresh_job(
+                job_id,
+                'failed',
+                'Live bounce refresh failed',
+                error='; '.join(fetch_errors),
+                result_total_count=0
+            )
+        elif fetch_errors:
+            _complete_domain_live_bounce_refresh_job(
+                job_id,
+                'completed',
+                'Live bounce refresh completed with warnings',
+                error='; '.join(fetch_errors),
+                result_total_count=total_count
+            )
+        else:
+            _complete_domain_live_bounce_refresh_job(
+                job_id,
+                'completed',
+                'Live bounce refresh completed',
+                result_total_count=total_count
+            )
     except Exception as exc:
         _complete_domain_live_bounce_refresh_job(
             job_id,
@@ -904,7 +937,8 @@ async def get_domain_live_bounces_endpoint(
     view: str = 'summary',
     search: str = '',
     page: int = 1,
-    page_size: int = 100
+    page_size: int = 100,
+    source: str = None
 ):
     """Get cached grouped live bounce reasons for a sending domain."""
     try:
@@ -917,10 +951,102 @@ async def get_domain_live_bounces_endpoint(
             view=view,
             search=search,
             page=page,
-            page_size=page_size
+            page_size=page_size,
+            source=source
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error fetching domain live bounces: {str(e)}')
+
+
+@app.get('/api/pulsation/domain-email-stats/{domain}')
+async def domain_email_domain_stats_endpoint(
+    domain: str,
+    range_type: str = 'past_7_days',
+    from_date: str = None,
+    to_date: str = None,
+    region: str = None,
+    refresh: bool = False
+):
+    """
+    ISP-level (recipient mailbox provider) sending stats for one sending domain.
+
+    Date-aligned ranges are served from a 30-day local day-level cache and only missing days
+    are fetched from Druid; the rolling past_24h window always queries Druid.
+    """
+    try:
+        return get_email_domain_stats(
+            domain,
+            range_type=range_type,
+            from_date=from_date,
+            to_date=to_date,
+            region=region,
+            force_refresh=refresh
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Error fetching email domain stats: {str(e)}')
+
+
+@app.get('/api/pulsation/domain-email-stats/{domain}/export-csv')
+async def export_domain_email_domain_stats_endpoint(
+    domain: str,
+    range_type: str = 'past_7_days',
+    from_date: str = None,
+    to_date: str = None,
+    region: str = None
+):
+    """Export ISP-level sending stats for one sending domain to CSV."""
+    try:
+        csv_content = export_email_domain_stats_csv(
+            domain,
+            range_type=range_type,
+            from_date=from_date,
+            to_date=to_date,
+            region=region
+        )
+        if range_type == 'custom' and from_date and to_date:
+            filename_suffix = f'{from_date}_to_{to_date}'
+        else:
+            filename_suffix = range_type
+        filename = f'email_domain_stats_{domain}_{filename_suffix}.csv'
+        return StreamingResponse(
+            iter([csv_content]),
+            media_type='text/csv',
+            headers={'Content-Disposition': f'attachment; filename={filename}'}
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Error exporting email domain stats: {str(e)}')
+
+
+@app.get('/api/pulsation/domain-live-bounces/{domain}/sources')
+async def domain_live_bounce_sources_endpoint(domain: str, esp: str = None, refresh: bool = False):
+    """
+    List the Mailgun registered sending domains that can serve bounce logs for a Pulsation domain.
+
+    Pulsation stores the header From-domain (carmoola.co.uk) while Mailgun keys its Events API
+    by registered sending domain (mail.carmoola.co.uk). When more than one matches, the UI uses
+    this to ask which one to pull from.
+    """
+    normalized_esp = normalize_esp_name(esp)
+    if normalized_esp != 'Mailgun':
+        return {
+            'status': 'success',
+            'domain': domain.lower(),
+            'esp': normalized_esp,
+            'candidates': [],
+            'resolved': domain.lower(),
+            'needs_selection': False,
+            'match_type': 'not_applicable',
+            'error': None
+        }
+    try:
+        resolution = resolve_mailgun_bounce_sources(domain, force_refresh=refresh)
+        return {'status': 'success', 'esp': normalized_esp, **resolution}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Error resolving Mailgun sending domains: {str(e)}')
 
 
 @app.post('/api/pulsation/domain-live-bounces/{domain}/refresh')
@@ -933,13 +1059,37 @@ async def refresh_domain_live_bounces_endpoint(
     view: str = 'summary',
     search: str = '',
     page: int = 1,
-    page_size: int = 100
+    page_size: int = 100,
+    source: str = None
 ):
     """Start a background refresh for live bounce reasons for a sending domain."""
     try:
         normalized_esp = normalize_esp_name(esp)
         if not normalized_esp:
             raise HTTPException(status_code=400, detail='ESP could not be determined')
+
+        # Refuse to guess when a Pulsation domain maps to several registered Mailgun domains;
+        # 409 carries the candidates so the UI can ask which one to use.
+        if normalized_esp == 'Mailgun' and not (source or '').strip():
+            try:
+                resolution = resolve_mailgun_bounce_sources(domain)
+            except Exception as exc:
+                raise HTTPException(status_code=502, detail=f'Error resolving Mailgun sending domains: {exc}')
+            if resolution['needs_selection']:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        'message': (
+                            f'{domain} maps to multiple registered Mailgun domains. '
+                            'Select which one to pull bounce logs from.'
+                        ),
+                        'needs_selection': True,
+                        'candidates': resolution['candidates'],
+                        'domain': resolution['domain']
+                    }
+                )
+            if resolution['error']:
+                raise HTTPException(status_code=404, detail=resolution['error'])
 
         job = _register_domain_live_bounce_refresh_job(
             domain,
@@ -949,7 +1099,8 @@ async def refresh_domain_live_bounces_endpoint(
             view,
             search,
             page,
-            page_size
+            page_size,
+            source=source
         )
         if job['status'] == 'queued':
             background_tasks.add_task(_run_domain_live_bounce_refresh_job, job['job_id'])
@@ -984,11 +1135,12 @@ async def export_domain_live_bounces_endpoint(
     snapshot_date: str = None,
     esp: str = None,
     view: str = 'summary',
-    search: str = ''
+    search: str = '',
+    source: str = None
 ):
     """Export grouped live bounce reasons for a sending domain to CSV."""
     try:
-        csv_content = export_domain_live_bounces_csv(domain, window_type, snapshot_date, esp, view, search)
+        csv_content = export_domain_live_bounces_csv(domain, window_type, snapshot_date, esp, view, search, source=source)
         filename_suffix = snapshot_date if window_type == 'daily' and snapshot_date else window_type
         filename = f'domain_live_bounces_{domain}_{filename_suffix}_{view}.csv'
         return StreamingResponse(
@@ -2049,15 +2201,12 @@ async def get_gpt_reputation_changes_endpoint():
 @app.get('/api/gpt/overview-table')
 async def get_gpt_overview_table_endpoint():
     """
-    Get yesterday's overview data for all domains (for home page table)
+    Get latest overview data for all domains (for home page table)
     Shows all domains with their latest reputation metrics
     """
     try:
-        data = get_yesterday_overview()
-        if not data or len(data) == 0:
-            # Fallback to latest data if yesterday has no data
-            data = get_all_domains_latest()
-        return {'domains': data, 'total': len(data), 'date': 'yesterday'}
+        data = get_all_domains_latest()
+        return {'domains': data, 'total': len(data), 'date': 'latest'}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error fetching overview table: {str(e)}')
 
@@ -2892,6 +3041,42 @@ async def analyze_url_endpoint(request: Request):
         return {'status': 'success', 'result': result, 'url': url}
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Observatory Agent (deliverability AI agent). Imported defensively so a
+# missing dependency or model can never take down the rest of the backend.
+# ---------------------------------------------------------------------------
+try:
+    from deliverability_agent import run_agent as _run_deliverability_agent
+    _AGENT_AVAILABLE = True
+    _AGENT_IMPORT_ERROR = None
+except Exception as _agent_err:  # pragma: no cover - defensive
+    _AGENT_AVAILABLE = False
+    _AGENT_IMPORT_ERROR = str(_agent_err)
+
+
+class AgentQuery(BaseModel):
+    question: str
+    conversation_id: str = 'default'
+
+
+@app.get('/api/deliverability/agent/status')
+def deliverability_agent_status():
+    return {'available': _AGENT_AVAILABLE, 'error': _AGENT_IMPORT_ERROR}
+
+
+@app.post('/api/deliverability/agent')
+def deliverability_agent_endpoint(query: AgentQuery):
+    if not _AGENT_AVAILABLE:
+        raise HTTPException(status_code=503, detail=f'Agent unavailable: {_AGENT_IMPORT_ERROR}')
+    if not query.question or not query.question.strip():
+        raise HTTPException(status_code=400, detail='question is required')
+    try:
+        # Blocking (Ollama) call; FastAPI runs this sync endpoint in a threadpool.
+        return _run_deliverability_agent(query.question, query.conversation_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

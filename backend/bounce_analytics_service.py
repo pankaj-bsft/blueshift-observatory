@@ -29,6 +29,13 @@ LIVE_BOUNCE_CACHE_WINDOW_MINUTES = 30
 LIVE_BOUNCE_WINDOW_LAST_24H = 'last_24h'
 LIVE_BOUNCE_WINDOW_DAILY = 'daily'
 
+# Selection sentinel meaning "merge every production registered domain for this Pulsation domain".
+LIVE_BOUNCE_SOURCE_ALL = '__all__'
+# Mailgun's registered domain list changes rarely; cache it so the picker is cheap to open.
+MAILGUN_DOMAIN_CACHE_TTL_SECONDS = 900
+_mailgun_domain_registry: Dict = {'domains': [], 'fetched_at': None}
+SANDBOX_DOMAIN_PREFIXES = ('sandbox', 'dev', 'test', 'staging', 'qa')
+
 # ISP Domain Mapping
 ISP_MAPPING = {
     'gmail.com': 'Gmail',
@@ -167,6 +174,24 @@ def init_bounce_database():
         ''')
         _ensure_column(cursor, 'domain_live_bounces', 'window_type', "TEXT NOT NULL DEFAULT 'last_24h'")
         _ensure_column(cursor, 'domain_live_bounces', 'snapshot_date', 'TEXT')
+        # Mailgun registers sending domains as subdomains (carmoola.co.uk -> mail.carmoola.co.uk).
+        # sending_domain stays the Pulsation domain the UI selected; registered_domain records the
+        # Mailgun domain the events were actually pulled from.
+        _ensure_column(cursor, 'domain_live_bounces', 'registered_domain', 'TEXT')
+        # Widen the dedupe key to include registered_domain, otherwise a combined fetch across
+        # several registered domains can silently drop rows that collide on the narrower key.
+        dedupe_indexes = [row[1] for row in cursor.execute('PRAGMA index_list(domain_live_bounces)').fetchall()]
+        if 'idx_domain_live_bounces_dedupe' in dedupe_indexes:
+            dedupe_columns = [row[2] for row in cursor.execute('PRAGMA index_info(idx_domain_live_bounces_dedupe)').fetchall()]
+            if 'registered_domain' not in dedupe_columns:
+                cursor.execute('DROP INDEX idx_domain_live_bounces_dedupe')
+        cursor.execute(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_domain_live_bounces_dedupe '
+            'ON domain_live_bounces (esp, sending_domain, registered_domain, event_timestamp, recipient, bounce_reason, bounce_code)'
+        )
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_domain_live_bounces_source ON domain_live_bounces (sending_domain, window_type, registered_domain)'
+        )
         cursor.execute(
             'CREATE INDEX IF NOT EXISTS idx_domain_live_bounces_lookup ON domain_live_bounces (sending_domain, event_timestamp)'
         )
@@ -306,6 +331,171 @@ def get_mailgun_domains() -> List[str]:
             print(f'Error fetching Mailgun {region} domains: {e}')
 
     return domains
+
+
+def get_mailgun_registered_domains(force_refresh: bool = False) -> List[Dict]:
+    """
+    Fetch Mailgun's registered sending domains with their region, cached in-process.
+
+    Same data as get_mailgun_domains() but keeps the region so callers can query only
+    the region a domain actually lives in. Raises if neither region could be reached,
+    so an auth/network failure is not mistaken for "this domain has no bounces".
+    """
+    now = datetime.utcnow()
+    cached_at = _mailgun_domain_registry.get('fetched_at')
+    if (
+        not force_refresh
+        and cached_at
+        and _mailgun_domain_registry.get('domains')
+        and (now - cached_at).total_seconds() < MAILGUN_DOMAIN_CACHE_TTL_SECONDS
+    ):
+        return _mailgun_domain_registry['domains']
+
+    collected: List[Dict] = []
+    errors: List[str] = []
+
+    for region, base_url in [('US', MAILGUN_US_BASE_URL), ('EU', MAILGUN_EU_BASE_URL)]:
+        skip = 0
+        limit = 100
+        region_count = 0
+        try:
+            while True:
+                response = requests.get(
+                    f'{base_url}/domains',
+                    auth=('api', MAILGUN_API_KEY),
+                    params={'limit': limit, 'skip': skip},
+                    timeout=20
+                )
+                if response.status_code != 200:
+                    raise RuntimeError(f'Mailgun {region} domains API error {response.status_code}')
+
+                data = response.json()
+                items = data.get('items', [])
+                if not items:
+                    break
+
+                for item in items:
+                    name = (item.get('name') or '').strip().lower()
+                    if name:
+                        collected.append({'domain': name, 'region': region})
+                        region_count += 1
+
+                if region_count >= data.get('total_count', 0):
+                    break
+                skip += limit
+        except Exception as exc:
+            errors.append(f'{region}: {exc}')
+
+    if not collected:
+        raise RuntimeError(
+            'Could not fetch Mailgun registered domains ({})'.format('; '.join(errors) or 'no domains returned')
+        )
+
+    _mailgun_domain_registry['domains'] = collected
+    _mailgun_domain_registry['fetched_at'] = now
+    return collected
+
+
+def _is_sandbox_domain(domain: str) -> bool:
+    """
+    Sandbox/dev/staging sending domains should not be merged into production bounce views.
+
+    Matches the whole first label ("sandbox.x") or a label the prefix separates from a
+    counter ("dev-1.x", "test2.x"), but not real words that merely start the same way,
+    so "development.x" or "devices.x" are left alone.
+    """
+    first_label = domain.split('.', 1)[0]
+    for prefix in SANDBOX_DOMAIN_PREFIXES:
+        if first_label == prefix:
+            return True
+        if first_label.startswith(prefix) and not first_label[len(prefix):][:1].isalpha():
+            return True
+    return False
+
+
+def resolve_mailgun_bounce_sources(domain: str, force_refresh: bool = False) -> Dict:
+    """
+    Map a Pulsation from_domain onto the Mailgun registered domain(s) that can serve its events.
+
+    Pulsation stores the header From-domain; Mailgun's Events API is keyed by registered
+    sending domain, and those differ often enough to matter (carmoola.co.uk vs
+    mail.carmoola.co.uk). Returns the candidates plus whether the caller must disambiguate.
+    """
+    normalized = (domain or '').strip().lower()
+    registry = get_mailgun_registered_domains(force_refresh=force_refresh)
+
+    exact = [entry for entry in registry if entry['domain'] == normalized]
+    if exact:
+        return {
+            'domain': normalized,
+            'candidates': [{**entry, 'is_sandbox': _is_sandbox_domain(entry['domain'])} for entry in exact],
+            'resolved': normalized,
+            'needs_selection': False,
+            'match_type': 'exact',
+            'error': None
+        }
+
+    suffix = f'.{normalized}'
+    matches = [
+        {**entry, 'is_sandbox': _is_sandbox_domain(entry['domain'])}
+        for entry in registry
+        if entry['domain'].endswith(suffix)
+    ]
+    # Production domains first, sandbox/dev last, alphabetical within each group.
+    matches.sort(key=lambda entry: (entry['is_sandbox'], entry['domain']))
+
+    if not matches:
+        return {
+            'domain': normalized,
+            'candidates': [],
+            'resolved': None,
+            'needs_selection': False,
+            'match_type': 'none',
+            'error': f'{normalized} is not a registered Mailgun sending domain, and no subdomain of it is either.'
+        }
+
+    if len(matches) == 1:
+        return {
+            'domain': normalized,
+            'candidates': matches,
+            'resolved': matches[0]['domain'],
+            'needs_selection': False,
+            'match_type': 'subdomain',
+            'error': None
+        }
+
+    return {
+        'domain': normalized,
+        'candidates': matches,
+        'resolved': None,
+        'needs_selection': True,
+        'match_type': 'ambiguous',
+        'error': None
+    }
+
+
+def _sources_for_selection(resolution: Dict, source: Optional[str]) -> List[Dict]:
+    """Turn a user selection (a registered domain, ALL, or nothing) into domains to query."""
+    candidates = resolution.get('candidates') or []
+    selected = (source or '').strip().lower()
+
+    if selected == LIVE_BOUNCE_SOURCE_ALL:
+        # Sandbox traffic is reachable individually but never merged into a combined view.
+        production = [entry for entry in candidates if not entry['is_sandbox']]
+        return production or candidates
+
+    if selected:
+        chosen = [entry for entry in candidates if entry['domain'] == selected]
+        if not chosen:
+            raise ValueError(
+                f'{source} is not a registered Mailgun domain for {resolution.get("domain")}'
+            )
+        return chosen
+
+    if resolution.get('resolved'):
+        return [entry for entry in candidates if entry['domain'] == resolution['resolved']]
+
+    return []
 
 
 def get_sparkpost_domains() -> List[str]:
@@ -778,17 +968,21 @@ def _group_live_bounces(rows: List[Dict]) -> List[Dict]:
             row.get('region', '') or 'Unknown',
             row.get('account_name', '') or 'Unmapped',
             row.get('sending_domain', ''),
+            # Keep the Mailgun domain in the group key so a combined view stays attributable
+            # per registered domain instead of blending them into one row.
+            row.get('registered_domain', '') or row.get('sending_domain', ''),
             row.get('bounce_reason', '') or 'Unknown'
         )
         grouped[key] = grouped.get(key, 0) + 1
 
     result = []
-    for (esp, region, account_name, sending_domain, bounce_reason), count in grouped.items():
+    for (esp, region, account_name, sending_domain, registered_domain, bounce_reason), count in grouped.items():
         result.append({
             'esp': esp,
             'region': region,
             'account_name': account_name,
             'sending_domain': sending_domain,
+            'registered_domain': registered_domain,
             'bounce_reason': bounce_reason,
             'count': count
         })
@@ -895,10 +1089,19 @@ def normalize_esp_name(esp: Optional[str]) -> Optional[str]:
     return None
 
 
-def _build_live_cache_key(domain: str, window_type: str, snapshot_date: Optional[str] = None, esp: Optional[str] = None) -> str:
+def _build_live_cache_key(
+    domain: str,
+    window_type: str,
+    snapshot_date: Optional[str] = None,
+    esp: Optional[str] = None,
+    source: Optional[str] = None
+) -> str:
     suffix = snapshot_date or 'rolling'
     esp_suffix = normalize_esp_name(esp) or 'unknown'
-    return f'{domain.lower()}::{window_type}::{suffix}::{esp_suffix}'
+    # Each source selection caches independently so switching in the picker never shows
+    # another source's rows as if they were the selected one.
+    source_suffix = (source or '').strip().lower() or 'auto'
+    return f'{domain.lower()}::{window_type}::{suffix}::{esp_suffix}::{source_suffix}'
 
 
 def _resolve_live_bounce_window(
@@ -927,10 +1130,16 @@ def _resolve_live_bounce_window(
     }
 
 
-def _get_live_cache_metadata(domain: str, window_type: str, snapshot_date: Optional[str] = None, esp: Optional[str] = None) -> Optional[Dict]:
+def _get_live_cache_metadata(
+    domain: str,
+    window_type: str,
+    snapshot_date: Optional[str] = None,
+    esp: Optional[str] = None,
+    source: Optional[str] = None
+) -> Optional[Dict]:
     conn = get_db_connection()
     cursor = conn.cursor()
-    cache_key = _build_live_cache_key(domain, window_type, snapshot_date, esp)
+    cache_key = _build_live_cache_key(domain, window_type, snapshot_date, esp, source)
     try:
         row = cursor.execute(
             'SELECT sending_domain, window_type, snapshot_date, last_fetched_at, status, row_count, error_message, updated_at '
@@ -954,13 +1163,14 @@ def _upsert_live_cache_metadata(
     esp: Optional[str],
     status: str,
     row_count: int,
-    error_message: Optional[str] = None
+    error_message: Optional[str] = None,
+    source: Optional[str] = None
 ) -> None:
     conn = get_db_connection()
     cursor = conn.cursor()
     now = _iso_now_utc()
     normalized_esp = normalize_esp_name(esp)
-    cache_key = _build_live_cache_key(domain, window_type, snapshot_date, normalized_esp)
+    cache_key = _build_live_cache_key(domain, window_type, snapshot_date, normalized_esp, source)
     # Avoid ON CONFLICT for older SQLite builds (seen on some EC2 images).
     cursor.execute(
         'UPDATE domain_live_bounce_cache_v2 '
@@ -979,23 +1189,41 @@ def _upsert_live_cache_metadata(
     conn.close()
 
 
-def _store_domain_live_bounces(domain: str, rows: List[Dict], window_type: str, snapshot_date: Optional[str] = None, esp: Optional[str] = None) -> int:
+def _store_domain_live_bounces(
+    domain: str,
+    rows: List[Dict],
+    window_type: str,
+    snapshot_date: Optional[str] = None,
+    esp: Optional[str] = None,
+    source: Optional[str] = None,
+    registered_domains: Optional[List[str]] = None
+) -> int:
     conn = get_db_connection()
     cursor = conn.cursor()
     inserted = 0
     fetch_batch_id = str(uuid.uuid4())
     normalized_esp = normalize_esp_name(esp)
-    cursor.execute(
-        'DELETE FROM domain_live_bounces WHERE sending_domain = ? AND window_type = ? AND IFNULL(snapshot_date, "") = IFNULL(?, "") AND (? IS NULL OR esp = ?)',
-        (domain.lower(), window_type, snapshot_date, normalized_esp, normalized_esp)
+
+    delete_sql = (
+        'DELETE FROM domain_live_bounces WHERE sending_domain = ? AND window_type = ? '
+        'AND IFNULL(snapshot_date, "") = IFNULL(?, "") AND (? IS NULL OR esp = ?)'
     )
+    delete_params: List = [domain.lower(), window_type, snapshot_date, normalized_esp, normalized_esp]
+    # Only clear the registered domains this fetch is replacing, so refreshing one source
+    # in the picker does not wipe rows belonging to another.
+    if registered_domains:
+        placeholders = ', '.join('?' for _ in registered_domains)
+        delete_sql += f' AND IFNULL(registered_domain, sending_domain) IN ({placeholders})'
+        delete_params.extend([value.lower() for value in registered_domains])
+    cursor.execute(delete_sql, delete_params)
 
     for row in rows:
         cursor.execute('''
             INSERT OR IGNORE INTO domain_live_bounces
-            (fetch_batch_id, window_type, snapshot_date, esp, region, account_name, sending_domain, event_timestamp, event_date, sending_ip,
+            (fetch_batch_id, window_type, snapshot_date, esp, region, account_name, sending_domain, registered_domain,
+             event_timestamp, event_date, sending_ip,
              recipient, recipient_domain, isp, bounce_type, bounce_reason, bounce_code, raw_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             fetch_batch_id,
             window_type,
@@ -1004,6 +1232,7 @@ def _store_domain_live_bounces(domain: str, rows: List[Dict], window_type: str, 
             row.get('region'),
             row.get('account_name'),
             row.get('sending_domain'),
+            row.get('registered_domain') or row.get('sending_domain'),
             row.get('event_timestamp'),
             row.get('event_date'),
             row.get('sending_ip'),
@@ -1019,17 +1248,30 @@ def _store_domain_live_bounces(domain: str, rows: List[Dict], window_type: str, 
 
     conn.commit()
     conn.close()
-    _upsert_live_cache_metadata(domain, window_type, snapshot_date, normalized_esp, 'success', inserted)
+    _upsert_live_cache_metadata(domain, window_type, snapshot_date, normalized_esp, 'success', inserted, source=source)
     return inserted
 
 
-def _load_domain_live_bounces(domain: str, window_type: str, snapshot_date: Optional[str] = None, esp: Optional[str] = None) -> List[Dict]:
+def _load_domain_live_bounces(
+    domain: str,
+    window_type: str,
+    snapshot_date: Optional[str] = None,
+    esp: Optional[str] = None,
+    registered_domains: Optional[List[str]] = None
+) -> List[Dict]:
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     params = [domain.lower(), window_type]
     where_clause = 'sending_domain = ? AND window_type = ?'
     normalized_esp = normalize_esp_name(esp)
+
+    # Restrict to the registered domains behind the active selection. IFNULL keeps rows
+    # written before registered_domain existed visible for exact-match domains.
+    if registered_domains:
+        placeholders = ', '.join('?' for _ in registered_domains)
+        where_clause += f' AND IFNULL(registered_domain, sending_domain) IN ({placeholders})'
+        params.extend([value.lower() for value in registered_domains])
 
     if window_type == LIVE_BOUNCE_WINDOW_DAILY:
         where_clause += ' AND snapshot_date = ?'
@@ -1043,7 +1285,9 @@ def _load_domain_live_bounces(domain: str, window_type: str, snapshot_date: Opti
 
     try:
         rows = cursor.execute(f'''
-            SELECT esp, region, account_name, sending_domain, event_timestamp, event_date, sending_ip,
+            SELECT esp, region, account_name, sending_domain,
+                   IFNULL(registered_domain, sending_domain) AS registered_domain,
+                   event_timestamp, event_date, sending_ip,
                    recipient, recipient_domain, isp, bounce_type, bounce_reason, bounce_code, raw_status
             FROM domain_live_bounces
             WHERE {where_clause}
@@ -1068,13 +1312,32 @@ def get_domain_live_bounce_payload(
     view: str = 'summary',
     search: str = '',
     page: Optional[int] = 1,
-    page_size: Optional[int] = 100
+    page_size: Optional[int] = 100,
+    source: Optional[str] = None
 ) -> Dict:
     window = _resolve_live_bounce_window(window_type, snapshot_date)
     normalized_esp = normalize_esp_name(esp)
-    rows = _load_domain_live_bounces(domain, window['window_type'], window['snapshot_date'], normalized_esp)
+
+    # Work out which registered Mailgun domains the active selection covers. A registry
+    # failure must not blank the panel, so fall back to reading whatever is cached.
+    source_info: Dict = {'selected': (source or '').strip().lower() or None, 'candidates': [], 'error': None}
+    registered_domains: Optional[List[str]] = None
+    if normalized_esp == 'Mailgun':
+        try:
+            resolution = resolve_mailgun_bounce_sources(domain)
+            source_info['candidates'] = resolution['candidates']
+            source_info['needs_selection'] = resolution['needs_selection']
+            source_info['match_type'] = resolution['match_type']
+            source_info['error'] = resolution['error']
+            selected_sources = _sources_for_selection(resolution, source)
+            registered_domains = [entry['domain'] for entry in selected_sources] or None
+            source_info['resolved'] = registered_domains
+        except Exception as exc:
+            source_info['error'] = str(exc)
+
+    rows = _load_domain_live_bounces(domain, window['window_type'], window['snapshot_date'], normalized_esp, registered_domains)
     filtered_rows = _filter_live_bounce_rows(rows, search)
-    metadata = _get_live_cache_metadata(domain, window['window_type'], window['snapshot_date'], normalized_esp)
+    metadata = _get_live_cache_metadata(domain, window['window_type'], window['snapshot_date'], normalized_esp, source)
     now = datetime.utcnow()
     is_stale = window['window_type'] == LIVE_BOUNCE_WINDOW_LAST_24H
     if metadata and metadata.get('last_fetched_at'):
@@ -1118,6 +1381,7 @@ def get_domain_live_bounce_payload(
             'label': window['label'],
             'esp': normalized_esp
         },
+        'source': source_info,
         'cache': {
             'last_fetched_at': metadata.get('last_fetched_at') if metadata else None,
             'status': metadata.get('status') if metadata else 'empty',
@@ -1129,11 +1393,24 @@ def get_domain_live_bounce_payload(
     }
 
 
+class AmbiguousBounceSourceError(Exception):
+    """Raised when a Pulsation domain maps to several registered Mailgun domains."""
+
+    def __init__(self, resolution: Dict):
+        self.resolution = resolution
+        candidates = ', '.join(entry['domain'] for entry in resolution.get('candidates') or [])
+        super().__init__(
+            f'{resolution.get("domain")} maps to several registered Mailgun domains ({candidates}). '
+            'Choose which one to pull bounce logs from.'
+        )
+
+
 def fetch_domain_live_bounces(
     domain: str,
     window_type: str = LIVE_BOUNCE_WINDOW_LAST_24H,
     snapshot_date: Optional[str] = None,
-    esp: Optional[str] = None
+    esp: Optional[str] = None,
+    source: Optional[str] = None
 ) -> Dict:
     domain = domain.lower().strip()
     window = _resolve_live_bounce_window(window_type, snapshot_date)
@@ -1144,18 +1421,47 @@ def fetch_domain_live_bounces(
         raise ValueError('ESP could not be determined')
     rows = []
     errors = []
+    registered_domains: Optional[List[str]] = None
 
     try:
         if normalized_esp == 'Mailgun':
-            rows.extend(fetch_mailgun_live_bounces_for_domain(domain, start_time, end_time))
+            resolution = resolve_mailgun_bounce_sources(domain)
+            if resolution['error']:
+                raise RuntimeError(resolution['error'])
+            if resolution['needs_selection'] and not (source or '').strip():
+                raise AmbiguousBounceSourceError(resolution)
+
+            targets = _sources_for_selection(resolution, source)
+            registered_domains = [entry['domain'] for entry in targets]
+            for entry in targets:
+                try:
+                    rows.extend(fetch_mailgun_live_bounces_for_domain(
+                        domain,
+                        start_time,
+                        end_time,
+                        registered_domain=entry['domain'],
+                        region=entry.get('region')
+                    ))
+                except Exception as exc:
+                    errors.append(f'Mailgun {entry["domain"]}: {exc}')
         elif normalized_esp == 'Sparkpost':
             rows.extend(fetch_sparkpost_live_bounces_for_domain(domain, start_time, end_time))
         elif normalized_esp == 'Sendgrid':
             rows.extend(fetch_sendgrid_live_bounces_for_domain(domain, start_time, end_time))
+    except AmbiguousBounceSourceError:
+        raise
     except Exception as exc:
         errors.append(f'{normalized_esp}: {exc}')
 
-    inserted = _store_domain_live_bounces(domain, rows, window['window_type'], window['snapshot_date'], normalized_esp)
+    inserted = _store_domain_live_bounces(
+        domain,
+        rows,
+        window['window_type'],
+        window['snapshot_date'],
+        normalized_esp,
+        source=source,
+        registered_domains=registered_domains
+    )
     if errors:
         _upsert_live_cache_metadata(
             domain,
@@ -1164,14 +1470,22 @@ def fetch_domain_live_bounces(
             normalized_esp,
             'partial_success' if rows else 'error',
             inserted,
-            '; '.join(errors)
+            '; '.join(errors),
+            source=source
         )
 
-    payload = get_domain_live_bounce_payload(domain, window['window_type'], window['snapshot_date'], normalized_esp)
+    payload = get_domain_live_bounce_payload(
+        domain,
+        window['window_type'],
+        window['snapshot_date'],
+        normalized_esp,
+        source=source
+    )
     payload['fetch'] = {
         'inserted': inserted,
         'errors': errors,
-        'esp': normalized_esp
+        'esp': normalized_esp,
+        'registered_domains': registered_domains
     }
     return payload
 
@@ -1182,7 +1496,8 @@ def export_domain_live_bounces_csv(
     snapshot_date: Optional[str] = None,
     esp: Optional[str] = None,
     view: str = 'summary',
-    search: str = ''
+    search: str = '',
+    source: Optional[str] = None
 ) -> str:
     payload = get_domain_live_bounce_payload(
         domain,
@@ -1193,18 +1508,20 @@ def export_domain_live_bounces_csv(
         view=view,
         search=search,
         page=None,
-        page_size=None
+        page_size=None,
+        source=source
     )
     output = io.StringIO()
     writer = csv.writer(output)
     if view == 'detail':
-        writer.writerow(['ESP', 'Region', 'Account', 'Sending Domain', 'Recipient Email', 'Recipient Domain', 'Bounce Type', 'Bounce Reason', 'Bounce Code', 'Event Time'])
+        writer.writerow(['ESP', 'Region', 'Account', 'Sending Domain', 'Mailgun Domain', 'Recipient Email', 'Recipient Domain', 'Bounce Type', 'Bounce Reason', 'Bounce Code', 'Event Time'])
         for row in payload['detail_rows']:
             writer.writerow([
                 row.get('esp'),
                 row.get('region'),
                 row.get('account_name'),
                 row.get('sending_domain'),
+                row.get('registered_domain'),
                 row.get('recipient'),
                 row.get('recipient_domain'),
                 row.get('bounce_type'),
@@ -1213,27 +1530,47 @@ def export_domain_live_bounces_csv(
                 row.get('event_timestamp')
             ])
     else:
-        writer.writerow(['ESP', 'Region', 'Account', 'Email Domain', 'Bounce Reason', 'Count'])
+        writer.writerow(['ESP', 'Region', 'Account', 'Email Domain', 'Mailgun Domain', 'Bounce Reason', 'Count'])
         for row in payload['table_rows']:
             writer.writerow([
                 row['esp'],
                 row['region'],
                 row['account_name'],
                 row['sending_domain'],
+                row.get('registered_domain'),
                 row['bounce_reason'],
                 row['count']
             ])
     return output.getvalue()
 
 
-def fetch_mailgun_live_bounces_for_domain(domain: str, start_time: datetime, end_time: datetime) -> List[Dict]:
+def fetch_mailgun_live_bounces_for_domain(
+    domain: str,
+    start_time: datetime,
+    end_time: datetime,
+    registered_domain: Optional[str] = None,
+    region: Optional[str] = None
+) -> List[Dict]:
+    """
+    Pull failed events for one Pulsation domain.
+
+    registered_domain is the Mailgun sending domain to query, which is often a subdomain of
+    the Pulsation domain. Rows are attributed to `domain` so the UI keeps working off the
+    Pulsation name, with registered_domain recorded alongside.
+    """
     results = []
     begin_time = start_time.strftime('%a, %d %b %Y %H:%M:%S +0000')
     end_time_str = end_time.strftime('%a, %d %b %Y %H:%M:%S +0000')
     account_name = _get_domain_account(domain)
+    query_domain = (registered_domain or domain).lower()
 
-    for region, base_host in [('US', 'https://api.mailgun.net'), ('EU', 'https://api.eu.mailgun.net')]:
-        page_url = f'{base_host}/v3/{domain}/events'
+    all_regions = [('US', 'https://api.mailgun.net'), ('EU', 'https://api.eu.mailgun.net')]
+    # When the registry told us the region, skip the other one instead of eating a 404.
+    regions = [item for item in all_regions if item[0] == region] or all_regions
+    missing_regions = []
+
+    for region_name, base_host in regions:
+        page_url = f'{base_host}/v3/{query_domain}/events'
         page_params = {
             'begin': begin_time,
             'end': end_time_str,
@@ -1245,9 +1582,12 @@ def fetch_mailgun_live_bounces_for_domain(domain: str, start_time: datetime, end
         while True:
             response = requests.get(page_url, auth=('api', MAILGUN_API_KEY), params=page_params, timeout=30)
             if response.status_code == 404:
+                # Not registered in this region. Previously this returned silently, which was
+                # indistinguishable from "no bounces"; record it so the caller can say so.
+                missing_regions.append(region_name)
                 break
             if response.status_code != 200:
-                raise RuntimeError(f'{region} Mailgun API error {response.status_code}')
+                raise RuntimeError(f'{region_name} Mailgun API error {response.status_code}')
 
             data = response.json()
             for item in data.get('items', []):
@@ -1257,9 +1597,10 @@ def fetch_mailgun_live_bounces_for_domain(domain: str, start_time: datetime, end
                 event_ts = _event_datetime_to_iso(item.get('timestamp'))
                 results.append({
                     'esp': 'Mailgun',
-                    'region': region,
+                    'region': region_name,
                     'account_name': account_name,
                     'sending_domain': domain,
+                    'registered_domain': query_domain,
                     'event_timestamp': event_ts,
                     'event_date': event_ts[:10],
                     'sending_ip': item.get('ip'),
@@ -1278,6 +1619,12 @@ def fetch_mailgun_live_bounces_for_domain(domain: str, start_time: datetime, end
             seen_pages.add(next_url)
             page_url = next_url
             page_params = None
+
+    if not results and len(missing_regions) == len(regions):
+        raise RuntimeError(
+            f'{query_domain} is not a registered Mailgun sending domain in '
+            f'{"/".join(missing_regions)} (Events API returned 404)'
+        )
 
     return results
 

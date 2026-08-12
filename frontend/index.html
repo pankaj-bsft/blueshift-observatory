@@ -1205,7 +1205,110 @@
     .email-preview-frame iframe { display: block; width: 100%; border: 0; min-height: 480px; background: #fff; }
     .email-preview-empty { padding: 18px; background: #f8fafc; border: 1px dashed #dbe4f0; border-radius: 12px; color: #64748b; font-size: 13px; text-align: center; }
     .email-size-warning { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 700; margin-left: 8px; }
-    
+
+    /* ===== Observatory Agent (chat) ===== */
+    /* Full-height layout: the view fills the main content area, the message
+       list scrolls, and the input stays pinned to the bottom. */
+    .agent-page { display: flex; flex-direction: column; height: calc(100vh - 48px); }
+    .agent-page .page-header { flex-shrink: 0; }
+    .agent-page .card-section { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-bottom: 0; }
+    .agent-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .agent-turn { max-width: 960px; }
+    .agent-turn .agent-bubble { max-width: 100%; }
+    .agent-messages { flex: 1; overflow-y: auto; padding: 8px 4px 16px; display: flex; flex-direction: column; gap: 14px; }
+    .agent-msg { display: flex; }
+    .agent-msg-user { justify-content: flex-end; }
+    .agent-msg-agent, .agent-msg-error { justify-content: flex-start; }
+    .agent-bubble { max-width: 78%; padding: 12px 16px; border-radius: 14px; font-size: 13.5px; line-height: 1.55; box-shadow: 0 1px 2px rgba(15,23,42,0.06); }
+    .agent-msg-user .agent-bubble { background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: #fff; border-bottom-right-radius: 4px; }
+    .agent-msg-agent .agent-bubble { background: #f1f5f9; color: #1e293b; border-bottom-left-radius: 4px; }
+    .agent-msg-error .agent-bubble { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .agent-bubble-text { white-space: pre-wrap; word-break: break-word; }
+    .agent-tool { margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 8px; }
+    .agent-tool summary { cursor: pointer; font-size: 12px; font-weight: 600; color: #475569; }
+    .agent-tool pre { margin: 8px 0 0; padding: 10px; background: #0f172a; color: #e2e8f0; border-radius: 8px; font-size: 11.5px; line-height: 1.5; overflow-x: auto; font-family: 'SF Mono', 'Monaco', 'Consolas', monospace; white-space: pre-wrap; }
+    .agent-input-row { display: flex; gap: 10px; align-items: center; }
+    .agent-input-wrap { border-top: 1px solid #eef2f7; }
+    .agent-input { flex: 1; border: 1px solid #dbe4f0; border-radius: 12px; padding: 12px 14px; font-size: 13.5px; font-family: inherit; outline: none; transition: border-color 0.15s; }
+    .agent-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .agent-input:disabled { background: #f8fafc; color: #94a3b8; }
+    .agent-empty { margin: auto; text-align: center; color: #64748b; }
+    .agent-empty-icon { font-size: 40px; margin-bottom: 10px; }
+    .agent-suggestions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+    .agent-chip { padding: 8px 14px; border-radius: 999px; border: 1px solid #dbe4f0; background: #fff; color: #2563eb; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .agent-chip:hover { background: #eff6ff; border-color: #3b82f6; }
+    /* processing indicator */
+    .agent-typing { display: inline-flex; align-items: center; gap: 10px; }
+    .agent-spinner { width: 16px; height: 16px; border: 2px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; animation: agent-spin 0.7s linear infinite; flex-shrink: 0; }
+    @keyframes agent-spin { to { transform: rotate(360deg); } }
+    .agent-typing-text { color: #475569; font-size: 13px; font-weight: 500; }
+    .agent-dots span { animation: agent-blink 1.4s infinite both; }
+    .agent-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .agent-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes agent-blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
+
+    /* user avatar */
+    .agent-avatar { width: 34px; height: 34px; border-radius: 50%; background: #fff; border: 1px solid #e2e8f0; color: #2563eb; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 2px rgba(15,23,42,0.08); }
+    .agent-msg-user { align-items: center; gap: 10px; }
+    .agent-turn { max-width: 88%; display: flex; flex-direction: column; gap: 12px; }
+    /* rich markdown text */
+    .agent-bubble-text h4 { font-size: 14px; font-weight: 700; color: #0f172a; margin: 10px 0 4px; }
+    .agent-bubble-text p { margin: 5px 0; }
+    .agent-bubble-text ul { margin: 6px 0; padding-left: 18px; }
+    .agent-bubble-text li { margin: 3px 0; }
+    .agent-bubble-text code { background: #e2e8f0; color: #0f172a; padding: 1px 5px; border-radius: 5px; font-size: 12px; font-family: 'SF Mono','Monaco','Consolas',monospace; }
+    .agent-bubble-text strong { color: #0f172a; }
+    /* stat tiles */
+    .agent-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+    .agent-tile { background: #fff; border: 1px solid #e8edf3; border-left-width: 3px; border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+    .agent-tile-value { font-size: 20px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; }
+    .agent-tile-label { font-size: 11px; font-weight: 600; color: #64748b; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .agent-tile-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+    .agent-tile.tone-good { border-left-color: #22c55e; }
+    .agent-tile.tone-warn { border-left-color: #f59e0b; }
+    .agent-tile.tone-bad { border-left-color: #ef4444; }
+    .agent-tile.tone-neutral { border-left-color: #3b82f6; }
+    /* charts */
+    .agent-charts { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .agent-chart-card { background: #fff; border: 1px solid #e8edf3; border-radius: 12px; padding: 14px 16px 10px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+    .agent-chart-title { font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 8px; }
+    .agent-chart-canvas-wrap { position: relative; height: 200px; }
+    @media (min-width: 900px) { .agent-charts { grid-template-columns: 1fr 1fr; } }
+    .agent-charts.single { grid-template-columns: 1fr; }
+    .agent-charts.single .agent-chart-canvas-wrap { height: auto; min-height: 220px; }
+    /* tables */
+    .agent-tables { display: flex; flex-direction: column; gap: 12px; }
+    .agent-table-card { background: #fff; border: 1px solid #e8edf3; border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+    .agent-table-title { font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 8px; }
+    .agent-table-scroll { overflow-x: auto; }
+    .agent-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .agent-table th { text-transform: uppercase; font-size: 10px; letter-spacing: 0.04em; color: #64748b; font-weight: 700; padding: 8px 10px; border-bottom: 1px solid #e8edf3; white-space: nowrap; }
+    .agent-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; color: #1e293b; white-space: nowrap; }
+    .agent-table tbody tr:hover { background: #f8fafc; }
+    .agent-table tbody tr:last-child td { border-bottom: none; }
+    /* findings */
+    .agent-findings { display: flex; flex-direction: column; gap: 6px; }
+    .agent-finding { display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; border: 1px solid transparent; }
+    .agent-finding-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 999px; flex-shrink: 0; background: rgba(255,255,255,0.7); }
+    .agent-finding.sev-critical { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .agent-finding.sev-warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+    .agent-finding.sev-info { background: #eff6ff; border-color: #dbeafe; color: #1e40af; }
+    .agent-passed { font-size: 12px; font-weight: 600; color: #16a34a; padding: 4px 2px; }
+    /* processing card */
+    .agent-processing { align-self: flex-start; }
+    .agent-processing-title { font-size: 15px; font-weight: 600; color: #475569; margin-bottom: 10px; }
+    .agent-activity-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-width: 320px; padding: 14px 18px; background: #fff; border: 1px solid #c7d2fe; border-radius: 12px; box-shadow: 0 1px 3px rgba(79,70,229,0.08); }
+    .agent-activity-label { font-size: 13px; font-weight: 700; color: #1e293b; }
+    .agent-activity-status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #64748b; }
+    /* input area */
+    .agent-input-wrap { padding-top: 14px; }
+    .agent-send-btn { width: 44px; height: 44px; border: none; border-radius: 12px; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s; flex-shrink: 0; }
+    .agent-send-btn:hover:not(:disabled) { background: #1d4ed8; }
+    .agent-send-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+    .agent-disclaimer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 10px; }
+    .agent-clear-btn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.28); border-radius: 10px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; backdrop-filter: blur(10px); white-space: nowrap; }
+    .agent-clear-btn:hover { background: rgba(255,255,255,0.28); }
+
   </style>
 </head>
 <body>
@@ -2095,9 +2198,138 @@
               <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendSubTab === 'trend' }" @click="pulsationTrendSubTab = 'trend'">
                 Trend
               </button>
+              <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendSubTab === 'email_domain_stats' }" @click="openEmailDomainStatsTab()">
+                Email domain stats
+              </button>
               <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendSubTab === 'bounce_logs' }" @click="pulsationTrendSubTab = 'bounce_logs'">
                 Bounce Logs
               </button>
+            </div>
+
+            <!-- Email domain stats: ISP-level breakdown for the selected sending domain -->
+            <div v-if="pulsationTrendSubTab === 'email_domain_stats'" style="padding: 24px;">
+              <div v-if="!selectedDomain" style="padding: 16px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; color: #92400e; font-size: 13px;">
+                Select a sending domain on the Trend tab first.
+              </div>
+              <template v-else>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 20px;">
+                  <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Date range:</label>
+                    <select class="date-input" v-model="emailDomainStatsRange" @change="onEmailDomainStatsRangeChange" style="width: 190px;">
+                      <option value="past_24h">Past 24 hours</option>
+                      <option value="past_7_days">Past 7 days</option>
+                      <option value="past_30_days">Past 30 days</option>
+                      <option value="custom">Custom range</option>
+                    </select>
+                  </div>
+                  <template v-if="emailDomainStatsRange === 'custom'">
+                    <div>
+                      <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">From:</label>
+                      <input type="date" class="date-input" v-model="emailDomainStatsFromDate" :max="emailDomainStatsToDate" style="width: 160px;">
+                    </div>
+                    <div>
+                      <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">To:</label>
+                      <input type="date" class="date-input" v-model="emailDomainStatsToDate" :min="emailDomainStatsFromDate" style="width: 160px;">
+                    </div>
+                  </template>
+                  <!-- Nothing queries until this is clicked, so opening the tab or changing
+                       the range costs nothing. -->
+                  <button class="btn btn-sm btn-primary" @click="loadEmailDomainStats()" :disabled="emailDomainStatsLoading || (emailDomainStatsRange === 'custom' && !(emailDomainStatsFromDate && emailDomainStatsToDate))">
+                    {{ emailDomainStatsLoading ? 'Loading...' : 'Get stats' }}
+                  </button>
+                  <button class="btn btn-sm btn-secondary" v-if="emailDomainStatsData" @click="loadEmailDomainStats(true)" :disabled="emailDomainStatsLoading">
+                    Refresh from Druid
+                  </button>
+                  <button class="btn btn-sm btn-secondary" @click="exportEmailDomainStatsCSV" :disabled="emailDomainStatsLoading || !(emailDomainStatsData?.rows?.length)">
+                    Export CSV
+                  </button>
+                </div>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+                  <span class="badge" style="background: #eff6ff; color: #1d4ed8;">Domain: {{ selectedDomain }}</span>
+                  <span class="badge" style="background: #f8fafc; color: #334155;">Range: {{ emailDomainStatsData?.window?.label || '—' }}</span>
+                  <span class="badge" style="background: #f8fafc; color: #334155;">ESP: {{ emailDomainStatsData?.esps?.join(', ') || '—' }}</span>
+                  <span class="badge" style="background: #f8fafc; color: #334155;">Region: {{ emailDomainStatsData?.regions?.join(', ') || '—' }}</span>
+                  <span class="badge" v-if="emailDomainStatsData?.cache" style="background: #f0fdf4; color: #166534;">
+                    {{ emailDomainStatsData.cache.days_from_cache }} day(s) cached / {{ emailDomainStatsData.cache.days_from_druid }} from Druid
+                  </span>
+                </div>
+
+                <div v-if="emailDomainStatsError" style="margin-bottom: 16px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #991b1b; font-size: 13px;">
+                  {{ emailDomainStatsError }}
+                </div>
+                <div v-else-if="emailDomainStatsData?.errors?.length" style="margin-bottom: 16px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #991b1b; font-size: 13px;">
+                  {{ emailDomainStatsData.errors.join('; ') }}
+                </div>
+
+                <!-- Summing daily HLL uniques overstates them; say so rather than implying exactness. -->
+                <div v-if="emailDomainStatsData?.uniques_are_summed" style="margin-bottom: 16px; padding: 10px 14px; background: #f8fafc; border-left: 3px solid #94a3b8; color: #475569; font-size: 12px;">
+                  Unique open and unique soft bounce columns are summed from daily figures, so a recipient
+                  active on more than one day is counted more than once (a few percent high). Sent, delivered,
+                  clicks, bounces, spam reports and unsubscribes are exact. Use “Past 24 hours” for exact uniques.
+                </div>
+
+                <div v-if="emailDomainStatsLoading" style="padding: 32px; text-align: center; color: #64748b;">Querying…</div>
+                <!-- Not-yet-run and ran-but-empty are different states and must not look alike. -->
+                <div v-else-if="!emailDomainStatsData" style="padding: 32px; text-align: center; color: #64748b;">
+                  Pick a date range and press <b>Get stats</b> to query for {{ selectedDomain }}.
+                </div>
+                <div v-else-if="!emailDomainStatsData.rows.length" style="padding: 32px; text-align: center; color: #64748b;">
+                  No sending activity to these mailbox providers for {{ selectedDomain }} in this range.
+                </div>
+                <div v-else style="overflow-x: auto;">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th @click="sortEmailDomainStats('email_domain')" style="cursor: pointer;">Email Domain</th>
+                        <th @click="sortEmailDomainStats('sent_count')" style="cursor: pointer;">Sent</th>
+                        <th @click="sortEmailDomainStats('delivered_count')" style="cursor: pointer;">Delivered</th>
+                        <th @click="sortEmailDomainStats('delivery_rate')" style="cursor: pointer;">Delivery %</th>
+                        <th @click="sortEmailDomainStats('bounce_count')" style="cursor: pointer;">Bounces</th>
+                        <th @click="sortEmailDomainStats('unique_soft_bounce_count')" style="cursor: pointer;">Soft Bounces*</th>
+                        <th @click="sortEmailDomainStats('unique_open_count_user')" style="cursor: pointer;">Unique Opens*</th>
+                        <th>Pre-fetch*</th>
+                        <th>Proxy*</th>
+                        <th @click="sortEmailDomainStats('click_count')" style="cursor: pointer;">Clicks</th>
+                        <th @click="sortEmailDomainStats('spam_report_count')" style="cursor: pointer;">Spam</th>
+                        <th @click="sortEmailDomainStats('unsubscribe_count')" style="cursor: pointer;">Unsub</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="row in sortedEmailDomainStatsRows" :key="row.email_domain">
+                        <td><b>{{ row.email_domain }}</b></td>
+                        <td class="text-mono">{{ formatNumber(row.sent_count) }}</td>
+                        <td class="text-mono">{{ formatNumber(row.delivered_count) }}</td>
+                        <td class="text-mono">{{ formatPercent(row.delivery_rate) }}</td>
+                        <td class="text-mono">{{ formatNumber(row.bounce_count) }}</td>
+                        <td class="text-mono">{{ formatNumber(row.unique_soft_bounce_count) }}</td>
+                        <td class="text-mono">{{ formatNumber(row.unique_open_count_user) }}</td>
+                        <td class="text-mono">{{ formatNumber(row.unique_open_count_pre_fetch) }}</td>
+                        <td class="text-mono">{{ formatNumber(row.unique_open_count_proxy) }}</td>
+                        <td class="text-mono">{{ formatNumber(row.click_count) }}</td>
+                        <td class="text-mono">{{ formatNumber(row.spam_report_count) }}</td>
+                        <td class="text-mono">{{ formatNumber(row.unsubscribe_count) }}</td>
+                      </tr>
+                    </tbody>
+                    <tfoot v-if="emailDomainStatsData?.totals">
+                      <tr style="font-weight: 700; background: #f8fafc;">
+                        <td>Total</td>
+                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.sent_count) }}</td>
+                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.delivered_count) }}</td>
+                        <td class="text-mono">{{ formatPercent(emailDomainStatsData.totals.delivery_rate) }}</td>
+                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.bounce_count) }}</td>
+                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.unique_soft_bounce_count) }}</td>
+                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.unique_open_count_user) }}</td>
+                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.unique_open_count_pre_fetch) }}</td>
+                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.unique_open_count_proxy) }}</td>
+                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.click_count) }}</td>
+                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.spam_report_count) }}</td>
+                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.unsubscribe_count) }}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </template>
             </div>
             <div v-if="pulsationTrendSubTab === 'trend'" style="padding: 24px;">
               <div style="display: grid; grid-template-columns: 1fr 200px; gap: 16px; margin-bottom: 24px;">
@@ -2216,6 +2448,30 @@
 
                   <span class="badge" style="background: #f8fafc; color: #334155;">View: {{ domainLiveBouncesWindow?.label || (domainLiveBouncesWindowType === 'daily' ? domainLiveBouncesDailyDate : 'Past 24 Hours') }}</span>
 
+                  <!-- Mailgun registers sending domains as subdomains, so the Pulsation domain
+                       may map to several. Pick which one the bounce logs come from. -->
+                  <template v-if="domainLiveBouncesSourceCandidates.length > 0">
+                    <span class="badge" style="background: #f8fafc; color: #334155;">Bounce source:</span>
+                    <select
+                      class="date-input"
+                      v-model="domainLiveBouncesSource"
+                      @change="onDomainLiveBouncesSourceChange"
+                      :style="domainLiveBouncesSourceNeedsSelection && !domainLiveBouncesSource ? 'width: 260px; border-color: #f59e0b;' : 'width: 260px;'"
+                    >
+                      <option v-if="domainLiveBouncesSourceNeedsSelection" :value="null">Select a domain…</option>
+                      <option v-if="domainLiveBouncesSourceCandidates.length > 1" value="__all__">
+                        All {{ domainLiveBouncesProductionSourceCount }} production domains combined
+                      </option>
+                      <option
+                        v-for="candidate in domainLiveBouncesSourceCandidates"
+                        :key="candidate.domain"
+                        :value="candidate.domain"
+                      >
+                        {{ candidate.domain }} ({{ candidate.region }}){{ candidate.is_sandbox ? ' — sandbox' : '' }}
+                      </option>
+                    </select>
+                  </template>
+
                   <button class="btn btn-sm btn-primary" @click="refreshDomainLiveBounces('last_24h')" :disabled="domainLiveBouncesRefreshing">
                     {{ domainLiveBouncesRefreshing && domainLiveBouncesWindowType === 'last_24h' ? 'Fetching...' : 'Fetch Live Bounces (Past 24h)' }}
                   </button>
@@ -2226,6 +2482,18 @@
                     Export CSV
                   </button>
                 </div>
+
+              <!-- Explain an empty panel instead of leaving it silently blank. -->
+              <div v-if="domainLiveBouncesSourceNeedsSelection && !domainLiveBouncesSource" style="margin: 0 24px 16px; padding: 12px 16px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; color: #92400e; font-size: 13px;">
+                <b>{{ selectedDomain }}</b> maps to {{ domainLiveBouncesSourceCandidates.length }} registered Mailgun domains.
+                Choose one in <b>Bounce source</b> above (or “All production domains combined”), then fetch.
+              </div>
+              <div v-else-if="domainLiveBouncesSourceError" style="margin: 0 24px 16px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #991b1b; font-size: 13px;">
+                {{ domainLiveBouncesSourceError }}
+              </div>
+              <div v-else-if="domainLiveBouncesCache?.status === 'error' && domainLiveBouncesCache?.error_message" style="margin: 0 24px 16px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #991b1b; font-size: 13px;">
+                Last fetch failed: {{ domainLiveBouncesCache.error_message }}
+              </div>
 
               <div style="padding: 0 24px 12px;">
                 <input
@@ -4558,7 +4826,7 @@
             <!-- Overview Table -->
             <div class="card-section">
               <div class="card-header">
-                <h3 class="card-title">All Domains — Yesterday's Reputation</h3>
+                <h3 class="card-title">All Domains</h3>
                 <span class="card-meta">{{ gptOverviewTable.length }} domains</span>
               </div>
               <div class="table-wrapper">
@@ -6379,7 +6647,139 @@
         </div>
 
         <!-- Placeholder for other pages -->
-        <div v-if="activePage !== 'home' && activePage !== 'pulsation' && activePage !== 'mbr' && activePage !== 'mappings' && activePage !== 'mappings_rails' && activePage !== 'deliverability-analysis' && activePage !== 'info' && activePage !== 'snds' && activePage !== 'gpt' && activePage !== 'bounces' && activePage !== 'updates'" style="text-align: center; padding: 60px 20px;">
+        <!-- Observatory Agent -->
+        <div v-if="activePage === 'observatory-agent'" class="agent-page">
+          <div class="page-header">
+            <div class="page-header-orb-1"></div>
+            <div class="page-header-orb-2"></div>
+            <div class="page-header-content">
+              <div class="page-header-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+                  <rect x="3" y="7" width="18" height="12" rx="3"/><circle cx="9" cy="13" r="1.4"/><circle cx="15" cy="13" r="1.4"/><path d="M12 3v4"/><path d="M8 19v2"/><path d="M16 19v2"/>
+                </svg>
+              </div>
+              <div>
+                <h1 class="page-header-title">Observatory Agent</h1>
+                <p class="page-header-subtitle">Ask about any domain's deliverability — DNS authentication, Gmail reputation, and send/delivery metrics.</p>
+              </div>
+              <button v-if="agentMessages.length" class="agent-clear-btn" @click="clearAgentHistory" title="Clear conversation history">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Clear history
+              </button>
+            </div>
+          </div>
+
+          <div class="card-section">
+            <div class="agent-chat">
+              <div class="agent-messages" id="agentMessages">
+                <div v-if="agentMessages.length === 0" class="agent-empty">
+                  <div class="agent-empty-icon">💬</div>
+                  <p>Ask a question about a domain's email deliverability.</p>
+                  <div class="agent-suggestions">
+                    <button class="agent-chip" @click="askAgent('Do a complete deliverability analysis for getblueshift.com')">Complete analysis</button>
+                    <button class="agent-chip" @click="askAgent('What is the Gmail reputation for e.biggby.com?')">Gmail reputation</button>
+                    <button class="agent-chip" @click="askAgent('Show the email metrics trend for e.biggby.com over the past 7 days')">7-day trend</button>
+                  </div>
+                </div>
+
+                <template v-for="(m, i) in agentMessages" :key="i">
+                  <!-- User message -->
+                  <div v-if="m.role === 'user'" class="agent-msg agent-msg-user">
+                    <div class="agent-bubble">{{ m.text }}</div>
+                    <div class="agent-avatar">PK</div>
+                  </div>
+
+                  <!-- Agent / error message -->
+                  <div v-else class="agent-msg" :class="'agent-msg-' + m.role">
+                    <div class="agent-turn">
+                      <div class="agent-bubble">
+                        <div class="agent-bubble-text" v-html="mdToHtml(m.text)"></div>
+                      </div>
+
+                      <!-- Stat tiles -->
+                      <div v-if="m.ui && m.ui.stats && m.ui.stats.length" class="agent-tiles">
+                        <div v-for="(s, si) in m.ui.stats" :key="si" class="agent-tile" :class="'tone-' + s.tone">
+                          <div class="agent-tile-value">{{ s.value }}</div>
+                          <div class="agent-tile-label">{{ s.label }}</div>
+                          <div v-if="s.sub" class="agent-tile-sub">{{ s.sub }}</div>
+                        </div>
+                      </div>
+
+                      <!-- Tables -->
+                      <div v-if="m.ui && m.ui.tables && m.ui.tables.length" class="agent-tables">
+                        <div v-for="(tb, ti) in m.ui.tables" :key="ti" class="agent-table-card">
+                          <div v-if="tb.title" class="agent-table-title">{{ tb.title }}</div>
+                          <div class="agent-table-scroll">
+                            <table class="agent-table">
+                              <thead>
+                                <tr>
+                                  <th v-for="(col, ci) in tb.columns" :key="ci" :style="{ textAlign: (col.align || 'left') }">{{ col.label }}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr v-for="(row, ri) in tb.rows" :key="ri">
+                                  <td v-for="(cell, ci) in row" :key="ci" :style="{ textAlign: ((tb.columns[ci] && tb.columns[ci].align) || 'left') }">{{ cell }}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Charts -->
+                      <div v-if="m.ui && m.ui.charts && m.ui.charts.length" class="agent-charts" :class="{ single: m.ui.charts.length === 1 }">
+                        <div v-for="(c, ci) in m.ui.charts" :key="ci" class="agent-chart-card">
+                          <div class="agent-chart-title">{{ c.title }}</div>
+                          <div class="agent-chart-canvas-wrap"><canvas :id="'chart-' + i + '-' + ci"></canvas></div>
+                        </div>
+                      </div>
+
+                      <!-- Findings (issues first; passed checks summarized) -->
+                      <div v-if="m.ui && m.ui.findings && m.ui.findings.length" class="agent-findings">
+                        <div v-for="(f, fi) in m.ui.findings.filter(x => x.severity !== 'ok')" :key="fi"
+                             class="agent-finding" :class="'sev-' + f.severity">
+                          <span class="agent-finding-badge">{{ f.check }}</span>
+                          <span class="agent-finding-msg">{{ f.message }}</span>
+                        </div>
+                        <div v-if="m.ui.findings.filter(x => x.severity === 'ok').length" class="agent-passed">
+                          ✅ {{ m.ui.findings.filter(x => x.severity === 'ok').length }} checks passed
+                        </div>
+                      </div>
+
+                      <details v-if="m.tool" class="agent-tool">
+                        <summary>View raw tool output</summary>
+                        <pre>{{ m.tool }}</pre>
+                      </details>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Processing indicator -->
+                <div v-if="agentLoading" class="agent-processing">
+                  <div class="agent-processing-title">Processing<span class="agent-dots"><span>.</span><span>.</span><span>.</span></span></div>
+                  <div class="agent-activity-card">
+                    <span class="agent-activity-label">Agent Activity</span>
+                    <span class="agent-activity-status"><span class="agent-spinner"></span> Running</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="agent-input-wrap">
+                <div class="agent-input-row">
+                  <input class="agent-input" type="text" v-model="agentInput" :disabled="agentLoading"
+                         @keyup.enter="sendAgentMessage()" placeholder="Ask about a domain's deliverability… (e.g. email metrics trend for the past 7 days)" />
+                  <button class="agent-send-btn" :disabled="agentLoading || !agentInput.trim()" @click="sendAgentMessage()" title="Send">
+                    <svg v-if="!agentLoading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+                    <span v-else class="agent-spinner" style="border-top-color:#fff;border-color:rgba(255,255,255,0.4);"></span>
+                  </button>
+                </div>
+                <div class="agent-disclaimer">Observatory Agent can make mistakes. Consider checking important information.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="activePage !== 'home' && activePage !== 'pulsation' && activePage !== 'mbr' && activePage !== 'mappings' && activePage !== 'mappings_rails' && activePage !== 'deliverability-analysis' && activePage !== 'info' && activePage !== 'snds' && activePage !== 'gpt' && activePage !== 'bounces' && activePage !== 'updates' && activePage !== 'observatory-agent'" style="text-align: center; padding: 60px 20px;">
           <div style="font-size: 48px; margin-bottom: 16px;">🚧</div>
           <h3 style="font-size: 18px; color: #1e293b; margin-bottom: 8px;">Page Under Construction</h3>
           <p style="font-size: 14px; color: #64748b;">This page will be available soon with the premium design</p>
@@ -6811,6 +7211,8 @@
   <script src="js/api.js"></script>
   <script>
     const { createApp } = Vue;
+    // Chart.js instances for the Observatory Agent, kept outside Vue's reactive state.
+    const agentChartInstances = {};
 
     const vueApp = createApp({
       data() {
@@ -6820,7 +7222,13 @@
 
           // UI State
           sidebarCollapsed: false,
-          activePage: 'home',
+          // Return to the agent tab after refresh if that's where you were.
+          activePage: (localStorage.getItem('obsActivePage') === 'observatory-agent') ? 'observatory-agent' : 'home',
+          // Observatory Agent (chat) — history persisted in localStorage
+          agentMessages: (() => { try { return JSON.parse(localStorage.getItem('obsAgentMessages')) || []; } catch (e) { return []; } })(),
+          agentInput: '',
+          agentLoading: false,
+          agentConversationId: localStorage.getItem('obsAgentConversationId') || ('obs-' + Math.random().toString(36).slice(2)),
           daSubTabOpen: false,
           daActiveSubTab: 'email-spam-analysis',
           emailAnalysisTab: 'send-test-email',
@@ -6868,6 +7276,7 @@
             { key: 'snds', label: 'SNDS', icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>' },
             { key: 'gpt', label: 'GPT', icon: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8l6 4 6-4"/>' },
             { key: 'deliverability-analysis', label: 'Deliverability Analysis', icon: '<path d="M12 2l9 4v6c0 5-3.8 9.7-9 10-5.2-.3-9-5-9-10V6l9-4z"/><path d="M8 12h8"/><path d="M8 16h5"/>' },
+            { key: 'observatory-agent', label: 'Observatory Agent', icon: '<rect x="3" y="7" width="18" height="12" rx="3"/><circle cx="9" cy="13" r="1.4"/><circle cx="15" cy="13" r="1.4"/><path d="M12 3v4"/><path d="M8 19v2"/><path d="M16 19v2"/>' },
             { key: 'updates', label: 'Industry Updates', icon: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>' }
           ],
 
@@ -7107,8 +7516,25 @@
             badIP: 0
           },
 
+          // Email domain (ISP) stats tab
+          emailDomainStatsRange: 'past_7_days',
+          emailDomainStatsFromDate: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
+          emailDomainStatsToDate: new Date().toISOString().slice(0, 10),
+          emailDomainStatsData: null,
+          emailDomainStatsLoading: false,
+          emailDomainStatsError: null,
+          emailDomainStatsSortKey: 'sent_count',
+          emailDomainStatsSortDir: 'desc',
+
           domainLiveBouncesLoading: false,
           domainLiveBouncesRefreshing: false,
+          // Mailgun sending-domain selection: the Pulsation domain may map to several
+          // registered Mailgun domains, so the user picks which to pull bounce logs from.
+          domainLiveBouncesSource: null,
+          domainLiveBouncesSourceCandidates: [],
+          domainLiveBouncesSourceNeedsSelection: false,
+          domainLiveBouncesSourceError: null,
+          domainLiveBouncesSourceLoading: false,
           domainLiveBouncesWindowType: 'last_24h',
           domainLiveBouncesWindow: null,
           domainLiveBouncesDailyDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
@@ -7231,6 +7657,22 @@
         };
       },
       computed: {
+        sortedEmailDomainStatsRows() {
+          const rows = [...(this.emailDomainStatsData?.rows || [])];
+          const key = this.emailDomainStatsSortKey;
+          const dir = this.emailDomainStatsSortDir === 'asc' ? 1 : -1;
+          return rows.sort((a, b) => {
+            const av = a[key], bv = b[key];
+            if (typeof av === 'string' || typeof bv === 'string') {
+              return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
+            }
+            return ((av ?? 0) - (bv ?? 0)) * dir;
+          });
+        },
+        domainLiveBouncesProductionSourceCount() {
+          // Sandbox/dev domains are selectable individually but excluded from the combined view.
+          return this.domainLiveBouncesSourceCandidates.filter(candidate => !candidate.is_sandbox).length;
+        },
         filteredOverallData() {
           return this.getFilteredAndSorted(this.pulsationData?.overall_data || []);
         },
@@ -7641,6 +8083,135 @@
       },
 
       methods: {
+        // ===== Observatory Agent =====
+        scrollAgentToBottom() {
+          const el = document.getElementById('agentMessages');
+          if (el) el.scrollTop = el.scrollHeight;
+        },
+        persistAgentHistory() {
+          try {
+            // keep the last 50 messages to stay well under localStorage limits
+            localStorage.setItem('obsAgentMessages', JSON.stringify(this.agentMessages.slice(-50)));
+            localStorage.setItem('obsAgentConversationId', this.agentConversationId);
+          } catch (e) { /* quota or disabled storage — ignore */ }
+        },
+        clearAgentHistory() {
+          if (this.agentMessages.length && !confirm('Clear this conversation history?')) return;
+          this.agentMessages = [];
+          this.agentConversationId = 'obs-' + Math.random().toString(36).slice(2);
+          try {
+            localStorage.removeItem('obsAgentMessages');
+            localStorage.setItem('obsAgentConversationId', this.agentConversationId);
+          } catch (e) { /* ignore */ }
+          Object.keys(agentChartInstances).forEach(k => {
+            try { agentChartInstances[k].destroy(); } catch (e) {}
+            delete agentChartInstances[k];
+          });
+        },
+        restoreAgentCharts() {
+          this.agentMessages.forEach((m, idx) => {
+            if (m.role === 'agent' && m.ui && m.ui.charts && m.ui.charts.length) {
+              this.renderAgentCharts(idx, m.ui.charts);
+            }
+          });
+        },
+        askAgent(preset) {
+          if (preset) this.agentInput = preset;
+          this.sendAgentMessage();
+        },
+        async sendAgentMessage() {
+          const q = (this.agentInput || '').trim();
+          if (!q || this.agentLoading) return;
+          this.agentMessages.push({ role: 'user', text: q });
+          this.agentInput = '';
+          this.agentLoading = true;
+          this.persistAgentHistory();
+          this.$nextTick(() => this.scrollAgentToBottom());
+          try {
+            const resp = await fetch('http://localhost:8001/api/deliverability/agent', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ question: q, conversation_id: this.agentConversationId })
+            });
+            if (!resp.ok) {
+              const err = await resp.json().catch(() => ({}));
+              throw new Error(err.detail || ('HTTP ' + resp.status));
+            }
+            const data = await resp.json();
+            this.agentMessages.push({ role: 'agent', text: data.answer, tool: data.tool_output, ui: data.ui });
+            const idx = this.agentMessages.length - 1;
+            this.$nextTick(() => {
+              this.renderAgentCharts(idx, data.ui && data.ui.charts);
+              this.scrollAgentToBottom();
+            });
+          } catch (e) {
+            this.agentMessages.push({ role: 'error', text: 'Error: ' + e.message });
+          } finally {
+            this.agentLoading = false;
+            this.persistAgentHistory();
+            this.$nextTick(() => this.scrollAgentToBottom());
+          }
+        },
+        renderAgentCharts(idx, charts) {
+          if (!charts || !charts.length || !window.Chart) return;
+          charts.forEach((c, j) => {
+            const id = 'chart-' + idx + '-' + j;
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (agentChartInstances[id]) agentChartInstances[id].destroy();
+            const isBar = c.type === 'bar';
+            const horizontal = isBar && c.horizontal;
+            // Give horizontal bar rankings room to breathe.
+            if (horizontal && el.parentElement) {
+              el.parentElement.style.height = Math.max(200, (c.labels || []).length * 30 + 40) + 'px';
+            }
+            const datasets = (c.datasets || []).map(d => isBar ? ({
+              label: d.label, data: d.data,
+              backgroundColor: d.color, borderColor: d.color,
+              borderWidth: 0, borderRadius: 4, maxBarThickness: 26
+            }) : ({
+              label: d.label, data: d.data,
+              borderColor: d.color, backgroundColor: (d.color || '#2563eb') + '22',
+              borderWidth: 2, tension: 0.35, pointRadius: 2, pointHoverRadius: 5, fill: false
+            }));
+            agentChartInstances[id] = new Chart(el.getContext('2d'), {
+              type: c.type || 'line',
+              data: { labels: c.labels, datasets },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                indexAxis: horizontal ? 'y' : 'x',
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                  legend: { display: !isBar && (c.datasets || []).length > 1, labels: { boxWidth: 12, font: { family: 'Inter', size: 11 } } }
+                },
+                scales: {
+                  x: { grid: { display: horizontal }, ticks: { font: { size: 10 }, color: '#94a3b8' } },
+                  y: { grid: { color: '#eef2f7', display: !horizontal }, ticks: { font: { size: 10 }, color: '#94a3b8' } }
+                }
+              }
+            });
+          });
+        },
+        mdToHtml(t) {
+          if (!t) return '';
+          const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const inline = s => esc(s)
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>');
+          let html = '', inList = false;
+          const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+          for (const raw of t.split('\n')) {
+            const line = raw.replace(/\s+$/, '');
+            const mH = line.match(/^(#{1,6})\s+(.*)$/);
+            const mL = line.match(/^\s*[-*]\s+(.*)$/);
+            if (mH) { closeList(); html += '<h4>' + inline(mH[2]) + '</h4>'; }
+            else if (mL) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(mL[1]) + '</li>'; }
+            else if (line === '') { closeList(); }
+            else { closeList(); html += '<p>' + inline(line) + '</p>'; }
+          }
+          closeList();
+          return html;
+        },
         toggleDeliverabilitySection(key) {
           this.deliverabilitySectionsOpen = this.deliverabilitySectionsOpen || { auth: true, routing: false, identity: false, structure: false, content: true, links: false, mime: false, infra: false, compliance: false, misc: false, blocklist: false, signalScore: false };
           this.deliverabilitySectionsOpen[key] = !this.deliverabilitySectionsOpen[key];
@@ -8293,6 +8864,15 @@
                 });
               }
               if (mode === 'domain') {
+                // Drop stats belonging to the previous domain. Deliberately does not reload;
+                // the user presses Get stats, so changing domain costs no Druid query.
+                if (this.emailDomainStatsData?.sending_domain !== this.selectedDomain) {
+                  this.emailDomainStatsData = null;
+                  this.emailDomainStatsError = null;
+                }
+                // Resolve Mailgun sending domains first so the picker is populated (and any
+                // remembered choice applied) before the panel loads.
+                await this.loadDomainLiveBouncesSources();
                 await this.loadDomainLiveBounces();
               } else {
               this.domainLiveBouncesRows = [];
@@ -8301,6 +8881,10 @@
               this.domainLiveBouncesWindow = null;
               this.domainLiveBouncesResolvedESP = null;
               this.domainLiveBouncesESPError = null;
+              this.domainLiveBouncesSource = null;
+              this.domainLiveBouncesSourceCandidates = [];
+              this.domainLiveBouncesSourceNeedsSelection = false;
+              this.domainLiveBouncesSourceError = null;
               this.domainLiveBouncesError = null;
               this.domainLiveBouncesPagination = {
                 page: 1,
@@ -8325,6 +8909,140 @@
             this.chartData = null;
           }
         },
+        openEmailDomainStatsTab() {
+          // Deliberately does not load. Every query here is a Druid aggregation, so the
+          // user picks a range and presses Get stats.
+          this.pulsationTrendSubTab = 'email_domain_stats';
+        },
+        onEmailDomainStatsRangeChange() {
+          // Clear stale results so the table never shows one range's numbers under
+          // another range's label while waiting for Get stats.
+          this.emailDomainStatsData = null;
+          this.emailDomainStatsError = null;
+        },
+        sortEmailDomainStats(key) {
+          if (this.emailDomainStatsSortKey === key) {
+            this.emailDomainStatsSortDir = this.emailDomainStatsSortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            this.emailDomainStatsSortKey = key;
+            this.emailDomainStatsSortDir = key === 'email_domain' ? 'asc' : 'desc';
+          }
+        },
+        async loadEmailDomainStats(forceRefresh = false) {
+          if (!this.selectedDomain) return;
+          this.emailDomainStatsLoading = true;
+          this.emailDomainStatsError = null;
+          try {
+            const query = new URLSearchParams({ range_type: this.emailDomainStatsRange });
+            if (this.emailDomainStatsRange === 'custom') {
+              query.set('from_date', this.emailDomainStatsFromDate);
+              query.set('to_date', this.emailDomainStatsToDate);
+            }
+            if (forceRefresh) {
+              query.set('refresh', 'true');
+            }
+            const response = await fetch(`${this.API_BASE}/api/pulsation/domain-email-stats/${encodeURIComponent(this.selectedDomain)}?${query.toString()}`);
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.detail || 'Failed to load email domain stats');
+            }
+            this.emailDomainStatsData = result;
+          } catch (err) {
+            console.error('Error loading email domain stats:', err);
+            this.emailDomainStatsError = err.message;
+            this.emailDomainStatsData = null;
+          } finally {
+            this.emailDomainStatsLoading = false;
+          }
+        },
+        async exportEmailDomainStatsCSV() {
+          if (!this.selectedDomain) return;
+          try {
+            const query = new URLSearchParams({ range_type: this.emailDomainStatsRange });
+            if (this.emailDomainStatsRange === 'custom') {
+              query.set('from_date', this.emailDomainStatsFromDate);
+              query.set('to_date', this.emailDomainStatsToDate);
+            }
+            const response = await fetch(`${this.API_BASE}/api/pulsation/domain-email-stats/${encodeURIComponent(this.selectedDomain)}/export-csv?${query.toString()}`);
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(errorText || 'Failed to export CSV');
+            }
+            const suffix = this.emailDomainStatsRange === 'custom'
+              ? `${this.emailDomainStatsFromDate}_to_${this.emailDomainStatsToDate}`
+              : this.emailDomainStatsRange;
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `email_domain_stats_${this.selectedDomain}_${suffix}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            this.showToast('success', 'Exported', 'Email domain stats CSV downloaded successfully');
+          } catch (err) {
+            console.error('Error exporting email domain stats CSV:', err);
+            this.showToast('error', 'Export Failed', err.message);
+          }
+        },
+        domainLiveBouncesSourceStorageKey(domain) {
+          return `observatory.bounceSource.${(domain || '').toLowerCase()}`;
+        },
+        async loadDomainLiveBouncesSources() {
+          // Resolve the Pulsation domain onto Mailgun's registered sending domains so the
+          // picker knows what to offer. Only Mailgun needs this.
+          this.domainLiveBouncesSourceCandidates = [];
+          this.domainLiveBouncesSourceNeedsSelection = false;
+          this.domainLiveBouncesSourceError = null;
+          this.domainLiveBouncesSource = null;
+
+          if (!this.selectedDomain) return;
+          const esp = this.resolveSelectedDomainESP().esp;
+          if (esp !== 'Mailgun') return;
+
+          this.domainLiveBouncesSourceLoading = true;
+          try {
+            const query = new URLSearchParams({ esp });
+            const response = await fetch(`${this.API_BASE}/api/pulsation/domain-live-bounces/${encodeURIComponent(this.selectedDomain)}/sources?${query.toString()}`);
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.detail || 'Failed to resolve Mailgun sending domains');
+            }
+
+            this.domainLiveBouncesSourceCandidates = result.candidates || [];
+            this.domainLiveBouncesSourceNeedsSelection = !!result.needs_selection;
+            this.domainLiveBouncesSourceError = result.error || null;
+
+            const remembered = localStorage.getItem(this.domainLiveBouncesSourceStorageKey(this.selectedDomain));
+            const isValid = remembered === '__all__'
+              || this.domainLiveBouncesSourceCandidates.some(candidate => candidate.domain === remembered);
+
+            if (remembered && isValid) {
+              this.domainLiveBouncesSource = remembered;
+            } else if (result.resolved) {
+              this.domainLiveBouncesSource = result.resolved;
+            }
+          } catch (err) {
+            console.error('Error resolving bounce sources:', err);
+            this.domainLiveBouncesSourceError = err.message;
+          } finally {
+            this.domainLiveBouncesSourceLoading = false;
+          }
+        },
+        async onDomainLiveBouncesSourceChange() {
+          // Remember the choice per domain so the picker stops asking on every visit.
+          if (this.domainLiveBouncesSource) {
+            localStorage.setItem(
+              this.domainLiveBouncesSourceStorageKey(this.selectedDomain),
+              this.domainLiveBouncesSource
+            );
+          } else {
+            localStorage.removeItem(this.domainLiveBouncesSourceStorageKey(this.selectedDomain));
+          }
+          this.domainLiveBouncesPage = 1;
+          await this.loadDomainLiveBounces();
+        },
         async loadDomainLiveBounces() {
           if (!this.selectedDomain) return;
           this.domainLiveBouncesLoading = true;
@@ -8343,6 +9061,9 @@
             });
             if (espResolution.esp) {
               query.set('esp', espResolution.esp);
+            }
+            if (this.domainLiveBouncesSource) {
+              query.set('source', this.domainLiveBouncesSource);
             }
             if (this.domainLiveBouncesWindowType === 'daily' && this.domainLiveBouncesDailyDate) {
               query.set('snapshot_date', this.domainLiveBouncesDailyDate);
@@ -8422,7 +9143,14 @@
               await this.loadDomainLiveBounces();
               if (this.domainLiveBouncesPagination.total_count > 0) {
                 const label = this.domainLiveBouncesView === 'summary' ? 'grouped bounce reasons' : 'bounce details';
-                this.showToast('success', 'Live Bounces Refreshed', `Loaded ${formatNumber(this.domainLiveBouncesPagination.total_count)} ${label}`);
+                this.showToast('success', 'Live Bounces Refreshed', `Loaded ${this.formatNumber(this.domainLiveBouncesPagination.total_count)} ${label}`);
+                // A partial success still fetched rows, but say which source failed.
+                if (job.error) {
+                  this.showToast('warning', 'Some Sources Failed', job.error);
+                }
+              } else if (job.error) {
+                this.domainLiveBouncesError = job.error;
+                this.showToast('error', 'Bounce Fetch Failed', job.error);
               } else {
                 this.showToast('info', 'No Bounce Records', 'No bounce records were found for the selected domain and time window');
               }
@@ -8483,12 +9211,28 @@
             if (this.domainLiveBouncesWindowType === 'daily' && this.domainLiveBouncesDailyDate) {
               query.set('snapshot_date', this.domainLiveBouncesDailyDate);
             }
+            // Without this the refresh always asks for the auto-resolved source, so an
+            // ambiguous domain would keep returning 409 even after the user picked one.
+            if (this.domainLiveBouncesSource) {
+              query.set('source', this.domainLiveBouncesSource);
+            }
             const response = await fetch(`${this.API_BASE}/api/pulsation/domain-live-bounces/${encodeURIComponent(this.selectedDomain)}/refresh?${query.toString()}`, {
               method: 'POST'
             });
             const result = await response.json();
+            if (response.status === 409 && result.detail?.needs_selection) {
+              // Several registered Mailgun domains match; populate the picker and let the
+              // user choose rather than guessing one.
+              this.domainLiveBouncesSourceCandidates = result.detail.candidates || [];
+              this.domainLiveBouncesSourceNeedsSelection = true;
+              this.domainLiveBouncesSource = null;
+              this.domainLiveBouncesRefreshing = false;
+              this.showToast('warning', 'Choose a Bounce Source', result.detail.message);
+              return;
+            }
             if (!response.ok) {
-              throw new Error(result.detail || 'Failed to refresh live bounces');
+              const detail = result.detail;
+              throw new Error(typeof detail === 'string' ? detail : (detail?.message || 'Failed to refresh live bounces'));
             }
             this.domainLiveBouncesRefreshJobId = result.job_id || result.job?.job_id || null;
             this.showToast('info', 'Refresh Started', result.message || 'Live bounce refresh is running in background');
@@ -8591,6 +9335,9 @@
             });
             if (espResolution.esp) {
               query.set('esp', espResolution.esp);
+            }
+            if (this.domainLiveBouncesSource) {
+              query.set('source', this.domainLiveBouncesSource);
             }
             if (this.domainLiveBouncesWindowType === 'daily' && this.domainLiveBouncesDailyDate) {
               query.set('snapshot_date', this.domainLiveBouncesDailyDate);
@@ -12071,6 +12818,11 @@
         this.checkGPTAuthStatus();
         // Load industry updates
         this.loadIndustryUpdates();
+        // If we reloaded straight onto the Observatory Agent tab, restore its
+        // charts + scroll (the activePage watcher doesn't fire for the initial value).
+        if (this.activePage === 'observatory-agent') {
+          this.$nextTick(() => { this.restoreAgentCharts(); this.scrollAgentToBottom(); });
+        }
       },
       beforeDestroy() {
         this.cleanupInboundPolling();
@@ -12095,6 +12847,9 @@
 
         // Auto-load data when navigating to specific pages
         activePage(newPage, oldPage) {
+          // Remember the tab so a refresh returns here (agent tab only).
+          try { localStorage.setItem('obsActivePage', newPage); } catch (e) {}
+
           // Auto-load Home dashboard data
           if (newPage === 'home') {
             this.loadHomeDailySummary();
@@ -12117,6 +12872,11 @@
 
           if (newPage === 'mappings_rails') {
             this.loadAccountMappingsRails();
+          }
+
+          // Re-render charts for restored Observatory Agent history
+          if (newPage === 'observatory-agent') {
+            this.$nextTick(() => { this.restoreAgentCharts(); this.scrollAgentToBottom(); });
           }
 
         }
