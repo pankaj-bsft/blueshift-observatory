@@ -12,16 +12,24 @@ DRUID_EU_BROKER = 'http://druid-1.prodeu.vpc/druid/v2/sql/'
 
 ESPS = ['Sparkpost', 'Sendgrid', 'Mailgun']
 
-# ESP API Credentials for Account Info (loaded from environment)
-MAILGUN_API_KEY = os.getenv('MAILGUN_API_KEY', 'key-067d89fed50025263a19c5c4410856e6')
+# ESP API Credentials — read from .env only. There are deliberately no hardcoded
+# fallbacks: this repository is public, and a fallback also hides a missing .env by
+# silently authenticating with a stale key instead of failing.
+MAILGUN_API_KEY = os.getenv('MAILGUN_API_KEY', '')
 MAILGUN_US_BASE_URL = 'https://api.mailgun.net/v3'
 MAILGUN_EU_BASE_URL = 'https://api.eu.mailgun.net/v3'
 
-SPARKPOST_API_KEY = os.getenv('SPARKPOST_API_KEY', '7561ca5db97fd8866d9112eb4781154486b18971')
+SPARKPOST_API_KEY = os.getenv('SPARKPOST_API_KEY', '')
 SPARKPOST_BASE_URL = 'https://api.sparkpost.com/api/v1'
 
-SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
 SENDGRID_BASE_URL = 'https://api.sendgrid.com/v3'
+
+# Microsoft SNDS. The key is a URL parameter rather than a header, so the endpoints
+# are built here from SNDS_KEY rather than stored as complete URLs.
+SNDS_KEY = os.getenv('SNDS_KEY', '')
+SNDS_DATA_URL = f'https://substrate.office.com/ip-domain-management-snds/SNDS/DataKey?Key={SNDS_KEY}'
+SNDS_IP_STATUS_URL = f'https://substrate.office.com/ip-domain-management-snds/SNDS/IpStatusKey?Key={SNDS_KEY}'
 
 DRUID_QUERY_TEMPLATE = """
 SELECT

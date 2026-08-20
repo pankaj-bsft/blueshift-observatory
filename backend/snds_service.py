@@ -9,9 +9,19 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import xml.etree.ElementTree as ET
 
-# SNDS API Configuration
-SNDS_DATA_URL = "https://sendersupport.olc.protection.outlook.com/snds/data/?key=9bf7cec9-4cf2-466f-924e-6c54b4ebbd5e"
-SNDS_IP_STATUS_URL = "https://sendersupport.olc.protection.outlook.com/snds/ipStatus/?key=9bf7cec9-4cf2-466f-924e-6c54b4ebbd5e"
+# SNDS API Configuration. Imported from config so the key comes from .env and is not
+# committed; importing config also loads .env, which matters when this module is used
+# by collect_snds_daily.py from cron rather than through the FastAPI app.
+from config import SNDS_KEY, SNDS_DATA_URL, SNDS_IP_STATUS_URL
+
+
+def _require_snds_key():
+    """Fail loudly rather than calling the API with an empty key and parsing the error."""
+    if not SNDS_KEY:
+        raise RuntimeError(
+            'SNDS_KEY is not set. Add it to the project .env '
+            '(SNDS_KEY=<key from the SNDS portal>) — it is intentionally not stored in code.'
+        )
 
 # Database path
 SNDS_DB_PATH = data_path('snds_data.db')
@@ -74,6 +84,7 @@ def fetch_snds_data() -> Dict:
     Returns raw data and parsed results
     """
     try:
+        _require_snds_key()
         print('Fetching SNDS data...')
         response = requests.get(SNDS_DATA_URL, timeout=30)
 
@@ -114,6 +125,7 @@ def fetch_snds_ip_status() -> Dict:
     Returns list of all registered IPs with their status
     """
     try:
+        _require_snds_key()
         print('Fetching SNDS IP status...')
         response = requests.get(SNDS_IP_STATUS_URL, timeout=30)
 
