@@ -70,3 +70,9 @@ pre-*/
 *.bak
 *.bak-*
 *.broken_backup
+
+# The data directory is host-specific: a symlink on the laptop, a real directory
+# on EC2. Tracking it as a symlink pointed EC2 at a non-existent Mac path and a
+# checkout replaced the live DB directory with a broken link, deleting the
+# gitignored *.db files inside it. Each host manages its own.
+data
