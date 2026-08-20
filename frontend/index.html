@@ -460,7 +460,7 @@
     .stat-card-critical .stat-card-label { color: var(--color-red); }
 
     .stat-card-value {
-      font-size: 36px;
+      font-size: 46px;
       font-weight: 800;
       color: #1e293b;
       margin: 0 0 4px;
@@ -480,6 +480,29 @@
 
     .stats-grid .stat-card-subtitle {
       font-size: 9px;
+    }
+
+    /* Pulsation classification tiles (healthy / monitor / low / critical) only:
+       centred text and a larger number. Deliberately scoped to the four colour
+       variants rather than .stat-card or .stats-grid, because .stat-card,
+       .stat-card-label and .stat-card-value are shared with the Account Info,
+       Rails and SNDS grids (ten other cards) which must not change.
+       Box size is unchanged: .stats-grid .stat-card sets min-height 92px and the
+       content stack stays under that even at the larger value size. Must stay
+       after .stats-grid .stat-card-value above — equal specificity, so source
+       order decides. */
+    .stat-card-healthy,
+    .stat-card-monitor,
+    .stat-card-low,
+    .stat-card-critical {
+      text-align: center;
+    }
+
+    .stat-card-healthy .stat-card-value,
+    .stat-card-monitor .stat-card-value,
+    .stat-card-low .stat-card-value,
+    .stat-card-critical .stat-card-value {
+      font-size: 30px;
     }
 
     /* Tabs */
@@ -2296,8 +2319,14 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="row in sortedEmailDomainStatsRows" :key="row.email_domain">
-                        <td><b>{{ row.email_domain }}</b></td>
+                      <tr v-for="row in sortedEmailDomainStatsRows" :key="row.email_domain"
+                          :style="row.email_domain === 'Other' ? 'background: #fafafa; color: #475569;' : ''">
+                        <td>
+                          <b>{{ row.email_domain }}</b>
+                          <span v-if="row.email_domain === 'Other'" style="font-weight: 400; color: #94a3b8;" title="All recipient domains outside the tracked mailbox-provider list, combined">
+                            — all other providers
+                          </span>
+                        </td>
                         <td class="text-mono">{{ formatNumber(row.sent_count) }}</td>
                         <td class="text-mono">{{ formatNumber(row.delivered_count) }}</td>
                         <td class="text-mono">{{ formatPercent(row.delivery_rate) }}</td>
@@ -6759,7 +6788,14 @@
                   <div class="agent-processing-title">Processing<span class="agent-dots"><span>.</span><span>.</span><span>.</span></span></div>
                   <div class="agent-activity-card">
                     <span class="agent-activity-label">Agent Activity</span>
-                    <span class="agent-activity-status"><span class="agent-spinner"></span> Running</span>
+                    <span class="agent-activity-status">
+                      <span class="agent-spinner"></span>
+                      Running<template v-if="agentElapsed"> · {{ agentElapsed }}s</template>
+                    </span>
+                    <button class="btn btn-sm btn-secondary" style="margin-left: 12px;"
+                            @click="cancelAgentMessage()" title="Stop waiting for this response">
+                      Cancel
+                    </button>
                   </div>
                 </div>
               </div>
@@ -7225,9 +7261,35 @@
           // Return to the agent tab after refresh if that's where you were.
           activePage: (localStorage.getItem('obsActivePage') === 'observatory-agent') ? 'observatory-agent' : 'home',
           // Observatory Agent (chat) — history persisted in localStorage
-          agentMessages: (() => { try { return JSON.parse(localStorage.getItem('obsAgentMessages')) || []; } catch (e) { return []; } })(),
+          // Restored messages are normalised here as well as at render time: history saved
+          // before the answer-shape fix can contain a content-block array as `text`, and
+          // that value must not reach the markdown renderer.
+          agentMessages: (() => {
+            const flatten = (value) => {
+              if (typeof value === 'string') return value;
+              if (value === null || value === undefined) return '';
+              if (Array.isArray(value)) {
+                return value.map(b => (typeof b === 'string' ? b
+                  : (b && typeof b === 'object' && b.type === 'text' ? (b.text || '') : '')))
+                  .filter(Boolean).join('\n');
+              }
+              if (typeof value === 'object') return value.text || value.answer || '';
+              return String(value);
+            };
+            try {
+              const stored = JSON.parse(localStorage.getItem('obsAgentMessages')) || [];
+              if (!Array.isArray(stored)) return [];
+              return stored.map(m => (m && typeof m === 'object')
+                ? { ...m, text: flatten(m.text) }
+                : m);
+            } catch (e) { return []; }
+          })(),
           agentInput: '',
           agentLoading: false,
+          // Lets the Cancel button abort an in-flight agent request.
+          agentAbortController: null,
+          agentElapsed: 0,
+          agentElapsedTimer: null,
           agentConversationId: localStorage.getItem('obsAgentConversationId') || ('obs-' + Math.random().toString(36).slice(2)),
           daSubTabOpen: false,
           daActiveSubTab: 'email-spam-analysis',
@@ -8119,6 +8181,12 @@
           if (preset) this.agentInput = preset;
           this.sendAgentMessage();
         },
+        cancelAgentMessage() {
+          // Aborts the request so the UI is usable again. The backend turn is a blocking
+          // call and keeps running to completion server-side; this stops us waiting for
+          // it, it does not kill it.
+          if (this.agentAbortController) this.agentAbortController.abort();
+        },
         async sendAgentMessage() {
           const q = (this.agentInput || '').trim();
           if (!q || this.agentLoading) return;
@@ -8127,26 +8195,49 @@
           this.agentLoading = true;
           this.persistAgentHistory();
           this.$nextTick(() => this.scrollAgentToBottom());
+
+          const controller = new AbortController();
+          this.agentAbortController = controller;
+          this.agentElapsed = 0;
+          const startedAt = Date.now();
+          this.agentElapsedTimer = setInterval(() => {
+            this.agentElapsed = Math.round((Date.now() - startedAt) / 1000);
+          }, 1000);
+
           try {
-            const resp = await fetch('http://localhost:8001/api/deliverability/agent', {
+            const resp = await fetch(`${this.API_BASE}/api/deliverability/agent`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ question: q, conversation_id: this.agentConversationId })
+              body: JSON.stringify({ question: q, conversation_id: this.agentConversationId }),
+              signal: controller.signal
             });
             if (!resp.ok) {
               const err = await resp.json().catch(() => ({}));
               throw new Error(err.detail || ('HTTP ' + resp.status));
             }
             const data = await resp.json();
-            this.agentMessages.push({ role: 'agent', text: data.answer, tool: data.tool_output, ui: data.ui });
+            // Normalise here too, so a non-string answer can never enter the message
+            // list (and therefore never reach localStorage or the renderer).
+            this.agentMessages.push({ role: 'agent', text: this.agentTextOf(data.answer), tool: data.tool_output, ui: data.ui });
             const idx = this.agentMessages.length - 1;
             this.$nextTick(() => {
               this.renderAgentCharts(idx, data.ui && data.ui.charts);
               this.scrollAgentToBottom();
             });
           } catch (e) {
-            this.agentMessages.push({ role: 'error', text: 'Error: ' + e.message });
+            if (e.name === 'AbortError') {
+              this.agentMessages.push({
+                role: 'error',
+                text: 'Cancelled — stopped waiting for the response. The backend may still '
+                    + 'finish this turn in the background, so your next question could see it.'
+              });
+            } else {
+              this.agentMessages.push({ role: 'error', text: 'Error: ' + e.message });
+            }
           } finally {
+            if (this.agentElapsedTimer) { clearInterval(this.agentElapsedTimer); this.agentElapsedTimer = null; }
+            this.agentElapsed = 0;
+            this.agentAbortController = null;
             this.agentLoading = false;
             this.persistAgentHistory();
             this.$nextTick(() => this.scrollAgentToBottom());
@@ -8192,7 +8283,25 @@
             });
           });
         },
+        // Flatten anything non-string to text before rendering. Anthropic models return
+        // an array of content blocks (including 'thinking' blocks) rather than a string,
+        // and one such value reaching t.split() below threw during render and blanked the
+        // whole app — including on reload, because messages are persisted to localStorage.
+        agentTextOf(value) {
+          if (typeof value === 'string') return value;
+          if (value === null || value === undefined) return '';
+          if (Array.isArray(value)) {
+            return value.map(b => {
+              if (typeof b === 'string') return b;
+              if (b && typeof b === 'object' && b.type === 'text') return b.text || '';
+              return '';
+            }).filter(Boolean).join('\n');
+          }
+          if (typeof value === 'object') return value.text || value.answer || '';
+          return String(value);
+        },
         mdToHtml(t) {
+          t = this.agentTextOf(t);
           if (!t) return '';
           const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
           const inline = s => esc(s)

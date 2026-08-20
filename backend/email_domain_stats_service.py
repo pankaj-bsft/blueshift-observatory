@@ -18,6 +18,7 @@ percent high on real data. Multi-day responses therefore mark those columns appr
 """
 
 import csv
+import hashlib
 import io
 import json
 import sqlite3
@@ -88,9 +89,41 @@ ALL_METRICS = ADDITIVE_METRICS + APPROX_METRICS
 
 RANGE_PRESETS = {'past_24h', 'past_7_days', 'past_30_days', 'custom'}
 
+# Everything not in ISP_DOMAINS is aggregated under this label so the table accounts for
+# all of a domain's traffic rather than just the listed providers.
+OTHER_BUCKET_LABEL = 'Other'
+
 
 def _isp_in_clause() -> str:
     return ', '.join("'{}'".format(domain.replace("'", "''")) for domain in ISP_DOMAINS)
+
+
+def _isp_bucket_expr() -> str:
+    """
+    Bucket every recipient domain outside ISP_DOMAINS into a single 'Other' row.
+
+    Applied as a projection rather than a WHERE filter so no traffic is dropped: the
+    table's total then reconciles with the Pulsation total for the same domain and range,
+    instead of silently under-reporting by whatever fell outside the list. NULL and empty
+    email_domain fall into 'Other' via the ELSE branch.
+    """
+    return (
+        f"CASE WHEN email_domain IN ({_isp_in_clause()}) "
+        f"THEN email_domain ELSE '{OTHER_BUCKET_LABEL}' END"
+    )
+
+
+def isp_list_fingerprint() -> str:
+    """
+    Short hash of the ISP list.
+
+    'Other' means "everything not in ISP_DOMAINS", so cached rows are only comparable to
+    rows computed from the same list. Stored with each cached day and checked on read, so
+    editing ISP_DOMAINS invalidates affected days rather than silently mixing two
+    definitions of 'Other' inside one range.
+    """
+    joined = ','.join(sorted(domain.lower() for domain in ISP_DOMAINS))
+    return hashlib.sha256(joined.encode('utf-8')).hexdigest()[:16]
 
 
 def _build_query(sending_domain: str, start: str, end: str, bucket_by_day: bool) -> str:
@@ -108,7 +141,7 @@ def _build_query(sending_domain: str, start: str, end: str, bucket_by_day: bool)
     return f"""
 SELECT
   {day_select}{_ADAPTER_NAME_EXPR} AS "adapter_name",
-  email_domain,
+  {_isp_bucket_expr()} AS email_domain,
   sum(case action when 'sent' then "count" else null end) as sent_count,
   sum(case action when 'delivered' then "count" else null end) as delivered_count,
   APPROX_COUNT_DISTINCT_DS_HLL(CASE WHEN action ='open' AND "extended_attributes.opened_by" = 'user' then "message_distinct" else null end) as unique_open_count_user,
@@ -126,9 +159,8 @@ WHERE "__time" >= TIMESTAMP '{start}'
   AND LOOKUP("extended_attributes.adapter_uuid", 'accountadapters_uuid-to-accountadapters_from_address') IS NOT NULL
   AND {_ADAPTER_NAME_EXPR} IN ('Sparkpost','Mailgun','Sendgrid')
   AND {_FROM_DOMAIN_EXPR} = '{safe_domain}'
-  AND email_domain IN ({_isp_in_clause()})
 GROUP BY
-  {day_group}email_domain,
+  {day_group}{_isp_bucket_expr()},
   {_ADAPTER_NAME_EXPR}
 """
 
@@ -173,8 +205,18 @@ def init_email_domain_stats_db() -> None:
             PRIMARY KEY (sending_domain, region, report_date)
         )
     ''')
+    # Which ISP list produced each cached day. Rows written under a different list define
+    # 'Other' differently and must not be mixed into one range.
+    _ensure_column(cursor, 'email_domain_daily_stats', 'isp_list_hash', 'TEXT')
+    _ensure_column(cursor, 'email_domain_fetch_log', 'isp_list_hash', 'TEXT')
     conn.commit()
     conn.close()
+
+
+def _ensure_column(cursor, table_name: str, column_name: str, definition: str) -> None:
+    columns = [row[1] for row in cursor.execute(f'PRAGMA table_info({table_name})').fetchall()]
+    if column_name not in columns:
+        cursor.execute(f'ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}')
 
 
 def _now_iso() -> str:
@@ -271,10 +313,13 @@ def _cached_dates(sending_domain: str, region: str, dates: List[str]) -> set:
         return set()
     conn = sqlite3.connect(DB_PATH)
     placeholders = ', '.join('?' for _ in dates)
+    # Only days computed from the current ISP list count as cached; a list change makes
+    # affected days look missing so they are refetched under the new definition of 'Other'.
     rows = conn.execute(
         f'SELECT report_date FROM email_domain_fetch_log '
-        f'WHERE sending_domain = ? AND region = ? AND report_date IN ({placeholders})',
-        [sending_domain.lower(), region] + dates
+        f'WHERE sending_domain = ? AND region = ? AND isp_list_hash = ? '
+        f'AND report_date IN ({placeholders})',
+        [sending_domain.lower(), region, isp_list_fingerprint()] + dates
     ).fetchall()
     conn.close()
     return {row[0] for row in rows}
@@ -284,19 +329,30 @@ def _store_daily_rows(sending_domain: str, region: str, rows: List[Dict], dates_
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     now = _now_iso()
+    fingerprint = isp_list_fingerprint()
     columns = ', '.join(ALL_METRICS)
     placeholders = ', '.join('?' for _ in ALL_METRICS)
+
+    # Clear each refetched day first. INSERT OR REPLACE alone would leave behind rows for
+    # ISPs dropped from the list, which are now folded into 'Other' and would double-count.
+    if dates_fetched:
+        date_placeholders = ', '.join('?' for _ in dates_fetched)
+        cursor.execute(
+            f'DELETE FROM email_domain_daily_stats '
+            f'WHERE sending_domain = ? AND region = ? AND report_date IN ({date_placeholders})',
+            [sending_domain.lower(), region] + dates_fetched
+        )
 
     stored = 0
     for row in rows:
         cursor.execute(
             f'INSERT OR REPLACE INTO email_domain_daily_stats '
-            f'(sending_domain, region, esp, email_domain, report_date, {columns}, fetched_at) '
-            f'VALUES (?, ?, ?, ?, ?, {placeholders}, ?)',
+            f'(sending_domain, region, esp, email_domain, report_date, {columns}, fetched_at, isp_list_hash) '
+            f'VALUES (?, ?, ?, ?, ?, {placeholders}, ?, ?)',
             [
                 sending_domain.lower(), region, row['esp'], row['email_domain'], row['report_date'],
                 *[int(row.get(metric) or 0) for metric in ALL_METRICS],
-                now
+                now, fingerprint
             ]
         )
         stored += 1
@@ -308,8 +364,9 @@ def _store_daily_rows(sending_domain: str, region: str, rows: List[Dict], dates_
     for date in dates_fetched:
         cursor.execute(
             'INSERT OR REPLACE INTO email_domain_fetch_log '
-            '(sending_domain, region, report_date, row_count, fetched_at) VALUES (?, ?, ?, ?, ?)',
-            (sending_domain.lower(), region, date, per_date_counts.get(date, 0), now)
+            '(sending_domain, region, report_date, row_count, fetched_at, isp_list_hash) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            (sending_domain.lower(), region, date, per_date_counts.get(date, 0), now, fingerprint)
         )
 
     conn.commit()
@@ -323,10 +380,13 @@ def _load_daily_rows(sending_domain: str, region: str, dates: List[str]) -> List
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     placeholders = ', '.join('?' for _ in dates)
+    # Mirror _cached_dates: never load rows written under a different ISP list, or one
+    # range could blend two different definitions of 'Other'.
     rows = conn.execute(
         f'SELECT * FROM email_domain_daily_stats '
-        f'WHERE sending_domain = ? AND region = ? AND report_date IN ({placeholders})',
-        [sending_domain.lower(), region] + dates
+        f'WHERE sending_domain = ? AND region = ? AND isp_list_hash = ? '
+        f'AND report_date IN ({placeholders})',
+        [sending_domain.lower(), region, isp_list_fingerprint()] + dates
     ).fetchall()
     conn.close()
     return [dict(row) for row in rows]
@@ -424,7 +484,13 @@ def _aggregate(rows: List[Dict]) -> List[Dict]:
         row['bounce_rate'] = round(row['bounce_count'] / sent * 100, 2) if sent else 0.0
         row['spam_rate'] = round(row['spam_report_count'] / sent * 100, 4) if sent else 0.0
         row['unsub_rate'] = round(row['unsubscribe_count'] / sent * 100, 4) if sent else 0.0
-    result.sort(key=lambda item: (-item['sent_count'], item['email_domain']))
+    # 'Other' is an aggregate of many providers, not a peer of the named ones, so it is
+    # pinned last regardless of volume.
+    result.sort(key=lambda item: (
+        item['email_domain'] == OTHER_BUCKET_LABEL,
+        -item['sent_count'],
+        item['email_domain']
+    ))
     return result
 
 
@@ -434,13 +500,18 @@ def get_email_domain_stats(
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
     region: Optional[str] = None,
-    force_refresh: bool = False
+    force_refresh: bool = False,
+    cached_only: bool = False
 ) -> Dict:
     """
     ISP-level sending stats for one sending domain over a date range.
 
     Date-aligned ranges are served from the local day-level cache, fetching only missing
     days from Druid. The rolling 24h window always queries Druid.
+
+    cached_only returns whatever is already cached and never queries Druid, listing the
+    days it could not cover in `cache['missing_dates']`. The agent uses this so answering a
+    question costs no Druid load unless a live pull is explicitly requested.
     """
     sending_domain = (sending_domain or '').strip().lower()
     if not sending_domain:
@@ -452,6 +523,7 @@ def get_email_domain_stats(
 
     all_rows: List[Dict] = []
     errors: List[str] = []
+    missing_dates: List[str] = []
     days_from_cache = 0
     days_from_druid = 0
 
@@ -459,6 +531,13 @@ def get_email_domain_stats(
         try:
             if not window['cacheable']:
                 # Rolling window: single aggregate query, so the HLL uniques are exact.
+                # There is nothing cached to fall back on, so cached_only cannot serve it.
+                if cached_only:
+                    errors.append(
+                        f'{region_name}: the rolling 24h window cannot be served from cache '
+                        '(it is not day-aligned); a live Druid query is required'
+                    )
+                    continue
                 all_rows.extend(_fetch_from_druid(
                     sending_domain, region_name, window['start'], window['end'], bucket_by_day=False
                 ))
@@ -468,6 +547,13 @@ def get_email_domain_stats(
             dates = window['dates']
             cached = set() if force_refresh else _cached_dates(sending_domain, region_name, dates)
             missing = [date for date in dates if date not in cached]
+
+            if missing and cached_only:
+                # Report the gap and serve what is cached rather than querying Druid.
+                missing_dates.extend(missing)
+                days_from_cache += len(dates) - len(missing)
+                all_rows.extend(_load_daily_rows(sending_domain, region_name, dates))
+                continue
 
             if missing:
                 # One query covering the missing span; extra days it returns are stored too.
@@ -516,6 +602,10 @@ def get_email_domain_stats(
             'days_from_cache': days_from_cache,
             'days_from_druid': days_from_druid,
             'retention_days': RETENTION_DAYS,
+            'cached_only': cached_only,
+            # Days the caller asked for that are not cached. Non-empty only under
+            # cached_only, where they were deliberately not fetched.
+            'missing_dates': sorted(set(missing_dates)),
         },
         # True when values came from summed daily rows, making the unique_* columns
         # slight overcounts. False for the rolling 24h window, where they are exact.

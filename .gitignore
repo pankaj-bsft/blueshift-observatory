@@ -64,3 +64,9 @@ gpt_collection.log
 # Backups (contain old code with secrets)
 backups/
 pre-*/
+
+# Timestamped backups (*.bak-YYYYmmdd-HHMMSS) — these can contain copies of .env
+# files and other secrets, and plain `.env` above does not match them.
+*.bak
+*.bak-*
+*.broken_backup

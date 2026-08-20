@@ -511,13 +511,13 @@ def get_all_domains_latest() -> List[Dict]:
             g.data_date,
             g.verified,
             m.account_name
-        FROM (
-            SELECT *,
-                   ROW_NUMBER() OVER (PARTITION BY domain ORDER BY data_date DESC) as rn
+        FROM gpt_data g
+        INNER JOIN (
+            SELECT domain, MAX(data_date) AS max_date
             FROM gpt_data
-        ) g
+            GROUP BY domain
+        ) latest ON g.domain = latest.domain AND g.data_date = latest.max_date
         LEFT JOIN mappings.domain_account_mapping m ON g.domain = m.sending_domain
-        WHERE g.rn = 1
         ORDER BY g.domain
     ''')
 
