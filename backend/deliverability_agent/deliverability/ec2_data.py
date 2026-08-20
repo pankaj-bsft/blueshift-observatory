@@ -1,18 +1,25 @@
-"""Reusable read-only SQLite-over-SSH client for the EC2 data box.
+"""Reusable read-only SQLite client for the observatory data box.
 
 All observatory metrics live in SQLite files on EC2
-(/home/ec2-user/pani/blueshift_observatory/data/*.db). The Druid brokers are
-VPC-internal and unreachable from a laptop, but these daily-cached DBs give us
-sends/delivered/bounces/reputation without needing live Druid.
+(/home/ec2-user/pani/blueshift_observatory/data/*.db). These daily-cached DBs give
+us sends/delivered/bounces/reputation without needing live Druid.
 
-This module runs a parameterized query on EC2 over SSH and returns row dicts,
-so every metric source (Postmaster, daily metrics, bounces, SNDS) shares one
-code path. Config comes from .env (EC2_HOST/EC2_USER/EC2_KEY/EC2_DATA_DIR).
+Two access modes, so the same code works from a laptop and on the data box itself:
+
+  * ssh   — run the query remotely over SSH (what a laptop does)
+  * local — open the SQLite file directly (what the EC2 host itself does)
+
+The mode is chosen per query by whether the database file is present on this
+machine, because SSH-ing to yourself needs a key the box does not have, and the
+files are sitting right there anyway. EC2_DATA_MODE=ssh|local forces one.
+
+Config comes from .env (EC2_HOST/EC2_USER/EC2_KEY/EC2_DATA_DIR).
 """
 
 import json
 import os
 import shlex
+import sqlite3
 import subprocess
 import time
 from pathlib import Path
@@ -37,10 +44,50 @@ EC2_HOST = os.getenv("EC2_HOST", "")
 EC2_USER = os.getenv("EC2_USER", "ec2-user")
 EC2_KEY = os.path.expanduser(os.getenv("EC2_KEY", "~/.ssh/id_rsa"))
 DATA_DIR = os.getenv("EC2_DATA_DIR", "/home/ec2-user/pani/blueshift_observatory/data")
+# auto (default) | local | ssh
+DATA_MODE = os.getenv("EC2_DATA_MODE", "auto").strip().lower()
 
 
 class EC2DataError(RuntimeError):
     """Human-friendly error the agent can relay to the user."""
+
+
+def _resolve_db_path(db):
+    """`db` may be a bare filename (resolved under DATA_DIR) or an absolute path."""
+    return db if db.startswith("/") else f"{DATA_DIR.rstrip('/')}/{db}"
+
+
+def _use_local(db_path):
+    """
+    Decide whether to read the file directly rather than over SSH.
+
+    'auto' reads locally when the database is actually present here. That makes the
+    agent work unchanged on the EC2 host, where SSH-ing to itself would need a key
+    that is not installed, while a laptop (where these paths do not exist) still
+    goes over SSH.
+    """
+    if DATA_MODE == "local":
+        return True
+    if DATA_MODE == "ssh":
+        return False
+    return os.path.isfile(db_path)
+
+
+def _local_query(db_path, sql, params):
+    """Read-only query against a SQLite file on this machine."""
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    except sqlite3.OperationalError as exc:
+        raise EC2DataError(f"Could not open {db_path} for reading: {exc}") from exc
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = [dict(r) for r in conn.execute(sql, list(params)).fetchall()]
+    except sqlite3.Error as exc:
+        raise EC2DataError(f"Query against {os.path.basename(db_path)} failed: {exc}") from exc
+    finally:
+        conn.close()
+    # Match the SSH path, which round-trips through JSON with default=str.
+    return json.loads(json.dumps(rows, default=str))
 
 
 # Executed on EC2 via `python3 -`; reads args from env to avoid quoting/injection.
@@ -54,13 +101,22 @@ _REMOTE_SCRIPT = (
 
 
 def query(db, sql, params=()):
-    """Run a read-only query against an EC2 SQLite DB; return a list of dicts.
+    """Run a read-only query against an observatory SQLite DB; return a list of dicts.
 
+    Reads the file directly when it exists on this machine, otherwise over SSH.
     `db` may be a bare filename (resolved under DATA_DIR) or an absolute path.
     """
+    db_path = _resolve_db_path(db)
+
+    if _use_local(db_path):
+        if not os.path.isfile(db_path):
+            raise EC2DataError(
+                f"{db_path} is not present on this machine and EC2_DATA_MODE=local."
+            )
+        return _local_query(db_path, sql, params)
+
     if not EC2_HOST:
         raise EC2DataError("EC2_HOST is not set. Add EC2_* settings to .env.")
-    db_path = db if db.startswith("/") else f"{DATA_DIR.rstrip('/')}/{db}"
 
     remote_env = (
         f"DB={shlex.quote(db_path)} "
