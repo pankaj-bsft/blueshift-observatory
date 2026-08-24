@@ -135,7 +135,11 @@ def rank_domains(metric="bounce_rate", min_sent=0, limit=10, days=7, order="desc
         where, params, window = ("WHERE report_date >= date((SELECT MAX(report_date) FROM daily_metrics), ?) ",
                                  [f"-{max(days - 1, 0)} day", min_sent_eff], f"last {days}d")
 
-    rows = ec2_data.query(DELIV_DB, base + where + "GROUP BY domain HAVING SUM(sent) >= ?", tuple(params))
+    # Fetch every sending domain (>=1 send) so population stats can describe what the
+    # min_sent threshold excludes; min_sent is then applied to the ranked rows only.
+    params_all = list(params)
+    params_all[-1] = 1
+    rows = ec2_data.query(DELIV_DB, base + where + "GROUP BY domain HAVING SUM(sent) >= ?", tuple(params_all))
     if not rows:
         return None
 
@@ -152,10 +156,105 @@ def rank_domains(metric="bounce_rate", min_sent=0, limit=10, days=7, order="desc
             "spam_rate": _rate(_num(r["spam_report"]), delivered),
             "unsub_rate": _rate(_num(r["unsubscribe"]), delivered),
         })
-    ranked.sort(key=lambda d: d.get(metric, 0), reverse=(order != "asc"))
+    stats = _rank_population_stats(ranked, metric, order, min_sent_eff)
+
+    # Rank only domains meeting the volume threshold; the rest stay in `stats`.
+    qualifying = [d for d in ranked if d["sent"] >= min_sent_eff]
+    qualifying.sort(key=lambda d: d.get(metric, 0), reverse=(order != "asc"))
+    if not qualifying:
+        return None
+
     return {
         "metric": metric, "days": days, "min_sent": min_sent, "order": order,
-        "window": window, "total_domains": len(ranked), "rows": ranked[:limit],
+        "window": window, "total_domains": len(qualifying), "rows": qualifying[:limit],
+        "population_domains": len(ranked),
+        "stats": stats,
+    }
+
+
+# A rate computed on a handful of sends is noise: one bounce out of 4 reads as 25%.
+# Rankings and threshold counts are reported against domains at or above this daily
+# volume so a 12-send domain cannot outrank a million-send outage.
+SIGNIFICANT_SEND_THRESHOLD = 1000
+
+# Thresholds used for the "how many domains are actually in trouble" counts.
+POOR_DELIVERY_PCT = 95.0
+HIGH_BOUNCE_PCT = 2.0
+HIGH_SPAM_PCT = 0.1
+
+
+def _rank_population_stats(ranked, metric, order, min_sent_eff=None):
+    """
+    Summarise the WHOLE ranked population, not just the rows being returned.
+
+    Without this the agent only ever sees `limit` rows, which on a normal day are
+    dominated by domains sending a handful of messages, and it cannot say how much
+    volume is affected or how many domains are genuinely in trouble.
+    """
+    total_domains = len(ranked)
+    total_sent = sum(d["sent"] for d in ranked)
+    total_delivered = sum(d["delivered"] for d in ranked)
+    total_bounces = sum(d["bounces"] for d in ranked)
+
+    cutoff = SIGNIFICANT_SEND_THRESHOLD if min_sent_eff in (None, 1) else min_sent_eff
+    significant = [d for d in ranked if d["sent"] >= cutoff]
+    minor = [d for d in ranked if d["sent"] < cutoff]
+    minor_sent = sum(d["sent"] for d in minor)
+
+    # delivered > sent is impossible; it comes from delivery events being attributed
+    # to a day after the send. Flag rather than presenting a >100% delivery rate.
+    suspect = [d for d in ranked if d["delivered"] > d["sent"]]
+
+    def _band(lo, hi):
+        rows = [d for d in ranked if d["sent"] >= lo and (hi is None or d["sent"] < hi)]
+        return {"domains": len(rows), "sent": sum(d["sent"] for d in rows)}
+
+    # Impact ordering: a bad rate matters in proportion to the volume behind it.
+    def _impact(d):
+        if metric == "delivery_rate":
+            return (100.0 - d["delivery_rate"]) / 100.0 * d["sent"]  # undelivered mail
+        if metric in ("bounce_rate", "spam_rate", "unsub_rate"):
+            return d.get(metric, 0) / 100.0 * d["sent"]
+        return d.get(metric, 0)
+
+    by_impact = sorted(significant, key=_impact, reverse=True)[:10]
+
+    return {
+        "total_domains": total_domains,
+        "total_sent": total_sent,
+        # Volume-weighted, so one tiny domain cannot move the headline figure.
+        "overall_delivery_rate": _rate(total_delivered, total_sent),
+        "overall_bounce_rate": _rate(total_bounces, total_sent),
+        "significant_threshold": cutoff,
+        "significant_domains": len(significant),
+        "minor_domains": len(minor),
+        "minor_sent": minor_sent,
+        "minor_pct_of_volume": _rate(minor_sent, total_sent),
+        "bands": {
+            "under_100": _band(1, 100),
+            "100_to_999": _band(100, 1000),
+            "1k_to_10k": _band(1000, 10000),
+            "over_10k": _band(10000, None),
+        },
+        "concern_counts_significant_only": {
+            "delivery_under_95": len([d for d in significant if d["delivery_rate"] < POOR_DELIVERY_PCT]),
+            "bounce_over_2": len([d for d in significant if d["bounce_rate"] > HIGH_BOUNCE_PCT]),
+            "spam_over_0_1": len([d for d in significant if d["spam_rate"] > HIGH_SPAM_PCT]),
+        },
+        "suspect_rows": [
+            {"domain": d["domain"], "sent": d["sent"], "delivered": d["delivered"]}
+            for d in suspect[:10]
+        ],
+        "suspect_count": len(suspect),
+        "top_by_impact": [
+            {
+                "domain": d["domain"], "sent": d["sent"],
+                "delivery_rate": d["delivery_rate"], "bounce_rate": d["bounce_rate"],
+                "spam_rate": d["spam_rate"],
+                "affected_messages": int(round(_impact(d))),
+            }
+            for d in by_impact
+        ],
     }
 
 

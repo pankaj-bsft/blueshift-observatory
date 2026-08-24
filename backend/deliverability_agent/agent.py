@@ -105,8 +105,24 @@ Map the request to its args:
     * a specific date → start_date="YYYY-MM-DD"; a range → start_date + end_date.
   Example: "for Aug 1 and Aug 2, domains with poor delivery" → metric=delivery_rate, \
 order=asc, start_date="2026-08-01", end_date="2026-08-02". Never substitute a \
-single domain for a cross-domain question. It renders the table+chart, so give a \
-short takeaway.
+single domain for a cross-domain question.
+  For a BROAD request ("analysis across all accounts/domains", "how did we do on \
+DATE") this one tool is not enough — call it more than once to cover the angles \
+that matter (worst delivery, highest bounce, highest complaints, biggest senders) \
+before answering, and synthesise across them.
+  Reading its output:
+    * LEAD with the volume-weighted population figures and the BIGGEST ACTUAL \
+IMPACT list. Those are where the mail actually is.
+    * Low-volume domains are noise: a domain sending 12 messages with one bounce \
+shows 8% and means nothing. min_sent defaults to 1000 for that reason — do not \
+lower it unless the user explicitly asks about small senders, and never present a \
+sub-1000-send domain as a headline finding.
+    * Quote the counts of domains genuinely breaching thresholds rather than \
+implying the whole estate is affected.
+    * If the output flags a DATA QUALITY problem (more delivered than sent, so \
+delivery over 100%), say the figure is unreliable and why — never repeat it as fact.
+    * Distinguish a total failure (0% delivery on large volume) from a marginal \
+one, and say how many messages were affected.
 - To RAISE / FILE / CREATE a Jira ticket — and only when the user actually asks \
 for one — use file_jira_ticket. This creates a REAL ticket other people will see, \
 so:

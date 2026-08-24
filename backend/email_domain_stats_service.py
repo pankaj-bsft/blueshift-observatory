@@ -87,7 +87,7 @@ APPROX_METRICS = [
 ]
 ALL_METRICS = ADDITIVE_METRICS + APPROX_METRICS
 
-RANGE_PRESETS = {'past_24h', 'past_7_days', 'past_30_days', 'custom'}
+RANGE_PRESETS = {'yesterday', 'past_24h', 'past_7_days', 'past_30_days', 'custom'}
 
 # Everything not in ISP_DOMAINS is aggregated under this label so the table accounts for
 # all of a domain's traffic rather than just the listed providers.
@@ -271,7 +271,13 @@ def resolve_range(range_type: str, from_date: Optional[str] = None, to_date: Opt
             'label': 'Past 24 Hours'
         }
 
-    if range_type == 'past_7_days':
+    if range_type == 'yesterday':
+        # A single completed day. Day-aligned, so it caches like the other presets
+        # (unlike past_24h, which is a rolling window and cannot be cached).
+        start_date = today - timedelta(days=1)
+        end_date = today
+        label = f'Yesterday ({start_date.isoformat()})'
+    elif range_type == 'past_7_days':
         start_date, end_date = today - timedelta(days=7), today
         label = 'Past 7 Days'
     elif range_type == 'past_30_days':

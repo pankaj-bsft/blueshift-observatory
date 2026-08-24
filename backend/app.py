@@ -120,6 +120,10 @@ from bounce_analytics_service import (
     init_bounce_database
 )
 from email_domain_stats_service import get_email_domain_stats, export_email_domain_stats_csv
+from athena_bounce_service import (
+    get_bounce_reasons as get_athena_bounce_reasons,
+    AthenaBounceError,
+)
 from jira_service import create_jira_ticket
 from industry_updates_service import (
     init_database as init_industry_database,
@@ -986,6 +990,67 @@ async def domain_email_domain_stats_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f'Error fetching email domain stats: {str(e)}')
+
+
+@app.get('/api/pulsation/bounce-reasons/{domain}')
+async def domain_bounce_reasons_endpoint(
+    domain: str,
+    email_domain: str,
+    from_date: str,
+    to_date: str = '',
+    refresh: bool = False,
+    confirm_large: bool = False
+):
+    """
+    Bounce reasons for one sending domain + recipient mailbox provider, from Athena.
+
+    Served from the local cache when the days requested have been fetched before;
+    otherwise one Athena query runs. Ranges beyond a week need confirm_large=true
+    because each account-day scans roughly 1.8 GB of raw JSON.
+    """
+    try:
+        return get_athena_bounce_reasons(
+            domain, email_domain, from_date, to_date,
+            force_refresh=refresh, confirm_large=confirm_large,
+        )
+    except AthenaBounceError as e:
+        msg = str(e)
+        # 409 lets the UI distinguish "needs your confirmation" from a real failure.
+        raise HTTPException(status_code=409 if msg.startswith('LARGE_RANGE') else 400, detail=msg)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Error fetching bounce reasons: {str(e)}')
+
+
+@app.get('/api/pulsation/bounce-reasons/{domain}/export-csv')
+async def export_domain_bounce_reasons_endpoint(
+    domain: str,
+    email_domain: str,
+    from_date: str,
+    to_date: str = ''
+):
+    """Export the bounce reasons table to CSV (cache only; never triggers a new scan)."""
+    try:
+        payload = get_athena_bounce_reasons(domain, email_domain, from_date, to_date)
+    except AthenaBounceError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([f'# Sending domain: {payload["sending_domain"]}'])
+    writer.writerow([f'# Recipient provider: {payload["email_domain"]}'])
+    writer.writerow([f'# Dates: {payload["from_date"]} to {payload["to_date"]}'])
+    writer.writerow([f'# Account partition: {payload["account"]}'])
+    writer.writerow([f'# Source: Athena ({payload["source"]})'])
+    writer.writerow([])
+    writer.writerow(['Bounce reason', 'Type', 'Bounces', 'Share %', 'Full example reason'])
+    for r in payload['rows']:
+        writer.writerow([r['bounce_reason'], r['bounce_type'], r['bounces'],
+                         r.get('share_pct'), r.get('sample_reason')])
+    writer.writerow(['TOTAL', '', payload['total_bounces'], '', ''])
+
+    filename = f'bounce_reasons_{domain}_{payload["email_domain"]}_{payload["from_date"]}.csv'
+    return StreamingResponse(iter([output.getvalue()]), media_type='text/csv',
+                             headers={'Content-Disposition': f'attachment; filename={filename}'})
 
 
 @app.get('/api/pulsation/domain-email-stats/{domain}/export-csv')

@@ -2239,6 +2239,7 @@
                   <div>
                     <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Date range:</label>
                     <select class="date-input" v-model="emailDomainStatsRange" @change="onEmailDomainStatsRangeChange" style="width: 190px;">
+                      <option value="yesterday">Yesterday</option>
                       <option value="past_24h">Past 24 hours</option>
                       <option value="past_7_days">Past 7 days</option>
                       <option value="past_30_days">Past 30 days</option>
@@ -2292,6 +2293,117 @@
                   clicks, bounces, spam reports and unsubscribes are exact. Use “Past 24 hours” for exact uniques.
                 </div>
 
+<!-- Athena bounce-reason drill-down for a clicked mailbox provider -->
+                <div v-if="bounceReasonsFor" ref="bounceReasonsPanel" id="bounceReasonsPanel" style="margin: 4px 0 20px; border: 1px solid #bfdbfe; background: #f8fbff; border-radius: 8px; padding: 16px;">
+                  <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px;">
+                    <h4 style="margin: 0; font-size: 15px;">
+                      Bounce reasons — {{ selectedDomain }} → <span style="color:#1d4ed8;">{{ bounceReasonsFor }}</span>
+                    </h4>
+                    <span class="badge" style="background:#f8fafc;color:#334155;">Source: Athena</span>
+                    <span class="badge" v-if="bounceReasonsData" style="background:#f8fafc;color:#334155;">
+                      {{ bounceReasonsData.from_date }}<template v-if="bounceReasonsData.to_date !== bounceReasonsData.from_date"> → {{ bounceReasonsData.to_date }}</template>
+                    </span>
+                    <span class="badge" v-if="bounceReasonsData" :style="bounceReasonsData.source === 'cache' ? 'background:#f0fdf4;color:#166534;' : 'background:#eff6ff;color:#1d4ed8;'">
+                      {{ bounceReasonsData.source === 'cache' ? 'from cache (no scan)' : bounceReasonsData.scanned_mb + ' MB scanned' }}
+                    </span>
+                    <button class="btn btn-sm btn-secondary" @click="loadBounceReasons(true)" :disabled="bounceReasonsLoading">Re-run live</button>
+                    <button class="btn btn-sm btn-secondary" @click="exportBounceReasonsCSV()" :disabled="bounceReasonsLoading || !(bounceReasonsData?.rows?.length)">Export CSV</button>
+                    <button class="btn btn-sm btn-secondary" @click="closeBounceReasons()">Close</button>
+                    <button class="btn btn-sm btn-primary" @click="openBounceJira()" :disabled="bounceReasonsLoading || !(bounceReasonsData?.rows?.length)">File JIRA</button>
+                  </div>
+
+                  <!-- File JIRA: pick one bounce reason; all metadata is attached automatically -->
+                  <div v-if="bounceJiraOpen" style="margin-bottom:16px; padding:14px 16px; background:#fff; border:1px solid #bfdbfe; border-radius:6px;">
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+                      <div style="flex:1 1 460px;">
+                        <label style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:6px;">Bounce reason to file</label>
+                        <select class="date-input" v-model="bounceJiraReasonIndex" style="width:100%;">
+                          <option v-for="(r, i) in bounceReasonsData.rows" :key="i" :value="i">
+                            [{{ r.bounce_type === 'bounce' ? 'hard' : 'soft' }}] {{ formatNumber(r.bounces) }} ({{ r.share_pct }}%) — {{ r.bounce_reason.slice(0, 90) }}
+                          </option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:6px;">Issue type</label>
+                        <select class="date-input" v-model="bounceJiraIssueType" style="width:170px;">
+                          <option value="Remediation">Remediation</option>
+                          <option value="Compliance">Compliance</option>
+                          <option value="Monitoring">Monitoring</option>
+                        </select>
+                      </div>
+                      <button class="btn btn-sm btn-primary" @click="fileBounceJira()" :disabled="bounceJiraCreating">
+                        {{ bounceJiraCreating ? 'Filing…' : 'Create ticket' }}
+                      </button>
+                      <button class="btn btn-sm btn-secondary" @click="bounceJiraOpen = false" :disabled="bounceJiraCreating">Cancel</button>
+                    </div>
+
+                    <!-- Show exactly what will be filed, so nothing is a surprise -->
+                    <div v-if="bounceJiraPreview" style="margin-top:12px; padding:10px 12px; background:#f8fafc; border-radius:6px; font-size:12px; color:#475569; white-space:pre-wrap; font-family:ui-monospace,Menlo,monospace; max-height:220px; overflow:auto;">{{ bounceJiraPreview }}</div>
+
+                    <div v-if="bounceJiraResult" style="margin-top:10px; font-size:13px; color:#166534;">
+                      ✅ Created <b>{{ bounceJiraResult.key }}</b>
+                      <a v-if="bounceJiraResult.url" :href="bounceJiraResult.url" target="_blank" rel="noopener" style="margin-left:8px;">open in Jira</a>
+                    </div>
+                    <div v-if="bounceJiraError" style="margin-top:10px; font-size:13px; color:#991b1b;">{{ bounceJiraError }}</div>
+                  </div>
+
+                  <div v-if="bounceReasonsLoading" style="padding: 22px; text-align:center; color:#64748b;">
+                    Querying Athena<template v-if="bounceReasonsElapsed"> · {{ bounceReasonsElapsed }}s</template> —
+                    scanning raw event data, this usually takes 15-30 seconds per day.
+                    <button class="btn btn-sm btn-secondary" style="margin-left:12px;" @click="cancelBounceReasons()">Cancel</button>
+                  </div>
+
+                  <!-- Cost confirmation: >7 days is a big scan, so ask before running. -->
+                  <div v-else-if="bounceReasonsConfirm" style="padding: 14px 16px; background:#fffbeb; border:1px solid #fcd34d; border-radius:6px; color:#92400e; font-size:13px;">
+                    {{ bounceReasonsConfirm }}
+                    <div style="margin-top:10px;">
+                      <button class="btn btn-sm btn-primary" @click="loadBounceReasons(false, true)">Run it anyway</button>
+                      <button class="btn btn-sm btn-secondary" style="margin-left:8px;" @click="closeBounceReasons()">Cancel</button>
+                    </div>
+                  </div>
+
+                  <div v-else-if="bounceReasonsError" style="padding: 12px 16px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; color:#991b1b; font-size:13px;">
+                    {{ bounceReasonsError }}
+                  </div>
+
+                  <div v-else-if="!bounceReasonsData?.rows?.length" style="padding: 18px; color:#64748b; font-size:13px; background:#f8fafc; border-radius:6px;">
+                    {{ bounceReasonsData?.note || ('No bounces recorded for ' + bounceReasonsFor + ' in this date range.') }}
+                  </div>
+
+                  <div v-else style="overflow-x:auto;">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Bounce reason</th>
+                          <th>Type</th>
+                          <th>Bounces</th>
+                          <th>Share</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(r, i) in bounceReasonsData.rows" :key="i">
+                          <td :title="r.sample_reason">{{ r.bounce_reason }}</td>
+                          <td>
+                            <span :style="r.bounce_type === 'bounce' ? 'color:#dc2626;font-weight:600;' : 'color:#d97706;'">
+                              {{ r.bounce_type === 'bounce' ? 'hard' : 'soft' }}
+                            </span>
+                          </td>
+                          <td class="text-mono">{{ formatNumber(r.bounces) }}</td>
+                          <td class="text-mono">{{ r.share_pct }}%</td>
+                        </tr>
+                      </tbody>
+                      <tfoot>
+                        <tr style="font-weight:700; background:#f8fafc;">
+                          <td>Total</td>
+                          <td>{{ bounceReasonsData.hard_bounces }} hard / {{ bounceReasonsData.soft_bounces }} soft</td>
+                          <td class="text-mono">{{ formatNumber(bounceReasonsData.total_bounces) }}</td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
                 <div v-if="emailDomainStatsLoading" style="padding: 32px; text-align: center; color: #64748b;">Querying…</div>
                 <!-- Not-yet-run and ran-but-empty are different states and must not look alike. -->
                 <div v-else-if="!emailDomainStatsData" style="padding: 32px; text-align: center; color: #64748b;">
@@ -2322,7 +2434,15 @@
                       <tr v-for="row in sortedEmailDomainStatsRows" :key="row.email_domain"
                           :style="row.email_domain === 'Other' ? 'background: #fafafa; color: #475569;' : ''">
                         <td>
-                          <b>{{ row.email_domain }}</b>
+                          <!-- 'Other' aggregates many providers, so it is not a real
+                               email_domain and cannot be queried; only real ones click. -->
+                          <a v-if="row.email_domain !== 'Other'" href="#"
+                             @click.prevent="openBounceReasons(row.email_domain)"
+                             :style="bounceReasonsFor === row.email_domain ? 'font-weight:700;color:#1d4ed8;' : 'color:#1d4ed8;'"
+                             title="Query Athena for this provider's bounce reasons">
+                            <b>{{ row.email_domain }}</b>
+                          </a>
+                          <b v-else>{{ row.email_domain }}</b>
                           <span v-if="row.email_domain === 'Other'" style="font-weight: 400; color: #94a3b8;" title="All recipient domains outside the tracked mailbox-provider list, combined">
                             — all other providers
                           </span>
@@ -2358,6 +2478,8 @@
                     </tfoot>
                   </table>
                 </div>
+
+                
               </template>
             </div>
             <div v-if="pulsationTrendSubTab === 'trend'" style="padding: 24px;">
@@ -7579,6 +7701,24 @@
           },
 
           // Email domain (ISP) stats tab
+          // File-JIRA form inside the bounce-reason panel
+          bounceJiraOpen: false,
+          bounceJiraReasonIndex: 0,
+          bounceJiraIssueType: 'Remediation',
+          bounceJiraCreating: false,
+          bounceJiraResult: null,
+          bounceJiraError: null,
+
+          // Athena bounce-reason drill-down (opened by clicking a mailbox provider)
+          bounceReasonsFor: '',
+          bounceReasonsData: null,
+          bounceReasonsLoading: false,
+          bounceReasonsError: null,
+          bounceReasonsConfirm: '',
+          bounceReasonsAbort: null,
+          bounceReasonsElapsed: 0,
+          bounceReasonsTimer: null,
+
           emailDomainStatsRange: 'past_7_days',
           emailDomainStatsFromDate: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
           emailDomainStatsToDate: new Date().toISOString().slice(0, 10),
@@ -7719,6 +7859,11 @@
         };
       },
       computed: {
+        bounceJiraPreview() {
+          if (!this.bounceJiraOpen) return '';
+          const t = this.buildBounceJiraTicket();
+          return t ? (t.summary + '\n\n' + t.description) : '';
+        },
         sortedEmailDomainStatsRows() {
           const rows = [...(this.emailDomainStatsData?.rows || [])];
           const key = this.emailDomainStatsSortKey;
@@ -9062,6 +9207,196 @@
             this.emailDomainStatsData = null;
           } finally {
             this.emailDomainStatsLoading = false;
+          }
+        },
+        // ---- File a Jira ticket for one bounce reason ------------------------
+        openBounceJira() {
+          this.bounceJiraOpen = true;
+          this.bounceJiraReasonIndex = 0;
+          this.bounceJiraResult = null;
+          this.bounceJiraError = null;
+        },
+        buildBounceJiraTicket() {
+          const d = this.bounceReasonsData;
+          const row = d?.rows?.[this.bounceJiraReasonIndex];
+          if (!row) return null;
+
+          // The Email domain stats row for this provider gives the volume context, so the
+          // ticket says how big the problem is rather than just naming a reason.
+          const stat = (this.emailDomainStatsData?.rows || [])
+            .find(r => r.email_domain === this.bounceReasonsFor);
+          const range = d.from_date === d.to_date ? d.from_date : `${d.from_date} to ${d.to_date}`;
+          const pctOfSend = (stat && stat.sent_count)
+            ? ((row.bounces / stat.sent_count) * 100).toFixed(3) + '% of sends'
+            : 'send volume unavailable';
+
+          const summary =
+            `${this.selectedDomain} → ${this.bounceReasonsFor}: ${this.formatNumber(row.bounces)} ` +
+            `${row.bounce_type === 'bounce' ? 'hard' : 'soft'} bounces — ${row.bounce_reason.slice(0, 70)}`;
+
+          const lines = [
+            `Sending Domain: ${this.selectedDomain}`,
+            `Recipient Domain: ${this.bounceReasonsFor}`,
+            `Account: ${d.account || 'Unmapped'}`,
+            `Region: ${(this.emailDomainStatsData?.regions || []).join(', ') || 'Unknown'}`,
+            `ESP: ${(this.emailDomainStatsData?.esps || []).join(', ') || 'Unknown'}`,
+            `Date range: ${range}`,
+            '',
+            `Bounce Type: ${row.bounce_type === 'bounce' ? 'hard' : 'soft'}`,
+            `Bounce Reason: ${row.bounce_reason}`,
+            `Bounce Count: ${this.formatNumber(row.bounces)} (${row.share_pct}% of bounces to this provider, ${pctOfSend})`,
+          ];
+          if (row.sending_domains) lines.push(`Actual sending domain(s) in the events: ${row.sending_domains}`);
+          if (row.sample_reason && row.sample_reason !== row.bounce_reason) {
+            lines.push('', `Full example reason: ${row.sample_reason}`);
+          }
+          if (stat) {
+            lines.push('',
+              `Volume to ${this.bounceReasonsFor} for this range:`,
+              `  Sent: ${this.formatNumber(stat.sent_count)}`,
+              `  Delivered: ${this.formatNumber(stat.delivered_count)} (${stat.delivery_rate}% delivery)`,
+              `  Bounces (Druid): ${this.formatNumber(stat.bounce_count)} (${stat.bounce_rate}%)`,
+              `  Complaints: ${this.formatNumber(stat.spam_report_count)} (${stat.spam_rate}%)`,
+              `  Unsubscribes: ${this.formatNumber(stat.unsubscribe_count)}`);
+          } else {
+            lines.push('', 'Volume metrics unavailable — run Email domain stats for this range to include them.');
+          }
+          lines.push('',
+            `Total bounces to this provider in range: ${this.formatNumber(d.total_bounces)} ` +
+            `(${d.hard_bounces} hard / ${d.soft_bounces} soft)`,
+            `Source: Athena user_actions (bounce reasons), Druid (volume metrics)`);
+          return { summary, description: lines.join('\n') };
+        },
+        async fileBounceJira() {
+          const t = this.buildBounceJiraTicket();
+          if (!t) { this.bounceJiraError = 'Select a bounce reason first.'; return; }
+          this.bounceJiraCreating = true;
+          this.bounceJiraError = null;
+          this.bounceJiraResult = null;
+          try {
+            const resp = await fetch(`${this.API_BASE}/api/jira/create-ticket`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                issue_type: this.bounceJiraIssueType,
+                summary: t.summary,
+                description: t.description
+              })
+            });
+            const result = await resp.json();
+            if (!resp.ok) throw new Error(result.detail || ('HTTP ' + resp.status));
+            const key = result.key || 'created';
+            const base = (result.self || '').split('/rest/')[0];
+            this.bounceJiraResult = { key, url: base ? `${base}/browse/${key}` : '' };
+            this.showToast('success', 'Jira Ticket Created', `Key: ${key}`);
+          } catch (e) {
+            this.bounceJiraError = e.message;
+            this.showToast('error', 'Jira Ticket Error', e.message);
+          } finally {
+            this.bounceJiraCreating = false;
+          }
+        },
+        // ---- Athena bounce reasons -------------------------------------------
+        bounceReasonsDates() {
+          // Reuse the range already chosen on the Email domain stats tab, so the
+          // drill-down always matches the numbers the user clicked on.
+          const w = this.emailDomainStatsData?.window;
+          if (this.emailDomainStatsRange === 'custom') {
+            return { from: this.emailDomainStatsFromDate, to: this.emailDomainStatsToDate };
+          }
+          if (w?.start && w?.end) {
+            // window.end is exclusive for day-aligned ranges; step back one day.
+            const from = String(w.start).slice(0, 10);
+            const end = new Date(String(w.end).slice(0, 10) + 'T00:00:00Z');
+            if (this.emailDomainStatsRange !== 'past_24h') end.setUTCDate(end.getUTCDate() - 1);
+            return { from, to: end.toISOString().slice(0, 10) };
+          }
+          const today = new Date().toISOString().slice(0, 10);
+          return { from: today, to: today };
+        },
+        openBounceReasons(emailDomain) {
+          if (!emailDomain || emailDomain === 'Other') return;
+          this.bounceReasonsFor = emailDomain;
+          this.bounceReasonsData = null;
+          this.bounceReasonsError = null;
+          this.bounceReasonsConfirm = '';
+          // The table can be 150 rows long, so bring the panel into view rather than
+          // leaving the user to scroll back up to it.
+          this.$nextTick(() => {
+            const el = document.getElementById('bounceReasonsPanel');
+            if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+          this.loadBounceReasons();
+        },
+        closeBounceReasons() {
+          this.cancelBounceReasons();
+          this.bounceReasonsFor = '';
+          this.bounceReasonsData = null;
+          this.bounceReasonsError = null;
+          this.bounceReasonsConfirm = '';
+        },
+        cancelBounceReasons() {
+          if (this.bounceReasonsAbort) this.bounceReasonsAbort.abort();
+        },
+        async loadBounceReasons(forceRefresh = false, confirmLarge = false) {
+          if (!this.selectedDomain || !this.bounceReasonsFor) return;
+          const { from, to } = this.bounceReasonsDates();
+          this.bounceReasonsLoading = true;
+          this.bounceReasonsError = null;
+          this.bounceReasonsConfirm = '';
+
+          const controller = new AbortController();
+          this.bounceReasonsAbort = controller;
+          this.bounceReasonsElapsed = 0;
+          const startedAt = Date.now();
+          this.bounceReasonsTimer = setInterval(() => {
+            this.bounceReasonsElapsed = Math.round((Date.now() - startedAt) / 1000);
+          }, 1000);
+
+          try {
+            const q = new URLSearchParams({ email_domain: this.bounceReasonsFor, from_date: from, to_date: to });
+            if (forceRefresh) q.set('refresh', 'true');
+            if (confirmLarge) q.set('confirm_large', 'true');
+            const resp = await fetch(`${this.API_BASE}/api/pulsation/bounce-reasons/${encodeURIComponent(this.selectedDomain)}?${q.toString()}`,
+                                     { signal: controller.signal });
+            const data = await resp.json();
+            if (resp.status === 409) {
+              // Cost guard: show what it would scan and let the user decide.
+              this.bounceReasonsConfirm = String(data.detail || '').replace('LARGE_RANGE: ', '');
+              return;
+            }
+            if (!resp.ok) throw new Error(data.detail || ('HTTP ' + resp.status));
+            this.bounceReasonsData = data;
+          } catch (e) {
+            if (e.name === 'AbortError') {
+              this.bounceReasonsError = 'Cancelled — the Athena query may still finish in the background.';
+            } else {
+              this.bounceReasonsError = e.message;
+            }
+          } finally {
+            if (this.bounceReasonsTimer) { clearInterval(this.bounceReasonsTimer); this.bounceReasonsTimer = null; }
+            this.bounceReasonsElapsed = 0;
+            this.bounceReasonsAbort = null;
+            this.bounceReasonsLoading = false;
+          }
+        },
+        async exportBounceReasonsCSV() {
+          if (!this.selectedDomain || !this.bounceReasonsFor) return;
+          const { from, to } = this.bounceReasonsDates();
+          try {
+            const q = new URLSearchParams({ email_domain: this.bounceReasonsFor, from_date: from, to_date: to });
+            const resp = await fetch(`${this.API_BASE}/api/pulsation/bounce-reasons/${encodeURIComponent(this.selectedDomain)}/export-csv?${q.toString()}`);
+            if (!resp.ok) throw new Error((await resp.text()) || 'Failed to export CSV');
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bounce_reasons_${this.selectedDomain}_${this.bounceReasonsFor}_${from}.csv`;
+            document.body.appendChild(a); a.click();
+            window.URL.revokeObjectURL(url); document.body.removeChild(a);
+            this.showToast('success', 'Exported', 'Bounce reasons CSV downloaded');
+          } catch (e) {
+            this.showToast('error', 'Export Failed', e.message);
           }
         },
         async exportEmailDomainStatsCSV() {

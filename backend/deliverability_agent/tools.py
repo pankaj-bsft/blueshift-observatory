@@ -368,8 +368,8 @@ _METRIC_COLOR = {
 
 
 @tool(response_format="content_and_artifact")
-def rank_sending_domains(metric: str = "bounce_rate", min_sent: int = 0,
-                         limit: int = 10, days: int = 7, order: str = "desc",
+def rank_sending_domains(metric: str = "bounce_rate", min_sent: int = 1000,
+                         limit: int = 15, days: int = 7, order: str = "desc",
                          start_date: str = "", end_date: str = "") -> str:
     """Rank or compare sending domains across ALL domains (leaderboards).
 
@@ -383,7 +383,11 @@ def rank_sending_domains(metric: str = "bounce_rate", min_sent: int = 0,
             delivered, bounces. ("poor delivery/deliverability" -> delivery_rate
             with order=asc; "poor" bounce/spam -> those with order=desc.)
         min_sent: only include domains whose TOTAL sends in the window are >= this.
-        limit: how many domains to return (default 10).
+            Defaults to 1000 because a rate computed on a handful of sends is noise
+            (one bounce in four reads as 25%), and on a typical day the sub-1000
+            senders are ~two thirds of the domains but well under 0.1% of volume.
+            Pass min_sent=1 only if the user explicitly asks to include tiny senders.
+        limit: how many domains to return (default 15).
         days: rolling lookback window in days (used only if no dates given).
         order: "desc" (highest-first) or "asc" (lowest-first).
         start_date: YYYY-MM-DD. With end_date, ranks that inclusive range; alone,
@@ -450,18 +454,70 @@ def rank_sending_domains(metric: str = "bounce_rate", min_sent: int = 0,
 
     top = rows[0]
     top_val = f"{top[m]}%" if is_rate else f"{int(top[m]):,}"
-    summary = (
+    st = result.get("stats") or {}
+
+    lines = [
         f"Ranked {result['total_domains']} domains by {label} ({window}, "
-        f"{'lowest' if order == 'asc' else 'highest'} first). "
-        f"Worst/Top: {top['domain']} at {top_val}. "
+        f"{'lowest' if order == 'asc' else 'highest'} first), "
+        f"minimum {max(int(min_sent or 0), 1):,} sends to qualify.",
+        f"Worst/Top of the returned rows: {top['domain']} at {top_val}.",
+    ]
+
+    if st:
+        cc = st["concern_counts_significant_only"]
+        lines += [
+            "",
+            "POPULATION (all qualifying domains, not just the rows shown):",
+            f"  Total volume {st['total_sent']:,} sends; volume-weighted delivery "
+            f"{st['overall_delivery_rate']}%, bounce {st['overall_bounce_rate']}%. "
+            f"Use these as the headline health figures — they are weighted, so one "
+            f"small domain cannot skew them.",
+            f"  {st['significant_domains']} domains sent >= {st['significant_threshold']:,}; "
+            f"{st['minor_domains']} sent less and together are only "
+            f"{st['minor_pct_of_volume']}% of volume ({st['minor_sent']:,} sends). "
+            f"Rates for those are statistically meaningless — do not lead with them.",
+            f"  Volume bands: <100 sends {st['bands']['under_100']['domains']} domains, "
+            f"100-999 {st['bands']['100_to_999']['domains']}, "
+            f"1k-10k {st['bands']['1k_to_10k']['domains']}, "
+            f">10k {st['bands']['over_10k']['domains']}.",
+            f"  Domains of real concern (>= {st['significant_threshold']:,} sends only): "
+            f"delivery <95% = {cc['delivery_under_95']}, bounce >2% = {cc['bounce_over_2']}, "
+            f"complaints >0.1% = {cc['spam_over_0_1']}.",
+        ]
+
+        if st["top_by_impact"]:
+            lines.append("")
+            lines.append("BIGGEST ACTUAL IMPACT (rate x volume, significant senders only) — "
+                         "lead your analysis with these, they are where the mail is:")
+            for d in st["top_by_impact"]:
+                lines.append(
+                    f"  {d['domain']}: {d['sent']:,} sent, {d['delivery_rate']}% delivery, "
+                    f"{d['bounce_rate']}% bounce, {d['spam_rate']}% complaints "
+                    f"-> ~{d['affected_messages']:,} messages affected"
+                )
+
+        if st["suspect_count"]:
+            lines.append("")
+            lines.append(
+                f"DATA QUALITY: {st['suspect_count']} domain(s) report more delivered than sent, "
+                f"which is impossible and produces delivery rates above 100%. This is delivery "
+                f"events being attributed to a later day than the send. Treat those rows as "
+                f"unreliable and say so if you mention them; do NOT present >100% as a real rate."
+            )
+            for d in st["suspect_rows"][:5]:
+                lines.append(f"  {d['domain']}: sent {d['sent']:,}, delivered {d['delivered']:,}")
+
+    lines += [
+        "",
         f"Gmail domain & IP reputation are already joined into the table "
-        f"({n_with_rep}/{len(rows)} domains have Postmaster data; the rest show '—' "
-        "because they aren't in Postmaster Tools). "
-        "The full table and chart are shown to the user — give a brief takeaway "
-        "(outliers, patterns). Do NOT re-list every row and do NOT invent reputation "
-        "for domains marked '—'."
-    )
-    return _emit(summary, charts=[chart], tables=[table])
+        f"({n_with_rep}/{len(rows)} of the returned domains have Postmaster data; the rest "
+        "show '—' because they aren't in Postmaster Tools).",
+        "The table and chart are shown to the user. Give an analytical takeaway: start with "
+        "the volume-weighted picture, then the biggest-impact domains, then any genuine "
+        "outliers among significant senders. Do NOT re-list every row, do NOT treat "
+        "tiny-volume domains as headline findings, and do NOT invent reputation for '—'.",
+    ]
+    return _emit("\n".join(lines), charts=[chart], tables=[table])
 
 
 def _fmt_pct(v):
