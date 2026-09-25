@@ -11,6 +11,24 @@ import json
 GPT_DB_PATH = data_path('gpt_data.db')
 
 
+def get_reputation_data_cutoff() -> Optional[str]:
+    """Latest data_date that still has a real reputation value.
+
+    Google's Postmaster API v2 dropped domain/IP reputation entirely (see
+    MIGRATION NOTES in gpt_service.py) -- new rows never populate `reputation`,
+    so this marks where that history stops. Callers use this to tell "no
+    reputation this period" (data predates the cutoff, or v2 hasn't run yet)
+    apart from a genuine data gap, and to label reputation UI as historical.
+    Returns None if no row has ever had a reputation value.
+    """
+    conn = sqlite3.connect(GPT_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT MAX(data_date) FROM gpt_data WHERE reputation IS NOT NULL')
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
 def get_overview_stats(days: int = 30) -> Dict:
     """
     Get overview statistics for all domains
@@ -64,6 +82,8 @@ def get_overview_stats(days: int = 30) -> Dict:
 
     conn.close()
 
+    reputation_cutoff = get_reputation_data_cutoff()
+
     if not row or row[0] == 0:
         return {
             'period': f'{days}day',
@@ -78,19 +98,28 @@ def get_overview_stats(days: int = 30) -> Dict:
             'avg_dkim_rate': 0,
             'avg_dmarc_rate': 0,
             'avg_tls_rate': 0,
-            'reputation_distribution': {}
+            'reputation_distribution': {},
+            'reputation_data_through': reputation_cutoff
         }
 
-    # Convert reputation value back to text
-    rep_value = row[1] or 0
-    if rep_value >= 3.5:
-        avg_reputation = 'HIGH'
-    elif rep_value >= 2.5:
-        avg_reputation = 'MEDIUM'
-    elif rep_value >= 1.5:
-        avg_reputation = 'LOW'
+    # Convert reputation value back to text. row[1] is None (not 0) when this
+    # window has no reputation data at all -- Google's v2 API dropped
+    # reputation, so this is now the normal case once the window slides past
+    # reputation_cutoff. Bucketing a None average as "BAD" would be a false
+    # reading, not a missing one, so it's reported as UNKNOWN instead.
+    if row[1] is None:
+        avg_reputation = 'UNKNOWN'
+        rep_value = 0
     else:
-        avg_reputation = 'BAD'
+        rep_value = row[1]
+        if rep_value >= 3.5:
+            avg_reputation = 'HIGH'
+        elif rep_value >= 2.5:
+            avg_reputation = 'MEDIUM'
+        elif rep_value >= 1.5:
+            avg_reputation = 'LOW'
+        else:
+            avg_reputation = 'BAD'
 
     return {
         'period': f'{days}day',
@@ -105,7 +134,11 @@ def get_overview_stats(days: int = 30) -> Dict:
         'avg_dkim_rate': round(row[5] or 0, 2),
         'avg_dmarc_rate': round(row[6] or 0, 2),
         'avg_tls_rate': round(row[7] or 0, 2),
-        'reputation_distribution': reputation_dist
+        'reputation_distribution': reputation_dist,
+        # Last date reputation data is actually available through -- None
+        # means no reputation data has ever been collected. See
+        # get_reputation_data_cutoff() docstring (Postmaster v2 migration).
+        'reputation_data_through': reputation_cutoff
     }
 
 
@@ -649,6 +682,42 @@ def get_enhanced_reputation_changes(days_back: int = 7) -> List[Dict]:
     return changes
 
 
+def get_domain_compliance(domain: str) -> Optional[Dict]:
+    """Latest v2 compliance status snapshot for a domain, or None if never collected.
+
+    Backed by gpt_compliance (see gpt_service.store_compliance_status) --
+    a current-state snapshot, not a daily time series, refreshed on the
+    weekly GPT backfill.
+    """
+    conn = sqlite3.connect(GPT_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM gpt_compliance WHERE domain = ?', (domain,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+
+    row = dict(row)
+    return {
+        'checked_at': row['checked_at'],
+        'root_domain': row['root_domain'],
+        'subdomain': {
+            'deliverability_status': row['subdomain_deliverability_status'],
+            'deliverability_reason': row['subdomain_deliverability_reason'],
+            'one_click_unsubscribe_status': row['subdomain_one_click_unsub_status'],
+            'honor_unsubscribe_status': row['subdomain_honor_unsub_status'],
+            'honor_unsubscribe_reason': row['subdomain_honor_unsub_reason'],
+            'requirements': json.loads(row['subdomain_requirements_json'] or '[]'),
+        },
+        'root': {
+            'deliverability_status': row['root_deliverability_status'],
+            'deliverability_reason': row['root_deliverability_reason'],
+            'requirements': json.loads(row['root_requirements_json'] or '[]'),
+        },
+    }
+
+
 def get_domain_detailed_metrics(domain: str, days: int = 30) -> Dict:
     """
     Get detailed metrics for a specific domain over time period
@@ -798,5 +867,9 @@ def get_domain_detailed_metrics(domain: str, days: int = 30) -> Dict:
             'spf_rate': auth_trends['spf'],
             'dkim_rate': auth_trends['dkim'],
             'dmarc_rate': auth_trends['dmarc']
-        }
+        },
+        # v2 compliance snapshot (SPF/DKIM/DMARC/encryption/unsubscribe
+        # requirements + deliverability verdict) -- None if never collected
+        # for this domain yet (e.g. before the next weekly backfill runs).
+        'compliance': get_domain_compliance(domain)
     }

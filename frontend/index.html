@@ -5264,6 +5264,48 @@
                 </div>
               </div>
             </div>
+
+            <!-- Compliance Status (Postmaster v2) -->
+            <div v-if="gptDomainDetails.compliance" class="card-section" style="margin-bottom: 20px;">
+              <div class="card-header">
+                <h3 class="card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;">
+                    <path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.5 0 2.9.37 4.14 1.02"/><path d="M21 5L12 14l-3-3"/>
+                  </svg>
+                  Compliance Status
+                </h3>
+                <span style="font-size: 11px; color: #94a3b8;">Checked {{ gptDomainDetails.compliance.checked_at }}</span>
+              </div>
+              <div style="padding: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                  <div :style="{padding: '16px', borderRadius: '10px', background: gptDomainDetails.compliance.subdomain.deliverability_status === 'COMPLIANT' ? 'linear-gradient(135deg, #dcfce7, #bbf7d0)' : 'linear-gradient(135deg, #fee2e2, #fecaca)'}">
+                    <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;" :style="{color: gptDomainDetails.compliance.subdomain.deliverability_status === 'COMPLIANT' ? '#166534' : '#991b1b'}">Sending Subdomain Verdict</div>
+                    <div style="font-size: 18px; font-weight: 800;" :style="{color: gptDomainDetails.compliance.subdomain.deliverability_status === 'COMPLIANT' ? '#15803d' : '#dc2626'}">{{ gptDomainDetails.compliance.subdomain.deliverability_status || 'UNKNOWN' }}</div>
+                    <div v-if="gptDomainDetails.compliance.subdomain.deliverability_reason" style="font-size: 12px; margin-top: 4px;" :style="{color: gptDomainDetails.compliance.subdomain.deliverability_status === 'COMPLIANT' ? '#166534' : '#7f1d1d'}">{{ gptDomainDetails.compliance.subdomain.deliverability_reason }}</div>
+                  </div>
+                  <div :style="{padding: '16px', borderRadius: '10px', background: gptDomainDetails.compliance.root.deliverability_status === 'COMPLIANT' ? 'linear-gradient(135deg, #dcfce7, #bbf7d0)' : 'linear-gradient(135deg, #fee2e2, #fecaca)'}">
+                    <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;" :style="{color: gptDomainDetails.compliance.root.deliverability_status === 'COMPLIANT' ? '#166534' : '#991b1b'}">Root Domain Verdict ({{ gptDomainDetails.compliance.root_domain }})</div>
+                    <div style="font-size: 18px; font-weight: 800;" :style="{color: gptDomainDetails.compliance.root.deliverability_status === 'COMPLIANT' ? '#15803d' : '#dc2626'}">{{ gptDomainDetails.compliance.root.deliverability_status || 'UNKNOWN' }}</div>
+                    <div v-if="gptDomainDetails.compliance.root.deliverability_reason" style="font-size: 12px; margin-top: 4px;" :style="{color: gptDomainDetails.compliance.root.deliverability_status === 'COMPLIANT' ? '#166534' : '#7f1d1d'}">{{ gptDomainDetails.compliance.root.deliverability_reason }}</div>
+                  </div>
+                </div>
+
+                <div style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">Requirements (sending subdomain)</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+                  <span v-for="req in gptDomainDetails.compliance.subdomain.requirements" :key="req.requirement" style="padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;" :style="{background: req.status.status === 'COMPLIANT' ? '#dcfce7' : '#fee2e2', color: req.status.status === 'COMPLIANT' ? '#166534' : '#991b1b'}">
+                    {{ req.status.status === 'COMPLIANT' ? '✓' : '✗' }} {{ req.requirement.replace(/_/g, ' ') }}
+                  </span>
+                </div>
+
+                <div style="display: flex; gap: 16px; font-size: 12px; color: #475569;">
+                  <span>One-click unsubscribe: <strong :style="{color: gptDomainDetails.compliance.subdomain.one_click_unsubscribe_status === 'COMPLIANT' ? '#15803d' : '#dc2626'}">{{ gptDomainDetails.compliance.subdomain.one_click_unsubscribe_status || 'UNKNOWN' }}</strong></span>
+                  <span>Honors unsubscribe: <strong :style="{color: gptDomainDetails.compliance.subdomain.honor_unsubscribe_status === 'COMPLIANT' ? '#15803d' : '#dc2626'}">{{ gptDomainDetails.compliance.subdomain.honor_unsubscribe_status || 'UNKNOWN' }}</strong></span>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="gptAuthorized && gptSelectedDomain" style="text-align: center; padding: 20px; color: #94a3b8; font-size: 13px;">
+              Compliance status not collected yet for this domain — runs on the weekly GPT backfill.
+            </div>
           </div>
 
           <!-- IP Reputation Modal -->
