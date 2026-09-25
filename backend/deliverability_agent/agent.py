@@ -7,11 +7,13 @@ from .tools import (
     check_email_authentication,
     check_email_metrics,
     check_gmail_reputation,
+    check_spamhaus_listing,
     check_spf,
     email_domain_isp_breakdown,
     email_metrics_trend,
     file_jira_ticket,
     full_deliverability_report,
+    list_spamhaus_listings,
     lookup_account_info,
     lookup_dkim,
     mbr_deliverability,
@@ -45,7 +47,12 @@ not say "let's assume the tool processed the request". Stop and report the error
 "spam rate" for ONE domain, ALWAYS call check_gmail_reputation. Our reputation \
 data is Google Postmaster: domain reputation (HIGH/MEDIUM/LOW/BAD) and IP \
 reputation categories with sample IPs — we do NOT have numeric scores or \
-AbuseIPDB/blacklist data, so never present those.
+AbuseIPDB/blacklist data, so never present those. Google's Postmaster API v2 \
+migration (Sept 2026) DROPPED domain/IP reputation entirely — it only exists for \
+dates before that cutover. For a recent date the tool will report reputation as \
+unavailable/unspecified; say plainly that Google stopped providing this signal, \
+don't call it "BAD" or invent a value. Spam rate, SPF/DKIM/DMARC, and TLS ratios \
+remain available and reliable going forward.
 - rank_sending_domains already JOINS Gmail domain & IP reputation into its table. \
 Do not loop check_gmail_reputation over a ranked list, and do not invent \
 reputation for rows shown as "—".
@@ -123,6 +130,26 @@ implying the whole estate is affected.
 delivery over 100%), say the figure is unreliable and why — never repeat it as fact.
     * Distinguish a total failure (0% delivery on large volume) from a marginal \
 one, and say how many messages were affected.
+- For SPAMHAUS questions — "is X on Spamhaus / blocklisted", "was X ever \
+listed", "since when has X been listed", "Spamhaus trend/history for X" — use \
+check_spamhaus_listing (accepts a sending domain OR an account name; for an \
+account it rolls up across that account's mapped domains). For a \
+CROSS-DOMAIN sweep with no specific domain given — "which domains are \
+currently blocklisted", "who's on Spamhaus right now", or "which domains \
+were listed in the past N days/weeks/months" — use list_spamhaus_listings, \
+passing `days` sized to the question (default 30 for "right now"; e.g. \
+days=150 for "past 5 months"). Its rows show first/last listed date in the \
+window plus CURRENT status, so state clearly which listings are ongoing vs \
+already resolved — don't imply everything in the table is still listed. The \
+tool's reply lists every matching domain — use that list directly to answer \
+filtering/comparison follow-ups ("which were listed more than N days", "which \
+are still listed", "which cleared") instead of saying you lack the data or \
+re-running the tool. For a trend CHART of specific domains from that list, \
+call check_spamhaus_listing once per named domain. This \
+is Spamhaus DBL (domain blocklist) status only — say plainly that IP-based \
+Spamhaus (Zen/SBL) history is not available if asked, never guess at it. If a \
+domain/account has never been checked, say there's no data rather than \
+assuming it's clean.
 - To RAISE / FILE / CREATE a Jira ticket — and only when the user actually asks \
 for one — use file_jira_ticket. This creates a REAL ticket other people will see, \
 so:
@@ -183,6 +210,8 @@ agent = create_react_agent(
         mbr_deliverability,
         lookup_account_info,
         lookup_dkim,
+        check_spamhaus_listing,
+        list_spamhaus_listings,
         calculator,
     ],
     prompt=SYSTEM_PROMPT,

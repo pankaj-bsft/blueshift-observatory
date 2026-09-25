@@ -6,8 +6,9 @@ from . import postmaster
 from . import metrics
 from . import accounts
 from . import mbr
+from . import spamhaus
 
 __all__ = [
     "DNSChecker", "COMMON_DKIM_SELECTORS", "SPFEvaluator",
-    "analyzer", "ec2_data", "postmaster", "metrics", "accounts", "mbr",
+    "analyzer", "ec2_data", "postmaster", "metrics", "accounts", "mbr", "spamhaus",
 ]

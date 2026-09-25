@@ -5,7 +5,7 @@ import re
 from langchain.tools import tool
 
 from .deliverability import DNSChecker, SPFEvaluator, analyzer, postmaster, metrics
-from .deliverability import ec2_data, accounts, mbr
+from .deliverability import ec2_data, accounts, mbr, spamhaus
 
 SEV_ICON = {"critical": "🔴", "warning": "🟠", "info": "🔵", "ok": "✅"}
 
@@ -222,6 +222,11 @@ def check_gmail_reputation(domain: str) -> str:
     ratios on actual mail, and delivery errors. Use this when the user asks
     about their Gmail reputation, spam rate, inbox placement, or why mail is
     going to spam. Requires the domain to be verified in Postmaster Tools.
+
+    Domain/IP reputation is only available for dates before the Postmaster
+    v2 API migration (Sept 2026) -- Google dropped that field going forward.
+    For a recent date this returns reputation as unavailable, not a real
+    value; spam rate and SPF/DKIM/DMARC ratios stay available either way.
     """
     print(f"\n🛠  Gmail Postmaster lookup: {domain} (source={postmaster.SOURCE})")
     findings, tiles = _postmaster_bundle(domain)
@@ -1068,3 +1073,175 @@ def file_jira_ticket(issue_type: str, summary: str, description: str) -> str:
     lines.append(f"The description was filed with the footer '{_AGENT_FOOTER}'.")
     lines.append("Confirm the ticket key to the user and include the link. Do not file another.")
     return _emit("\n".join(lines), stats=tiles)
+
+
+def _spamhaus_domain_response(summary, history, days):
+    domain = summary["domain"]
+    status = summary["current_status"]
+    tone = {"listed": "bad", "clean": "good"}.get(status, "neutral")
+
+    stats = [_stat("Spamhaus DBL status", status.title(), tone, summary.get("checked_at") or "")]
+    if summary["ever_listed"]:
+        stats.append(_stat("First listed", summary["first_listed_date"] or "—", "neutral"))
+        stats.append(_stat(
+            "Consecutive days listed", str(summary["consecutive_days_listed"]),
+            "bad" if summary["consecutive_days_listed"] > 0 else "good",
+        ))
+
+    lines = [f"Domain: {domain}", f"Current Spamhaus DBL status: {status}"]
+    if summary["checked_at"]:
+        lines.append(f"Last checked: {summary['checked_at']}")
+    if summary["ever_listed"]:
+        lines.append(f"First listed: {summary['first_listed_date']}")
+        lines.append(f"Consecutive days currently listed: {summary['consecutive_days_listed']}")
+    else:
+        lines.append(f"Never listed in the available history ({summary['history_days_available']} day(s) recorded).")
+
+    charts = []
+    if history:
+        labels = [r["checked_at"][5:] for r in history]
+        charts.append({
+            "type": "line", "title": f"Spamhaus DBL status — last {days}d", "labels": labels,
+            "datasets": [
+                {"label": "Listed", "data": [1 if r["status"] == "listed" else 0 for r in history], "color": "#ef4444"},
+            ],
+        })
+        lines.append(f"\n{len(history)} day(s) of history in the last {days} days.")
+    else:
+        lines.append(f"No history recorded in the last {days} days.")
+
+    return _emit("\n".join(lines), stats=stats, charts=charts)
+
+
+def _spamhaus_account_response(summary, days):
+    account = summary["account"]
+    domains = summary["domains"]
+    listed = summary["currently_listed"]
+
+    stats = [
+        _stat("Domains checked", str(len(domains)), "neutral"),
+        _stat("Currently listed", str(len(listed)), "bad" if listed else "good"),
+    ]
+    lines = [f"Account: {account} — {len(domains)} sending domain(s) with Spamhaus data"]
+    if listed:
+        lines.append(f"Currently listed on Spamhaus DBL: {', '.join(listed)}")
+    else:
+        lines.append("No domains for this account are currently listed on Spamhaus DBL.")
+
+    tables = [{
+        "title": f"Spamhaus status — {account}",
+        "columns": [{"label": "Domain", "align": "left"}, {"label": "Status", "align": "left"}],
+        "rows": [[d, summary["status_map"].get(d, "unknown")] for d in domains[:50]],
+    }]
+
+    charts = []
+    trend = summary["trend"]
+    if trend["dates"]:
+        labels = [d[5:] for d in trend["dates"]]
+        charts.append({
+            "type": "line", "title": f"Domains listed on Spamhaus — {account} (last {days}d)", "labels": labels,
+            "datasets": [{"label": "Listed domains", "data": trend["listed_count"], "color": "#ef4444"}],
+        })
+
+    return _emit("\n".join(lines), stats=stats, tables=tables, charts=charts)
+
+
+@tool(response_format="content_and_artifact")
+def check_spamhaus_listing(query: str, days: int = 30) -> str:
+    """Check Spamhaus DBL (domain blocklist) status and history for a domain or account.
+
+    Answers "is X on Spamhaus / blocklisted", "was X ever listed", "since when
+    has X been listed", and "show the Spamhaus trend for X" — with a listing
+    trend chart over `days` (default 30). Accepts either a sending domain or
+    an account name; for an account it rolls up across all of that account's
+    mapped sending domains.
+
+    Domain blocklist (DBL) status only — there is no stored history for
+    IP-based Spamhaus lists (Zen/SBL) to check instead.
+    """
+    q = (query or "").strip()
+    print(f"\n🛠  Spamhaus listing check: {q} ({days}d)")
+    if not q:
+        return _text("Please provide a sending domain or account name.")
+
+    try:
+        domain_summary = spamhaus.summarize_domain(q)
+        if domain_summary:
+            history = spamhaus.get_history(q, days)
+            return _spamhaus_domain_response(domain_summary, history, days)
+
+        account_summary = spamhaus.summarize_account(q, days)
+    except ec2_data.EC2DataError as e:
+        return _text(f"⚠ {e}")
+
+    if account_summary and account_summary["domains"]:
+        return _spamhaus_account_response(account_summary, days)
+
+    return _text(
+        f"No Spamhaus data found for '{q}'. It may not be a known sending domain or "
+        f"account, or it has never been checked against Spamhaus."
+    )
+
+
+@tool(response_format="content_and_artifact")
+def list_spamhaus_listings(days: int = 30) -> str:
+    """List sending domains listed on Spamhaus DBL at any point in the last `days` days.
+
+    Covers both "which domains are blocklisted right now" (default 30-day
+    window) and "which domains were listed in the past N months" (pass a
+    larger window, e.g. days=150 for ~5 months). Each row shows the first and
+    last listed date within the window, how many days it was listed, and its
+    CURRENT status — so you can tell an ongoing listing from one that has
+    since cleared. This is the same domain scope as the Pulsation page's
+    Spamhaus badge. For one specific domain or account's own status/trend,
+    use check_spamhaus_listing instead — it's cheaper for a single lookup.
+    """
+    print(f"\n🛠  Spamhaus: listings snapshot ({days}d)")
+    try:
+        summary = spamhaus.historical_listings_summary(days)
+    except ec2_data.EC2DataError as e:
+        return _text(f"⚠ {e}")
+    if not summary:
+        return _text(f"No recently-active sending domains were listed on Spamhaus DBL in the last {days} days.")
+
+    currently_listed = sum(1 for s in summary if s["current_status"] == "listed")
+    lines = [
+        f"{len(summary)} domain(s) listed on Spamhaus DBL at some point in the last {days} days "
+        f"({currently_listed} still listed now). Rows below are ALL the domains found — use them "
+        f"directly to answer filtering/comparison questions (e.g. \"listed more than N days\", "
+        f"\"still listed\", \"cleared already\") rather than saying you lack the data:",
+        "",
+    ]
+    for s in summary[:50]:
+        lines.append(
+            f"  {s['domain']}: first listed {s['first_listed_in_window']}, last listed "
+            f"{s['last_listed_in_window']}, {s['days_listed_in_window']} day(s) listed in "
+            f"this window, currently {s['current_status']}"
+        )
+    if len(summary) > 50:
+        lines.append(f"  ...and {len(summary) - 50} more (table above shows only the first 50).")
+    lines.append("")
+    lines.append(
+        "For a trend CHART of one or more of these domains, call check_spamhaus_listing "
+        "by name for each — this tool does not render per-domain charts."
+    )
+    tables = [{
+        "title": f"Spamhaus DBL listings — last {days}d",
+        "columns": [
+            {"label": "Domain", "align": "left"},
+            {"label": "First listed", "align": "left"},
+            {"label": "Last listed", "align": "left"},
+            {"label": "Days listed", "align": "right"},
+            {"label": "Current status", "align": "left"},
+        ],
+        "rows": [
+            [s["domain"], s["first_listed_in_window"], s["last_listed_in_window"],
+             str(s["days_listed_in_window"]), s["current_status"]]
+            for s in summary[:50]
+        ],
+    }]
+    stats = [
+        _stat("Listed in this window", str(len(summary)), "bad"),
+        _stat("Still listed now", str(currently_listed), "bad" if currently_listed else "good"),
+    ]
+    return _emit("\n".join(lines), stats=stats, tables=tables)
