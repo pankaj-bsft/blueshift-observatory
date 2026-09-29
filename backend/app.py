@@ -105,6 +105,8 @@ from gpt_analytics_service import (
     get_enhanced_reputation_changes,
     get_domain_detailed_metrics
 )
+import warmup_service
+import warmup_decision_engine
 from bounce_analytics_service import (
     collect_all_esps,
     collect_mailgun_bounces,
@@ -3144,6 +3146,209 @@ def deliverability_agent_endpoint(query: AgentQuery):
         return _run_deliverability_agent(query.question, query.conversation_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Deliverability Warm-up Planner
+# ---------------------------------------------------------------------------
+
+class WarmupPlanCreate(BaseModel):
+    name: str
+    warming_type: str
+    esp: Optional[str] = None
+    domain: str
+    subdomain: Optional[str] = None
+    region: Optional[str] = None
+    old_ip: Optional[str] = None
+    new_ip: Optional[str] = None
+    current_volume: int = 0
+    target_volume: int
+    start_date: Optional[str] = None
+    target_date: str
+    strategy: str = 'balanced'
+    isp_mix: Dict[str, float]
+    audience_quality: str = 'highly_engaged'
+    notes: Optional[str] = None
+
+
+class WarmupPlanConfigUpdate(BaseModel):
+    target_volume: Optional[int] = None
+    target_date: Optional[str] = None
+    strategy: Optional[str] = None
+    isp_mix: Optional[Dict[str, float]] = None
+
+
+class WarmupStatusUpdate(BaseModel):
+    status: str
+
+
+class WarmupActualEntry(BaseModel):
+    actual_date: str
+    actual_total: Optional[int] = None
+    actual_gmail: Optional[int] = None
+    actual_microsoft: Optional[int] = None
+    actual_yahoo: Optional[int] = None
+    actual_apple: Optional[int] = None
+    actual_other: Optional[int] = None
+    delivery_rate: Optional[float] = None
+    hard_bounce_rate: Optional[float] = None
+    soft_bounce_rate: Optional[float] = None
+    spam_rate: Optional[float] = None
+    unsub_rate: Optional[float] = None
+    open_rate: Optional[float] = None
+    click_rate: Optional[float] = None
+
+
+@app.post('/api/warmup/plans')
+async def create_warmup_plan(plan: WarmupPlanCreate):
+    """Create a new warm-up plan and generate its day-by-day schedule."""
+    try:
+        result = warmup_service.create_plan(plan.dict())
+        return {'status': 'success', 'plan': result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error creating warmup plan: {str(e)}')
+
+
+@app.get('/api/warmup/plans')
+async def list_warmup_plans(status: Optional[str] = None):
+    try:
+        plans = warmup_service.list_plans(status)
+        return {'status': 'success', 'plans': plans, 'total': len(plans)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error listing warmup plans: {str(e)}')
+
+
+@app.get('/api/warmup/plans/{plan_id}')
+async def get_warmup_plan(plan_id: int):
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    return {'status': 'success', 'plan': plan}
+
+
+@app.put('/api/warmup/plans/{plan_id}/config')
+async def update_warmup_plan_config(plan_id: int, update: WarmupPlanConfigUpdate):
+    """Edit ramp configuration (target volume/date, strategy, ISP mix) and
+    regenerate the schedule from today forward."""
+    try:
+        data = {k: v for k, v in update.dict().items() if v is not None}
+        result = warmup_service.update_plan_config(plan_id, data)
+        return {'status': 'success', 'plan': result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error updating warmup plan: {str(e)}')
+
+
+@app.put('/api/warmup/plans/{plan_id}/status')
+async def update_warmup_plan_status(plan_id: int, update: WarmupStatusUpdate):
+    try:
+        result = warmup_service.update_plan_status(plan_id, update.status)
+        return {'status': 'success', 'plan': result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error updating warmup plan status: {str(e)}')
+
+
+@app.get('/api/warmup/plans/{plan_id}/schedule')
+async def get_warmup_schedule(plan_id: int):
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    return {'status': 'success', 'schedule': warmup_service.get_schedule(plan_id)}
+
+
+@app.get('/api/warmup/plans/{plan_id}/actuals')
+async def get_warmup_actuals(plan_id: int):
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    return {'status': 'success', 'actuals': warmup_service.get_actuals(plan_id)}
+
+
+@app.post('/api/warmup/plans/{plan_id}/actuals')
+async def record_warmup_actual(plan_id: int, entry: WarmupActualEntry):
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    try:
+        data = {k: v for k, v in entry.dict().items() if k != 'actual_date'}
+        result = warmup_service.record_actual(plan_id, entry.actual_date, data, source='manual')
+        return {'status': 'success', 'actual': result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error recording actuals: {str(e)}')
+
+
+@app.post('/api/warmup/plans/{plan_id}/actuals/import-csv')
+async def import_warmup_actuals_csv(plan_id: int, file: UploadFile = File(...)):
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    try:
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='wb', suffix='.csv', delete=False) as tmp:
+            tmp.write(await file.read())
+            tmp_path = tmp.name
+        try:
+            result = warmup_service.import_actuals_csv(plan_id, tmp_path)
+        finally:
+            os.unlink(tmp_path)
+        return {'status': 'success', **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error importing actuals CSV: {str(e)}')
+
+
+@app.get('/api/warmup/plans/{plan_id}/recommendation')
+async def get_warmup_recommendation(plan_id: int, on_date: Optional[str] = None):
+    """Evaluate (and persist) today's -- or a given date's -- recommendation."""
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    try:
+        result = warmup_decision_engine.evaluate(plan_id, on_date)
+        return {'status': 'success', **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error evaluating warmup plan: {str(e)}')
+
+
+@app.post('/api/warmup/plans/{plan_id}/recalculate')
+async def recalculate_warmup_plan(plan_id: int):
+    """Re-evaluate every date that has actuals recorded (not just today) --
+    the right call after a CSV import, or after editing thresholds/config."""
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    try:
+        results = warmup_decision_engine.recalculate_all(plan_id)
+        return {'status': 'success', 'evaluated_days': len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error recalculating warmup plan: {str(e)}')
+
+
+@app.get('/api/warmup/plans/{plan_id}/events')
+async def get_warmup_events(plan_id: int):
+    """The full decision history/timeline for a plan."""
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    return {'status': 'success', 'events': warmup_service.get_events(plan_id)}
+
+
+@app.get('/api/warmup/config')
+async def get_warmup_config():
+    """The centralized, versioned threshold configuration driving the decision engine."""
+    import warmup_thresholds as wcfg
+    return {
+        'status': 'success',
+        'version': wcfg.THRESHOLDS_VERSION,
+        'thresholds': {
+            k: v for k, v in vars(wcfg).items()
+            if k.isupper() and not k.startswith('_')
+        },
+    }
 
 
 if __name__ == '__main__':

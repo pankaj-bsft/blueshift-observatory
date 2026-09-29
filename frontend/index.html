@@ -6979,7 +6979,376 @@
           </div>
         </div>
 
-        <div v-if="activePage !== 'home' && activePage !== 'pulsation' && activePage !== 'mbr' && activePage !== 'mappings' && activePage !== 'mappings_rails' && activePage !== 'deliverability-analysis' && activePage !== 'info' && activePage !== 'snds' && activePage !== 'gpt' && activePage !== 'bounces' && activePage !== 'updates' && activePage !== 'observatory-agent'" style="text-align: center; padding: 60px 20px;">
+        <div v-if="activePage === 'warmup'">
+          <div class="page-header-gradient" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 16px; padding: 28px 32px; margin-bottom: 24px;">
+            <h1 class="page-header-title" style="color: #fff; margin: 0 0 4px 0;">Deliverability Warm-up Planner</h1>
+            <p style="color: #bfdbfe; margin: 0; font-size: 14px;">Plan. Ramp. Monitor. Adapt.</p>
+          </div>
+
+          <div v-if="warmupError" style="background: linear-gradient(135deg, #fee2e2, #fecaca); border: 1px solid #fca5a5; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <span style="color: #991b1b; font-size: 14px; font-weight: 500;">{{ warmupError }}</span>
+            <button @click="warmupError = ''" class="btn btn-sm btn-default">Dismiss</button>
+          </div>
+
+          <!-- ============ LIST VIEW ============ -->
+          <div v-if="!warmupSelectedPlan">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+              <div class="stat-card" style="text-align: center; padding: 20px;">
+                <div style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Active Plans</div>
+                <div style="font-size: 28px; font-weight: 800; color: #1e293b;">{{ warmupPlans.filter(p => p.status === 'active').length }}</div>
+              </div>
+              <div class="stat-card" style="text-align: center; padding: 20px;">
+                <div style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Total Plans</div>
+                <div style="font-size: 28px; font-weight: 800; color: #1e293b;">{{ warmupPlans.length }}</div>
+              </div>
+              <div class="stat-card" style="text-align: center; padding: 20px;">
+                <div style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Paused</div>
+                <div style="font-size: 28px; font-weight: 800; color: #ca8a04;">{{ warmupPlans.filter(p => p.status === 'paused').length }}</div>
+              </div>
+              <div class="stat-card" style="text-align: center; padding: 20px;">
+                <div style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Completed</div>
+                <div style="font-size: 28px; font-weight: 800; color: #16a34a;">{{ warmupPlans.filter(p => p.status === 'completed').length }}</div>
+              </div>
+            </div>
+
+            <div class="card-section" style="margin-bottom: 24px;">
+              <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 class="card-title">Warming Plans</h3>
+                <button class="btn btn-primary" @click="warmupShowCreateForm = !warmupShowCreateForm">
+                  {{ warmupShowCreateForm ? 'Cancel' : '+ Create Warming Plan' }}
+                </button>
+              </div>
+
+              <!-- Create Plan Form -->
+              <div v-if="warmupShowCreateForm" style="padding: 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                  <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Plan Name</label>
+                    <input class="date-input" style="width: 100%;" v-model="warmupNewPlan.name" placeholder="e.g. newdomain.example launch" />
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Warming Type</label>
+                    <select class="date-input" style="width: 100%;" v-model="warmupNewPlan.warming_type">
+                      <option value="new_domain">New Sending Domain</option>
+                      <option value="new_ip">New Dedicated IP</option>
+                      <option value="new_ip_and_domain">New IP + Domain</option>
+                      <option value="esp_migration">ESP/IP Migration</option>
+                      <option value="infrastructure_change">Infrastructure Change</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Domain</label>
+                    <input class="date-input" style="width: 100%;" v-model="warmupNewPlan.domain" placeholder="e.g. alerts.example.com" />
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">ESP</label>
+                    <select class="date-input" style="width: 100%;" v-model="warmupNewPlan.esp">
+                      <option value="Mailgun">Mailgun</option>
+                      <option value="Sparkpost">SparkPost</option>
+                      <option value="Sendgrid">SendGrid</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div v-if="warmupNewPlan.warming_type === 'esp_migration' || warmupNewPlan.warming_type === 'new_ip' || warmupNewPlan.warming_type === 'new_ip_and_domain'">
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Old IP (optional)</label>
+                    <input class="date-input" style="width: 100%;" v-model="warmupNewPlan.old_ip" placeholder="203.0.113.10" />
+                  </div>
+                  <div v-if="warmupNewPlan.warming_type === 'esp_migration' || warmupNewPlan.warming_type === 'new_ip' || warmupNewPlan.warming_type === 'new_ip_and_domain'">
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">
+                      New IP <span style="font-weight: 400; color: #94a3b8;">(enables Microsoft SNDS monitoring)</span>
+                    </label>
+                    <input class="date-input" style="width: 100%;" v-model="warmupNewPlan.new_ip" placeholder="203.0.113.20" />
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Current Daily Volume</label>
+                    <input class="date-input" type="number" style="width: 100%;" v-model.number="warmupNewPlan.current_volume" />
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Target Daily Volume</label>
+                    <input class="date-input" type="number" style="width: 100%;" v-model.number="warmupNewPlan.target_volume" />
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Target Completion Date</label>
+                    <input class="date-input" type="date" style="width: 100%;" v-model="warmupNewPlan.target_date" />
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Strategy</label>
+                    <select class="date-input" style="width: 100%;" v-model="warmupNewPlan.strategy">
+                      <option value="conservative">Conservative</option>
+                      <option value="balanced">Balanced</option>
+                      <option value="aggressive">Aggressive</option>
+                    </select>
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">If the target date isn't reachable at this pace, the plan is extended automatically -- never silently over-ramped.</div>
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Starting Audience Quality</label>
+                    <select class="date-input" style="width: 100%;" v-model="warmupNewPlan.audience_quality">
+                      <option value="highly_engaged">Highly engaged</option>
+                      <option value="recently_engaged">Recently engaged</option>
+                      <option value="active_subscribers">Active subscribers</option>
+                      <option value="purchasers">Purchasers</option>
+                      <option value="mixed">Mixed audience</option>
+                      <option value="lapsed">Lapsed</option>
+                      <option value="inactive">Old/inactive</option>
+                    </select>
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">A guide for who to send to at each stage -- Observatory has no subscriber-level data to verify this against.</div>
+                  </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                  <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">
+                    ISP Mix (%) -- must sum to 100
+                    <span :style="{color: Math.abs(warmupIspMixTotal() - 100) > 0.5 ? '#dc2626' : '#16a34a', fontWeight: 700}">
+                      (currently {{ warmupIspMixTotal() }})
+                    </span>
+                  </label>
+                  <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;">
+                    <div v-for="isp in ['gmail','microsoft','yahoo','apple','other']" :key="isp">
+                      <label style="font-size: 11px; color: #64748b; text-transform: capitalize; display: block; margin-bottom: 2px;">{{ isp }}</label>
+                      <input class="date-input" type="number" style="width: 100%;" v-model.number="warmupNewPlan.isp_mix[isp]" />
+                    </div>
+                  </div>
+                  <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">
+                    Reputation signal is only available for Gmail (Postmaster) and Microsoft (SNDS) -- Yahoo/Apple/Other get volume and bounce signals only, never a fabricated reputation score.
+                  </div>
+                </div>
+
+                <button class="btn btn-primary" :disabled="warmupCreating || !warmupNewPlan.name || !warmupNewPlan.domain || !warmupNewPlan.target_date" @click="createWarmupPlan">
+                  {{ warmupCreating ? 'Generating plan…' : 'Generate Warming Plan' }}
+                </button>
+              </div>
+
+              <div v-if="warmupLoading && warmupPlans.length === 0" style="text-align: center; padding: 40px; color: #64748b;">Loading…</div>
+              <div v-else-if="warmupPlans.length === 0" style="text-align: center; padding: 40px; color: #94a3b8;">No warming plans yet. Create one to get started.</div>
+              <table v-else class="mappings-table" style="width: 100%;">
+                <thead>
+                  <tr>
+                    <th>Plan</th><th>Type</th><th>Domain</th><th>Current Vol.</th><th>Target Vol.</th>
+                    <th>Progress</th><th>Status</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="plan in warmupPlans" :key="plan.id" style="cursor: pointer;" @click="selectWarmupPlan(plan.id)">
+                    <td style="font-weight: 600;">{{ plan.name }}</td>
+                    <td style="text-transform: capitalize;">{{ plan.warming_type.replace(/_/g, ' ') }}</td>
+                    <td>{{ plan.domain }}</td>
+                    <td>{{ plan.current_volume.toLocaleString() }}</td>
+                    <td>{{ plan.target_volume.toLocaleString() }}</td>
+                    <td>
+                      <div style="width: 100px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
+                        <div :style="{width: warmupProgressPct(plan) + '%', height: '100%', background: '#3b82f6'}"></div>
+                      </div>
+                    </td>
+                    <td>
+                      <span style="padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: capitalize;"
+                            :style="{background: plan.status === 'active' ? '#dcfce7' : plan.status === 'paused' ? '#fef3c7' : '#f1f5f9', color: plan.status === 'active' ? '#166534' : plan.status === 'paused' ? '#92400e' : '#475569'}">
+                        {{ plan.status }}
+                      </span>
+                    </td>
+                    <td><button class="btn btn-sm btn-default" @click.stop="selectWarmupPlan(plan.id)">View →</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ============ PLAN DETAIL VIEW ============ -->
+          <div v-else>
+            <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 16px; padding: 24px 32px; margin-bottom: 20px; border: 1px solid #bfdbfe;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0;">{{ warmupSelectedPlan.name }}</h2>
+                  <p style="font-size: 13px; color: #64748b; margin: 0;">{{ warmupSelectedPlan.domain }} · {{ warmupSelectedPlan.esp }} · {{ warmupSelectedPlan.strategy }} strategy</p>
+                  <div v-if="warmupSelectedPlan.duration_extended" style="font-size: 12px; color: #92400e; background: #fef3c7; display: inline-block; padding: 3px 10px; border-radius: 8px; margin-top: 8px;">
+                    ⚠ Target date extended to {{ warmupSelectedPlan.target_date }} -- the original deadline wasn't reachable at the {{ warmupSelectedPlan.strategy }} pace.
+                  </div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <select class="date-input" :value="warmupSelectedPlan.status" @change="setWarmupPlanStatus($event.target.value)">
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
+                    <option value="completed">Completed</option>
+                    <option value="aborted">Aborted</option>
+                  </select>
+                  <button class="btn btn-secondary" @click="clearWarmupSelection">← Back to Plans</button>
+                </div>
+              </div>
+
+              <div v-if="warmupRecommendation && warmupRecommendation.decision" style="margin-top: 16px; padding: 16px 20px; border-radius: 12px;"
+                   :style="{background: warmupDecisionBg(warmupRecommendation.decision)}">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;" :style="{color: warmupDecisionColor(warmupRecommendation.decision)}">
+                    {{ warmupRecommendation.decision }}
+                  </div>
+                  <div style="font-size: 13px; font-weight: 700;" :style="{color: warmupHealthBandColor(warmupRecommendation.health_band)}">
+                    Health Score: {{ warmupRecommendation.health_score }} ({{ warmupRecommendation.health_band }})
+                  </div>
+                </div>
+                <div style="font-size: 13px; color: #334155; white-space: pre-line; margin-top: 8px;">{{ warmupRecommendation.explanation }}</div>
+              </div>
+              <div v-else-if="warmupRecommendation" style="margin-top: 16px; padding: 16px 20px; border-radius: 12px; background: #f1f5f9; color: #64748b; font-size: 13px;">
+                {{ warmupRecommendation.explanation }}
+              </div>
+            </div>
+
+            <!-- Sub-tabs -->
+            <div style="display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0;">
+              <button v-for="tab in [['overview','Overview'],['timeline','Timeline'],['isp','ISP Performance'],['planned_vs_actual','Planned vs Actual'],['actuals','Enter Actuals']]"
+                      :key="tab[0]" @click="warmupActiveTab = tab[0]"
+                      style="padding: 10px 18px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600;"
+                      :style="{color: warmupActiveTab === tab[0] ? '#2563eb' : '#64748b', borderBottom: warmupActiveTab === tab[0] ? '2px solid #2563eb' : '2px solid transparent', marginBottom: '-2px'}">
+                {{ tab[1] }}
+              </button>
+            </div>
+
+            <!-- Overview tab -->
+            <div v-if="warmupActiveTab === 'overview'" class="card-section" style="padding: 24px;">
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+                <div class="stat-card" style="text-align: center; padding: 16px;">
+                  <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase;">Progress</div>
+                  <div style="font-size: 22px; font-weight: 800;">{{ warmupProgressPct(warmupSelectedPlan) }}%</div>
+                </div>
+                <div class="stat-card" style="text-align: center; padding: 16px;">
+                  <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase;">Target Date</div>
+                  <div style="font-size: 16px; font-weight: 800;">{{ warmupSelectedPlan.target_date }}</div>
+                </div>
+                <div class="stat-card" style="text-align: center; padding: 16px;">
+                  <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase;">Current Target Volume</div>
+                  <div style="font-size: 22px; font-weight: 800;">{{ warmupSelectedPlan.target_volume.toLocaleString() }}</div>
+                </div>
+                <div class="stat-card" style="text-align: center; padding: 16px;">
+                  <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase;">Audience Stage Today</div>
+                  <div style="font-size: 14px; font-weight: 700;">{{ (warmupSchedule.find(d => d.scheduled_date === new Date().toISOString().slice(0,10)) || {}).recommended_audience || '—' }}</div>
+                </div>
+              </div>
+              <div v-if="warmupRecommendation && warmupRecommendation.positives && warmupRecommendation.positives.length" style="margin-top: 20px;">
+                <div style="font-size: 12px; font-weight: 700; color: #166534; margin-bottom: 6px;">Positive signals</div>
+                <div v-for="p in warmupRecommendation.positives" :key="p" style="font-size: 13px; color: #166534;">+ {{ p }}</div>
+              </div>
+              <div v-if="warmupRecommendation && warmupRecommendation.reasons && warmupRecommendation.reasons.length" style="margin-top: 16px;">
+                <div style="font-size: 12px; font-weight: 700; color: #991b1b; margin-bottom: 6px;">Flagged signals</div>
+                <div v-for="r in warmupRecommendation.reasons" :key="r.signal" style="font-size: 13px; color: #991b1b;">- {{ r.message }}</div>
+              </div>
+            </div>
+
+            <!-- Timeline tab -->
+            <div v-if="warmupActiveTab === 'timeline'" class="card-section">
+              <table class="mappings-table" style="width: 100%;">
+                <thead><tr><th>Day</th><th>Date</th><th>Planned</th><th>Actual</th><th>Audience</th><th>Decision</th><th>Health</th></tr></thead>
+                <tbody>
+                  <tr v-for="day in warmupSchedule" :key="day.day_number">
+                    <td>{{ day.day_number }}</td>
+                    <td>{{ day.scheduled_date }}</td>
+                    <td>{{ day.planned_total.toLocaleString() }}</td>
+                    <td>{{ warmupActualForDate(day.scheduled_date) ? warmupActualForDate(day.scheduled_date).actual_total?.toLocaleString() : '—' }}</td>
+                    <td style="font-size: 12px;">{{ day.recommended_audience }}</td>
+                    <td>
+                      <span v-if="warmupEventForDate(day.scheduled_date)" style="padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase;"
+                            :style="{background: warmupDecisionBg(warmupEventForDate(day.scheduled_date).decision), color: warmupDecisionColor(warmupEventForDate(day.scheduled_date).decision)}">
+                        {{ warmupEventForDate(day.scheduled_date).decision }}
+                      </span>
+                      <span v-else style="color: #cbd5e1;">—</span>
+                    </td>
+                    <td>{{ warmupEventForDate(day.scheduled_date) ? warmupEventForDate(day.scheduled_date).health_score : '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- ISP Performance tab -->
+            <div v-if="warmupActiveTab === 'isp'" class="card-section" style="padding: 24px;">
+              <div style="font-size: 12px; color: #94a3b8; margin-bottom: 16px;">
+                Reputation column only populates for Gmail (Postmaster) and Microsoft (SNDS) -- no reputation API exists for other providers, for any sender, industry-wide.
+              </div>
+              <table class="mappings-table" style="width: 100%;">
+                <thead><tr><th>ISP</th><th>Today's Planned</th><th>Today's Actual</th><th>Reputation Signal</th></tr></thead>
+                <tbody>
+                  <tr v-for="isp in ['gmail','microsoft','yahoo','apple','other']" :key="isp">
+                    <td style="text-transform: capitalize; font-weight: 600;">{{ isp }}</td>
+                    <td>{{ ((warmupSchedule.find(d => d.scheduled_date === new Date().toISOString().slice(0,10)) || {})['planned_' + isp] || 0).toLocaleString() }}</td>
+                    <td>{{ (warmupActualForDate(new Date().toISOString().slice(0,10)) || {})['actual_' + isp]?.toLocaleString() || '—' }}</td>
+                    <td>
+                      <span v-if="isp === 'gmail' || isp === 'microsoft'" style="color: #2563eb; font-size: 12px;">Monitored ({{ isp === 'gmail' ? 'Postmaster' : 'SNDS' }})</span>
+                      <span v-else style="color: #94a3b8; font-size: 12px;">No reputation signal available</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Planned vs Actual tab -->
+            <div v-if="warmupActiveTab === 'planned_vs_actual'" class="card-section" style="padding: 24px;">
+              <table class="mappings-table" style="width: 100%;">
+                <thead><tr><th>Date</th><th>Planned</th><th>Actual</th><th>Variance</th></tr></thead>
+                <tbody>
+                  <tr v-for="day in warmupSchedule.filter(d => warmupActualForDate(d.scheduled_date))" :key="day.day_number">
+                    <td>{{ day.scheduled_date }}</td>
+                    <td>{{ day.planned_total.toLocaleString() }}</td>
+                    <td>{{ warmupActualForDate(day.scheduled_date).actual_total?.toLocaleString() }}</td>
+                    <td :style="{color: Math.abs((warmupActualForDate(day.scheduled_date).actual_total - day.planned_total) / day.planned_total * 100) > 20 ? '#dc2626' : '#16a34a'}">
+                      {{ Math.round((warmupActualForDate(day.scheduled_date).actual_total - day.planned_total) / day.planned_total * 1000) / 10 }}%
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-if="!warmupSchedule.some(d => warmupActualForDate(d.scheduled_date))" style="text-align: center; padding: 40px; color: #94a3b8;">
+                No actuals recorded yet -- use the "Enter Actuals" tab.
+              </div>
+            </div>
+
+            <!-- Enter Actuals tab -->
+            <div v-if="warmupActiveTab === 'actuals'" class="card-section" style="padding: 24px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div>
+                  <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Date</label>
+                  <input class="date-input" type="date" style="width: 100%;" v-model="warmupActualForm.actual_date" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Total Sent</label>
+                  <input class="date-input" type="number" style="width: 100%;" v-model.number="warmupActualForm.actual_total" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Delivery Rate (%)</label>
+                  <input class="date-input" type="number" step="0.1" style="width: 100%;" v-model.number="warmupActualForm.delivery_rate" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Hard Bounce Rate (%)</label>
+                  <input class="date-input" type="number" step="0.1" style="width: 100%;" v-model.number="warmupActualForm.hard_bounce_rate" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Soft Bounce Rate (%)</label>
+                  <input class="date-input" type="number" step="0.1" style="width: 100%;" v-model.number="warmupActualForm.soft_bounce_rate" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Spam Complaint Rate (%)</label>
+                  <input class="date-input" type="number" step="0.01" style="width: 100%;" v-model.number="warmupActualForm.spam_rate" />
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Unsubscribe Rate (%)</label>
+                  <input class="date-input" type="number" step="0.01" style="width: 100%;" v-model.number="warmupActualForm.unsub_rate" />
+                </div>
+              </div>
+              <div style="margin-bottom: 8px; font-size: 12px; font-weight: 600; color: #475569;">Per-ISP actual volume (optional)</div>
+              <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px;">
+                <div v-for="isp in ['gmail','microsoft','yahoo','apple','other']" :key="isp">
+                  <label style="font-size: 11px; color: #64748b; text-transform: capitalize; display: block; margin-bottom: 2px;">{{ isp }}</label>
+                  <input class="date-input" type="number" style="width: 100%;" v-model.number="warmupActualForm['actual_' + isp]" />
+                </div>
+              </div>
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <button class="btn btn-primary" :disabled="warmupActualSaving || !warmupActualForm.actual_date" @click="submitWarmupActual">
+                  {{ warmupActualSaving ? 'Saving…' : 'Save & Re-evaluate' }}
+                </button>
+                <label class="btn btn-secondary" style="cursor: pointer;">
+                  {{ warmupCsvImporting ? 'Importing…' : 'Import CSV' }}
+                  <input type="file" accept=".csv" style="display: none;" @change="importWarmupActualsCsv" :disabled="warmupCsvImporting" />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="activePage !== 'home' && activePage !== 'pulsation' && activePage !== 'mbr' && activePage !== 'mappings' && activePage !== 'mappings_rails' && activePage !== 'deliverability-analysis' && activePage !== 'info' && activePage !== 'snds' && activePage !== 'gpt' && activePage !== 'bounces' && activePage !== 'updates' && activePage !== 'observatory-agent' && activePage !== 'warmup'" style="text-align: center; padding: 60px 20px;">
           <div style="font-size: 48px; margin-bottom: 16px;">🚧</div>
           <h3 style="font-size: 18px; color: #1e293b; margin-bottom: 8px;">Page Under Construction</h3>
           <p style="font-size: 14px; color: #64748b;">This page will be available soon with the premium design</p>
@@ -7503,7 +7872,8 @@
             { key: 'gpt', label: 'GPT', icon: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8l6 4 6-4"/>' },
             { key: 'deliverability-analysis', label: 'Deliverability Analysis', icon: '<path d="M12 2l9 4v6c0 5-3.8 9.7-9 10-5.2-.3-9-5-9-10V6l9-4z"/><path d="M8 12h8"/><path d="M8 16h5"/>' },
             { key: 'observatory-agent', label: 'Observatory Agent', icon: '<rect x="3" y="7" width="18" height="12" rx="3"/><circle cx="9" cy="13" r="1.4"/><circle cx="15" cy="13" r="1.4"/><path d="M12 3v4"/><path d="M8 19v2"/><path d="M16 19v2"/>' },
-            { key: 'updates', label: 'Industry Updates', icon: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>' }
+            { key: 'updates', label: 'Industry Updates', icon: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>' },
+            { key: 'warmup', label: 'Warm-up Planner', icon: '<path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3"/>' }
           ],
 
           // Pulsation State
@@ -7897,7 +8267,34 @@
             { cat: 'User Trust Signals', signal: 'Name mismatch or confusion', score: 'strongneg', label: '🚨 Negative' },
             { cat: 'Spam Pattern Match', signal: 'Financial hook phrasing', score: 'strongneg', label: '🚨 Strong Negative' },
             { cat: 'Personalization Quality', signal: 'Generic or incorrect personalization', score: 'strongneg', label: '🚨 Negative' }
-          ]
+          ],
+
+          // ===== Warm-up Planner state =====
+          warmupPlans: [],
+          warmupLoading: false,
+          warmupError: '',
+          warmupSelectedPlan: null,
+          warmupSchedule: [],
+          warmupActuals: [],
+          warmupEvents: [],
+          warmupRecommendation: null,
+          warmupActiveTab: 'overview',
+          warmupShowCreateForm: false,
+          warmupCreating: false,
+          warmupNewPlan: {
+            name: '', warming_type: 'new_domain', esp: 'Mailgun', domain: '', subdomain: '', region: 'US',
+            old_ip: '', new_ip: '', current_volume: 0, target_volume: 10000, target_date: '',
+            strategy: 'balanced',
+            isp_mix: { gmail: 45, microsoft: 25, yahoo: 15, apple: 5, other: 10 },
+            audience_quality: 'highly_engaged', notes: '',
+          },
+          warmupActualForm: {
+            actual_date: '', actual_total: null, delivery_rate: null, hard_bounce_rate: null,
+            soft_bounce_rate: null, spam_rate: null, unsub_rate: null,
+            actual_gmail: null, actual_microsoft: null, actual_yahoo: null, actual_apple: null, actual_other: null,
+          },
+          warmupActualSaving: false,
+          warmupCsvImporting: false,
         };
       },
       computed: {
@@ -8332,6 +8729,212 @@
       },
 
       methods: {
+        // ===== Warm-up Planner =====
+        warmupIspMixTotal() {
+          const mix = this.warmupNewPlan.isp_mix;
+          return Object.values(mix).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+        },
+        warmupDecisionColor(decision) {
+          return { increase: '#16a34a', hold: '#ca8a04', reduce: '#ea580c', pause: '#dc2626' }[decision] || '#64748b';
+        },
+        warmupDecisionBg(decision) {
+          return { increase: '#dcfce7', hold: '#fef3c7', reduce: '#fed7aa', pause: '#fee2e2' }[decision] || '#f1f5f9';
+        },
+        warmupHealthBandColor(band) {
+          return { Healthy: '#16a34a', Watch: '#ca8a04', Risk: '#ea580c', Critical: '#dc2626' }[band] || '#64748b';
+        },
+        async loadWarmupPlans() {
+          this.warmupLoading = true;
+          this.warmupError = '';
+          try {
+            const resp = await fetch(`${this.API_BASE}/api/warmup/plans`);
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'Failed to load warmup plans');
+            this.warmupPlans = data.plans;
+          } catch (e) {
+            this.warmupError = e.message;
+          } finally {
+            this.warmupLoading = false;
+          }
+        },
+        resetWarmupNewPlanForm() {
+          this.warmupNewPlan = {
+            name: '', warming_type: 'new_domain', esp: 'Mailgun', domain: '', subdomain: '', region: 'US',
+            old_ip: '', new_ip: '', current_volume: 0, target_volume: 10000, target_date: '',
+            strategy: 'balanced',
+            isp_mix: { gmail: 45, microsoft: 25, yahoo: 15, apple: 5, other: 10 },
+            audience_quality: 'highly_engaged', notes: '',
+          };
+        },
+        async createWarmupPlan() {
+          if (Math.abs(this.warmupIspMixTotal() - 100) > 0.5) {
+            this.warmupError = `ISP mix must sum to 100 (currently ${this.warmupIspMixTotal()})`;
+            return;
+          }
+          this.warmupCreating = true;
+          this.warmupError = '';
+          try {
+            const resp = await fetch(`${this.API_BASE}/api/warmup/plans`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.warmupNewPlan),
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'Failed to create warmup plan');
+            this.warmupShowCreateForm = false;
+            this.resetWarmupNewPlanForm();
+            await this.loadWarmupPlans();
+            await this.selectWarmupPlan(data.plan.id);
+          } catch (e) {
+            this.warmupError = e.message;
+          } finally {
+            this.warmupCreating = false;
+          }
+        },
+        async selectWarmupPlan(planId) {
+          this.warmupLoading = true;
+          this.warmupError = '';
+          this.warmupActiveTab = 'overview';
+          try {
+            const [planResp, schedResp, actualsResp, eventsResp] = await Promise.all([
+              fetch(`${this.API_BASE}/api/warmup/plans/${planId}`),
+              fetch(`${this.API_BASE}/api/warmup/plans/${planId}/schedule`),
+              fetch(`${this.API_BASE}/api/warmup/plans/${planId}/actuals`),
+              fetch(`${this.API_BASE}/api/warmup/plans/${planId}/events`),
+            ]);
+            const planData = await planResp.json();
+            if (!planResp.ok) throw new Error(planData.detail || 'Failed to load plan');
+            this.warmupSelectedPlan = planData.plan;
+            this.warmupSchedule = (await schedResp.json()).schedule;
+            this.warmupActuals = (await actualsResp.json()).actuals;
+            this.warmupEvents = (await eventsResp.json()).events;
+            await this.refreshWarmupRecommendation();
+            this.warmupActualForm.actual_date = new Date().toISOString().slice(0, 10);
+          } catch (e) {
+            this.warmupError = e.message;
+          } finally {
+            this.warmupLoading = false;
+          }
+        },
+        async refreshWarmupRecommendation(onDate) {
+          // Defaults to today (the header banner always shows today's status),
+          // but callers evaluating a specific entered/imported date should pass
+          // it explicitly -- otherwise a backfilled day never gets a decision.
+          if (!this.warmupSelectedPlan) return;
+          try {
+            const evalDate = onDate || new Date().toISOString().slice(0, 10);
+            const resp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/recommendation?on_date=${evalDate}`);
+            const data = await resp.json();
+            const evResp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/events`);
+            this.warmupEvents = (await evResp.json()).events;
+            // The header banner always reflects TODAY specifically, regardless
+            // of which date was just evaluated.
+            const today = new Date().toISOString().slice(0, 10);
+            if (evalDate === today && resp.ok) {
+              this.warmupRecommendation = data;
+            } else {
+              const todayResp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/recommendation?on_date=${today}`);
+              this.warmupRecommendation = await todayResp.json();
+            }
+          } catch (e) {
+            console.error('Warmup recommendation refresh failed:', e);
+          }
+        },
+        async recalculateWarmupPlan() {
+          if (!this.warmupSelectedPlan) return;
+          try {
+            await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/recalculate`, { method: 'POST' });
+            await this.refreshWarmupRecommendation();
+          } catch (e) {
+            this.warmupError = e.message;
+          }
+        },
+        clearWarmupSelection() {
+          this.warmupSelectedPlan = null;
+          this.warmupSchedule = [];
+          this.warmupActuals = [];
+          this.warmupEvents = [];
+          this.warmupRecommendation = null;
+        },
+        async submitWarmupActual() {
+          if (!this.warmupSelectedPlan || !this.warmupActualForm.actual_date) return;
+          this.warmupActualSaving = true;
+          this.warmupError = '';
+          try {
+            const resp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/actuals`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.warmupActualForm),
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'Failed to save actuals');
+            const actualsResp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/actuals`);
+            this.warmupActuals = (await actualsResp.json()).actuals;
+            await this.refreshWarmupRecommendation(this.warmupActualForm.actual_date);
+          } catch (e) {
+            this.warmupError = e.message;
+          } finally {
+            this.warmupActualSaving = false;
+          }
+        },
+        async importWarmupActualsCsv(event) {
+          const file = event.target.files[0];
+          if (!file || !this.warmupSelectedPlan) return;
+          this.warmupCsvImporting = true;
+          this.warmupError = '';
+          try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const resp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/actuals/import-csv`, {
+              method: 'POST', body: formData,
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'CSV import failed');
+            const actualsResp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/actuals`);
+            this.warmupActuals = (await actualsResp.json()).actuals;
+            // CSV imports are typically historical/bulk dates, not just today --
+            // recalculate evaluates every date that has actuals, not only today.
+            await this.recalculateWarmupPlan();
+          } catch (e) {
+            this.warmupError = e.message;
+          } finally {
+            this.warmupCsvImporting = false;
+            event.target.value = '';
+          }
+        },
+        async setWarmupPlanStatus(status) {
+          if (!this.warmupSelectedPlan) return;
+          try {
+            const resp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/status`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status }),
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'Failed to update status');
+            this.warmupSelectedPlan = data.plan;
+            await this.loadWarmupPlans();
+          } catch (e) {
+            this.warmupError = e.message;
+          }
+        },
+        warmupActualForDate(dateStr) {
+          return this.warmupActuals.find(a => a.actual_date === dateStr) || null;
+        },
+        warmupEventForDate(dateStr) {
+          return this.warmupEvents.find(e => e.event_date === dateStr) || null;
+        },
+        warmupProgressPct(plan) {
+          if (!plan) return 0;
+          const start = new Date(plan.start_date);
+          const target = new Date(plan.target_date);
+          const now = new Date();
+          const total = target - start;
+          const elapsed = now - start;
+          if (total <= 0) return 100;
+          return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+        },
+
         // ===== Observatory Agent =====
         scrollAgentToBottom() {
           const el = document.getElementById('agentMessages');
@@ -13344,6 +13947,12 @@
           // Auto-load SNDS data
           if (newPage === 'snds') {
             this.loadSNDSData();
+          }
+
+          // Auto-load Warm-up Planner data
+          if (newPage === 'warmup') {
+            this.clearWarmupSelection();
+            this.loadWarmupPlans();
           }
 
           // Auto-load GPT data (if authorized)
