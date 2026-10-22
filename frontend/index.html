@@ -7065,7 +7065,8 @@
                   </div>
                   <div>
                     <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Target Daily Volume</label>
-                    <input class="date-input" type="number" style="width: 100%;" v-model.number="warmupNewPlan.target_volume" />
+                    <input class="date-input" type="text" style="width: 100%;" :value="warmupIspVolumeTotal().toLocaleString()" disabled />
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Computed automatically from the ISP volumes below.</div>
                   </div>
                   <div>
                     <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">Target Completion Date</label>
@@ -7097,23 +7098,24 @@
 
                 <div style="margin-bottom: 16px;">
                   <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">
-                    ISP Mix (%) -- must sum to 100
-                    <span :style="{color: Math.abs(warmupIspMixTotal() - 100) > 0.5 ? '#dc2626' : '#16a34a', fontWeight: 700}">
-                      (currently {{ warmupIspMixTotal() }})
-                    </span>
+                    Target Volume per ISP
+                    <span style="font-weight: 400; color: #94a3b8;">-- the daily send volume your client wants to reach for each, same numbers you'd normally collect from them</span>
                   </label>
                   <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;">
                     <div v-for="isp in ['gmail','microsoft','yahoo','apple','other']" :key="isp">
                       <label style="font-size: 11px; color: #64748b; text-transform: capitalize; display: block; margin-bottom: 2px;">{{ isp }}</label>
-                      <input class="date-input" type="number" style="width: 100%;" v-model.number="warmupNewPlan.isp_mix[isp]" />
+                      <input class="date-input" type="number" style="width: 100%;" v-model.number="warmupNewPlan.isp_volumes[isp]" />
                     </div>
+                  </div>
+                  <div style="font-size: 12px; color: #475569; margin-top: 8px; font-weight: 600;">
+                    Target total: {{ warmupIspVolumeTotal().toLocaleString() }}/day
                   </div>
                   <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">
                     Reputation signal is only available for Gmail (Postmaster) and Microsoft (SNDS) -- Yahoo/Apple/Other get volume and bounce signals only, never a fabricated reputation score.
                   </div>
                 </div>
 
-                <button class="btn btn-primary" :disabled="warmupCreating || !warmupNewPlan.name || !warmupNewPlan.domain || !warmupNewPlan.target_date" @click="createWarmupPlan">
+                <button class="btn btn-primary" :disabled="warmupCreating || !warmupNewPlan.name || !warmupNewPlan.domain || !warmupNewPlan.target_date || warmupIspVolumeTotal() <= 0" @click="createWarmupPlan">
                   {{ warmupCreating ? 'Generating plan…' : 'Generate Warming Plan' }}
                 </button>
               </div>
@@ -8283,9 +8285,13 @@
           warmupCreating: false,
           warmupNewPlan: {
             name: '', warming_type: 'new_domain', esp: 'Mailgun', domain: '', subdomain: '', region: 'US',
-            old_ip: '', new_ip: '', current_volume: 0, target_volume: 10000, target_date: '',
+            old_ip: '', new_ip: '', current_volume: 0, target_date: '',
             strategy: 'balanced',
-            isp_mix: { gmail: 45, microsoft: 25, yahoo: 15, apple: 5, other: 10 },
+            // Collected as absolute per-ISP daily volume (the numbers a client
+            // actually provides), not percentages -- target_volume and the
+            // isp_mix percentages the backend expects are derived from these
+            // at submit time in createWarmupPlan().
+            isp_volumes: { gmail: 0, microsoft: 0, yahoo: 0, apple: 0, other: 0 },
             audience_quality: 'highly_engaged', notes: '',
           },
           warmupActualForm: {
@@ -8730,9 +8736,9 @@
 
       methods: {
         // ===== Warm-up Planner =====
-        warmupIspMixTotal() {
-          const mix = this.warmupNewPlan.isp_mix;
-          return Object.values(mix).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+        warmupIspVolumeTotal() {
+          const volumes = this.warmupNewPlan.isp_volumes;
+          return Object.values(volumes).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
         },
         warmupDecisionColor(decision) {
           return { increase: '#16a34a', hold: '#ca8a04', reduce: '#ea580c', pause: '#dc2626' }[decision] || '#64748b';
@@ -8760,24 +8766,37 @@
         resetWarmupNewPlanForm() {
           this.warmupNewPlan = {
             name: '', warming_type: 'new_domain', esp: 'Mailgun', domain: '', subdomain: '', region: 'US',
-            old_ip: '', new_ip: '', current_volume: 0, target_volume: 10000, target_date: '',
+            old_ip: '', new_ip: '', current_volume: 0, target_date: '',
             strategy: 'balanced',
-            isp_mix: { gmail: 45, microsoft: 25, yahoo: 15, apple: 5, other: 10 },
+            isp_volumes: { gmail: 0, microsoft: 0, yahoo: 0, apple: 0, other: 0 },
             audience_quality: 'highly_engaged', notes: '',
           };
         },
         async createWarmupPlan() {
-          if (Math.abs(this.warmupIspMixTotal() - 100) > 0.5) {
-            this.warmupError = `ISP mix must sum to 100 (currently ${this.warmupIspMixTotal()})`;
+          const total = this.warmupIspVolumeTotal();
+          if (total <= 0) {
+            this.warmupError = 'Enter at least one ISP\'s target volume.';
             return;
           }
+          // The backend still works in target_volume + isp_mix percentages
+          // (that's what the curve generator and the stored schedule use) --
+          // this derives both from the absolute numbers just entered, so
+          // nothing downstream (API, decision engine, schedule, tests) needs
+          // to change for this to work.
+          const isp_mix = {};
+          for (const isp of ['gmail', 'microsoft', 'yahoo', 'apple', 'other']) {
+            isp_mix[isp] = (parseFloat(this.warmupNewPlan.isp_volumes[isp]) || 0) / total * 100;
+          }
+          const payload = { ...this.warmupNewPlan, target_volume: Math.round(total), isp_mix };
+          delete payload.isp_volumes;
+
           this.warmupCreating = true;
           this.warmupError = '';
           try {
             const resp = await fetch(`${this.API_BASE}/api/warmup/plans`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(this.warmupNewPlan),
+              body: JSON.stringify(payload),
             });
             const data = await resp.json();
             if (!resp.ok) throw new Error(data.detail || 'Failed to create warmup plan');
