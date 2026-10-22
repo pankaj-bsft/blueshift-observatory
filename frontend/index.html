@@ -7101,8 +7101,8 @@
                     Target Volume per ISP
                     <span style="font-weight: 400; color: #94a3b8;">-- the daily send volume your client wants to reach for each, same numbers you'd normally collect from them</span>
                   </label>
-                  <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;">
-                    <div v-for="isp in ['gmail','microsoft','yahoo','apple','other']" :key="isp">
+                  <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;">
+                    <div v-for="isp in ['gmail','microsoft','yahoo','apple','comcast','other']" :key="isp">
                       <label style="font-size: 11px; color: #64748b; text-transform: capitalize; display: block; margin-bottom: 2px;">{{ isp }}</label>
                       <input class="date-input" type="number" style="width: 100%;" v-model.number="warmupNewPlan.isp_volumes[isp]" />
                     </div>
@@ -7234,27 +7234,61 @@
             </div>
 
             <!-- Timeline tab -->
-            <div v-if="warmupActiveTab === 'timeline'" class="card-section">
-              <table class="mappings-table" style="width: 100%;">
-                <thead><tr><th>Day</th><th>Date</th><th>Planned</th><th>Actual</th><th>Audience</th><th>Decision</th><th>Health</th></tr></thead>
-                <tbody>
-                  <tr v-for="day in warmupSchedule" :key="day.day_number">
-                    <td>{{ day.day_number }}</td>
-                    <td>{{ day.scheduled_date }}</td>
-                    <td>{{ day.planned_total.toLocaleString() }}</td>
-                    <td>{{ warmupActualForDate(day.scheduled_date) ? warmupActualForDate(day.scheduled_date).actual_total?.toLocaleString() : '—' }}</td>
-                    <td style="font-size: 12px;">{{ day.recommended_audience }}</td>
-                    <td>
-                      <span v-if="warmupEventForDate(day.scheduled_date)" style="padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase;"
-                            :style="{background: warmupDecisionBg(warmupEventForDate(day.scheduled_date).decision), color: warmupDecisionColor(warmupEventForDate(day.scheduled_date).decision)}">
-                        {{ warmupEventForDate(day.scheduled_date).decision }}
-                      </span>
-                      <span v-else style="color: #cbd5e1;">—</span>
-                    </td>
-                    <td>{{ warmupEventForDate(day.scheduled_date) ? warmupEventForDate(day.scheduled_date).health_score : '—' }}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div v-if="warmupActiveTab === 'timeline'" class="card-section" style="padding: 24px;">
+              <div style="font-size: 12px; color: #94a3b8; margin-bottom: 16px;">
+                Each ISP ramps on its own independent curve to its own target -- Daily Totals sums the rows above it, Weekly Totals sums each row across that week.
+              </div>
+              <div v-if="warmupSchedule.length === 0" style="text-align: center; padding: 40px; color: #94a3b8;">No schedule yet.</div>
+              <div v-for="week in warmupScheduleWeeks" :key="week.label" style="margin-bottom: 28px; overflow-x: auto;">
+                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">{{ week.label }}</div>
+                <table class="mappings-table" style="width: 100%; min-width: 640px;">
+                  <thead>
+                    <tr>
+                      <th style="text-align: left;">ISP</th>
+                      <th v-for="day in week.days" :key="day.day_number" style="text-align: right;">
+                        Day {{ day.day_number }}<br><span style="font-weight: 400; color: #94a3b8; font-size: 10px;">{{ day.scheduled_date }}</span>
+                      </th>
+                      <th style="text-align: right; background: #f1f5f9;">Weekly Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="isp in warmupActiveIsps" :key="isp">
+                      <td style="text-transform: capitalize; font-weight: 600;">{{ isp }}</td>
+                      <td v-for="day in week.days" :key="day.day_number" style="text-align: right;">{{ (day['planned_' + isp] || 0).toLocaleString() }}</td>
+                      <td style="text-align: right; font-weight: 700; background: #f8fafc;">{{ week.weeklyTotals[isp].toLocaleString() }}</td>
+                    </tr>
+                    <tr style="border-top: 2px solid #cbd5e1;">
+                      <td style="font-weight: 800;">Daily Totals</td>
+                      <td v-for="day in week.days" :key="day.day_number" style="text-align: right; font-weight: 800;">{{ day.planned_total.toLocaleString() }}</td>
+                      <td style="text-align: right; font-weight: 800; background: #eff6ff;">{{ week.weeklyTotals.total.toLocaleString() }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div v-if="warmupSchedule.length" style="margin-top: 24px;">
+                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">Day-by-day detail</div>
+                <table class="mappings-table" style="width: 100%;">
+                  <thead><tr><th>Day</th><th>Date</th><th>Planned</th><th>Actual</th><th>Audience</th><th>Decision</th><th>Health</th></tr></thead>
+                  <tbody>
+                    <tr v-for="day in warmupSchedule" :key="day.day_number">
+                      <td>{{ day.day_number }}</td>
+                      <td>{{ day.scheduled_date }}</td>
+                      <td>{{ day.planned_total.toLocaleString() }}</td>
+                      <td>{{ warmupActualForDate(day.scheduled_date) ? warmupActualForDate(day.scheduled_date).actual_total?.toLocaleString() : '—' }}</td>
+                      <td style="font-size: 12px;">{{ day.recommended_audience }}</td>
+                      <td>
+                        <span v-if="warmupEventForDate(day.scheduled_date)" style="padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase;"
+                              :style="{background: warmupDecisionBg(warmupEventForDate(day.scheduled_date).decision), color: warmupDecisionColor(warmupEventForDate(day.scheduled_date).decision)}">
+                          {{ warmupEventForDate(day.scheduled_date).decision }}
+                        </span>
+                        <span v-else style="color: #cbd5e1;">—</span>
+                      </td>
+                      <td>{{ warmupEventForDate(day.scheduled_date) ? warmupEventForDate(day.scheduled_date).health_score : '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <!-- ISP Performance tab -->
@@ -7265,7 +7299,7 @@
               <table class="mappings-table" style="width: 100%;">
                 <thead><tr><th>ISP</th><th>Today's Planned</th><th>Today's Actual</th><th>Reputation Signal</th></tr></thead>
                 <tbody>
-                  <tr v-for="isp in ['gmail','microsoft','yahoo','apple','other']" :key="isp">
+                  <tr v-for="isp in ['gmail','microsoft','yahoo','apple','comcast','other']" :key="isp">
                     <td style="text-transform: capitalize; font-weight: 600;">{{ isp }}</td>
                     <td>{{ ((warmupSchedule.find(d => d.scheduled_date === new Date().toISOString().slice(0,10)) || {})['planned_' + isp] || 0).toLocaleString() }}</td>
                     <td>{{ (warmupActualForDate(new Date().toISOString().slice(0,10)) || {})['actual_' + isp]?.toLocaleString() || '—' }}</td>
@@ -7331,8 +7365,8 @@
                 </div>
               </div>
               <div style="margin-bottom: 8px; font-size: 12px; font-weight: 600; color: #475569;">Per-ISP actual volume (optional)</div>
-              <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px;">
-                <div v-for="isp in ['gmail','microsoft','yahoo','apple','other']" :key="isp">
+              <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px;">
+                <div v-for="isp in ['gmail','microsoft','yahoo','apple','comcast','other']" :key="isp">
                   <label style="font-size: 11px; color: #64748b; text-transform: capitalize; display: block; margin-bottom: 2px;">{{ isp }}</label>
                   <input class="date-input" type="number" style="width: 100%;" v-model.number="warmupActualForm['actual_' + isp]" />
                 </div>
@@ -8288,16 +8322,16 @@
             old_ip: '', new_ip: '', current_volume: 0, target_date: '',
             strategy: 'balanced',
             // Collected as absolute per-ISP daily volume (the numbers a client
-            // actually provides), not percentages -- target_volume and the
-            // isp_mix percentages the backend expects are derived from these
-            // at submit time in createWarmupPlan().
-            isp_volumes: { gmail: 0, microsoft: 0, yahoo: 0, apple: 0, other: 0 },
+            // actually provides) -- sent to the backend as isp_mix as-is,
+            // which now treats isp_mix as absolute volumes and derives
+            // target_volume itself.
+            isp_volumes: { gmail: 0, microsoft: 0, yahoo: 0, apple: 0, comcast: 0, other: 0 },
             audience_quality: 'highly_engaged', notes: '',
           },
           warmupActualForm: {
             actual_date: '', actual_total: null, delivery_rate: null, hard_bounce_rate: null,
             soft_bounce_rate: null, spam_rate: null, unsub_rate: null,
-            actual_gmail: null, actual_microsoft: null, actual_yahoo: null, actual_apple: null, actual_other: null,
+            actual_gmail: null, actual_microsoft: null, actual_yahoo: null, actual_apple: null, actual_comcast: null, actual_other: null,
           },
           warmupActualSaving: false,
           warmupCsvImporting: false,
@@ -8731,6 +8765,29 @@
           });
 
           return stats;
+        },
+
+        // ===== Warm-up Planner =====
+        warmupActiveIsps() {
+          const isps = ['gmail', 'microsoft', 'yahoo', 'apple', 'comcast', 'other'];
+          const mix = (this.warmupSelectedPlan && this.warmupSelectedPlan.isp_mix) || {};
+          const active = isps.filter(isp => (parseFloat(mix[isp]) || 0) > 0);
+          return active.length ? active : isps;
+        },
+        warmupScheduleWeeks() {
+          const isps = ['gmail', 'microsoft', 'yahoo', 'apple', 'comcast', 'other'];
+          const weeks = [];
+          const days = this.warmupSchedule;
+          for (let i = 0; i < days.length; i += 7) {
+            const weekDays = days.slice(i, i + 7);
+            const weeklyTotals = {};
+            for (const isp of isps) {
+              weeklyTotals[isp] = weekDays.reduce((sum, d) => sum + (d['planned_' + isp] || 0), 0);
+            }
+            weeklyTotals.total = weekDays.reduce((sum, d) => sum + (d.planned_total || 0), 0);
+            weeks.push({ label: `Week ${weeks.length + 1}`, days: weekDays, weeklyTotals });
+          }
+          return weeks;
         }
       },
 
@@ -8768,7 +8825,7 @@
             name: '', warming_type: 'new_domain', esp: 'Mailgun', domain: '', subdomain: '', region: 'US',
             old_ip: '', new_ip: '', current_volume: 0, target_date: '',
             strategy: 'balanced',
-            isp_volumes: { gmail: 0, microsoft: 0, yahoo: 0, apple: 0, other: 0 },
+            isp_volumes: { gmail: 0, microsoft: 0, yahoo: 0, apple: 0, comcast: 0, other: 0 },
             audience_quality: 'highly_engaged', notes: '',
           };
         },
@@ -8778,16 +8835,14 @@
             this.warmupError = 'Enter at least one ISP\'s target volume.';
             return;
           }
-          // The backend still works in target_volume + isp_mix percentages
-          // (that's what the curve generator and the stored schedule use) --
-          // this derives both from the absolute numbers just entered, so
-          // nothing downstream (API, decision engine, schedule, tests) needs
-          // to change for this to work.
+          // isp_mix is sent as absolute per-ISP daily volume -- the backend
+          // derives target_volume from it server-side, so target_volume is
+          // never read from the caller.
           const isp_mix = {};
-          for (const isp of ['gmail', 'microsoft', 'yahoo', 'apple', 'other']) {
-            isp_mix[isp] = (parseFloat(this.warmupNewPlan.isp_volumes[isp]) || 0) / total * 100;
+          for (const isp of ['gmail', 'microsoft', 'yahoo', 'apple', 'comcast', 'other']) {
+            isp_mix[isp] = parseFloat(this.warmupNewPlan.isp_volumes[isp]) || 0;
           }
-          const payload = { ...this.warmupNewPlan, target_volume: Math.round(total), isp_mix };
+          const payload = { ...this.warmupNewPlan, isp_mix };
           delete payload.isp_volumes;
 
           this.warmupCreating = true;

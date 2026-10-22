@@ -121,6 +121,21 @@ def initialize_database():
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_warmup_actuals_plan ON warmup_actuals(plan_id, actual_date)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_warmup_events_plan ON warmup_events(plan_id, event_date)')
 
+    # Comcast added as a 6th ISP bucket after the fact -- SQLite 3.7 (EC2) has
+    # no ON CONFLICT/RENAME COLUMN but ADD COLUMN works fine there, so this
+    # follows the same idempotent "check then ALTER" pattern as gpt_service.py.
+    # planned_comcast matches its siblings (DEFAULT 0 -- every schedule day has
+    # a real computed number). actual_comcast matches ITS siblings instead
+    # (no default -- NULL means "not reported", same as actual_gmail etc.).
+    for table, column, col_def in [
+        ('warmup_schedule', 'planned_comcast', 'INTEGER DEFAULT 0'),
+        ('warmup_actuals', 'actual_comcast', 'INTEGER'),
+    ]:
+        cursor.execute(f'PRAGMA table_info({table})')
+        existing_cols = {row[1] for row in cursor.fetchall()}
+        if column not in existing_cols:
+            cursor.execute(f'ALTER TABLE {table} ADD COLUMN {column} {col_def}')
+
     conn.commit()
     conn.close()
     print(f'Warmup database initialized at {WARMUP_DB_PATH}')
@@ -149,7 +164,6 @@ def create_plan(data: Dict) -> Dict:
     strategy = data.get('strategy', 'balanced')
     audience_quality = data.get('audience_quality', 'highly_engaged')
     isp_mix = data.get('isp_mix') or {}
-    target_volume = data.get('target_volume')
     current_volume = data.get('current_volume', 0) or 0
     start_date_str = data.get('start_date') or date.today().isoformat()
     target_date_str = data.get('target_date')
@@ -164,12 +178,15 @@ def create_plan(data: Dict) -> Dict:
         raise ValueError(f'strategy must be one of {sorted(VALID_STRATEGIES)}')
     if audience_quality not in VALID_AUDIENCE_QUALITY:
         raise ValueError(f'audience_quality must be one of {sorted(VALID_AUDIENCE_QUALITY)}')
-    if not target_volume or target_volume <= 0:
-        raise ValueError('target_volume must be a positive number')
     if not target_date_str:
         raise ValueError('target_date is required')
 
     validate_isp_mix(isp_mix)
+    # target_volume is always derived from isp_mix (now absolute per-ISP
+    # volumes), never taken from the caller -- the curve generator builds
+    # each ISP's own ramp directly from isp_mix, so a separately-passed
+    # target_volume could silently drift out of sync with it.
+    target_volume = round(sum(float(v) for v in isp_mix.values()))
 
     start = date.fromisoformat(start_date_str)
     target = date.fromisoformat(target_date_str)
@@ -199,14 +216,22 @@ def create_plan(data: Dict) -> Dict:
 
 
 def validate_isp_mix(isp_mix: Dict) -> None:
+    """Validate ISP mix given as absolute daily target volumes per ISP (not
+    percentages) -- e.g. {"gmail": 5000, "microsoft": 3000, ...}. This is
+    how these numbers are actually collected from clients in practice; the
+    curve generator ramps each ISP independently toward its own number
+    rather than splitting one combined total by a fixed percentage.
+    """
     if not isp_mix:
         raise ValueError('isp_mix is required')
     unknown = set(isp_mix) - set(cfg.ISP_BUCKETS)
     if unknown:
         raise ValueError(f'isp_mix has unknown buckets: {sorted(unknown)} (expected {cfg.ISP_BUCKETS})')
-    total = sum(float(v) for v in isp_mix.values())
-    if abs(total - 100.0) > 0.5:
-        raise ValueError(f'isp_mix must sum to 100 (got {total})')
+    values = [float(v) for v in isp_mix.values()]
+    if any(v < 0 for v in values):
+        raise ValueError('isp_mix values must not be negative')
+    if sum(values) <= 0:
+        raise ValueError('isp_mix must have at least one ISP with a target volume above 0')
 
 
 def get_plan(plan_id: int) -> Optional[Dict]:
@@ -260,9 +285,9 @@ def update_plan_config(plan_id: int, data: Dict) -> Dict:
         raise ValueError(f'strategy must be one of {sorted(VALID_STRATEGIES)}')
     isp_mix = data.get('isp_mix', plan['isp_mix'])
     validate_isp_mix(isp_mix)
-    target_volume = data.get('target_volume', plan['target_volume'])
-    if not target_volume or target_volume <= 0:
-        raise ValueError('target_volume must be a positive number')
+    # Same rule as create_plan: target_volume is always derived from isp_mix,
+    # never accepted independently (see create_plan for why).
+    target_volume = round(sum(float(v) for v in isp_mix.values()))
     target_date_str = data.get('target_date', plan['target_date'])
     target = date.fromisoformat(target_date_str)
     start = date.fromisoformat(plan['start_date'])
@@ -288,23 +313,78 @@ def update_plan_config(plan_id: int, data: Dict) -> Dict:
 # Curve generation
 # --------------------------------------------------------------------------
 
-def _split_by_isp(total: int, isp_mix: Dict) -> Dict[str, int]:
-    """Split `total` across ISP buckets by isp_mix percentages.
-
-    Rounding remainder is assigned to 'other' so the parts always sum
-    exactly to `total` -- a naive per-bucket round() can drift by a few
-    messages, which would look like a bug on a dashboard showing totals.
+def _round_nice(value: float) -> int:
+    """Round to a 'nice' step sized to the value's own magnitude (e.g. 612 ->
+    600, not left as an arbitrary precise curve value) -- matches how these
+    plans are actually built and read day to day, not just mathematically
+    smooth. Steps are centralized in warmup_thresholds.NICE_ROUNDING_STEPS.
     """
-    parts = {}
-    running = 0
-    buckets = [b for b in cfg.ISP_BUCKETS if b != 'other']
-    for bucket in buckets:
-        pct = float(isp_mix.get(bucket, 0))
-        val = round(total * pct / 100)
-        parts[bucket] = val
-        running += val
-    parts['other'] = max(total - running, 0)
-    return parts
+    if value <= 0:
+        return 0
+    for upper_bound, step in cfg.NICE_ROUNDING_STEPS:
+        if value < upper_bound:
+            return int(round(value / step) * step)
+    return int(round(value))  # unreachable (last bound is inf) but a safe fallback
+
+
+def _required_transitions(start_val: float, target_val: float, max_growth: float) -> int:
+    """Growth steps needed to reach target_val from start_val at max_growth/day. 0 if already there."""
+    if start_val <= 0 or target_val <= start_val:
+        return 0
+    return math.ceil(math.log(target_val / start_val) / math.log(1 + max_growth))
+
+
+def _isp_starting_volumes(isp_volumes: Dict, current_volume: float) -> Dict[str, int]:
+    """Per-ISP starting floor: current_volume's share of this ISP's target if
+    that's already above the minimum floor, else MIN_STARTING_VOLUME's share
+    -- the same logic the old single-curve model used, just applied per ISP
+    instead of once to a blended total. Nice-rounded, floored at 10 so an
+    ISP with a tiny target share still has a well-defined (not zero) start.
+    """
+    total_target = sum(float(v or 0) for v in isp_volumes.values())
+    starts = {}
+    for isp in cfg.ISP_BUCKETS:
+        target = float(isp_volumes.get(isp, 0) or 0)
+        if target <= 0 or total_target <= 0:
+            starts[isp] = 0
+            continue
+        share = target / total_target
+        floor_candidate = max(current_volume, cfg.MIN_STARTING_VOLUME) * share
+        start = max(10, _round_nice(floor_candidate))
+        starts[isp] = min(start, int(target))
+    return starts
+
+
+def _isp_curve(isp_start: int, isp_target: int, duration_days: int, max_growth: float) -> List[int]:
+    """One ISP's day-by-day ramp: grows at the strategy's max safe daily rate
+    until it reaches isp_target, then holds flat for the rest of the shared
+    plan duration. An ISP with a small target finishes ramping early and
+    sits at steady volume rather than being artificially stretched to match
+    a slower-growing ISP -- holding at target sooner is safer, not riskier.
+    isp_target of 0 means this ISP isn't part of the plan -- every day is 0
+    (e.g. Comcast in a plan that only targets Gmail/Microsoft/Yahoo).
+    """
+    if isp_target <= 0:
+        return [0] * duration_days
+    if isp_start >= isp_target:
+        return [isp_target] * duration_days
+
+    values = []
+    volume = isp_start
+    for day_number in range(1, duration_days + 1):
+        if day_number == 1:
+            volume = isp_start
+        else:
+            next_volume = volume * (1 + max_growth)
+            if next_volume >= isp_target:
+                volume = isp_target
+            else:
+                # Rounding can occasionally land below the previous day's
+                # value when growth is small relative to the rounding step --
+                # a warm-up plan should never show volume going backwards.
+                volume = max(_round_nice(next_volume), values[-1])
+        values.append(int(volume))
+    return values
 
 
 def _audience_for_day(day_number: int, duration_days: int, override_start: Optional[str]) -> str:
@@ -328,60 +408,69 @@ def _audience_for_day(day_number: int, duration_days: int, override_start: Optio
     return stage
 
 
-def compute_curve(current_volume: int, target_volume: int, start: date, target: date, strategy: str):
-    """Generate the day-by-day total-volume ramp.
+def compute_curve(isp_volumes: Dict, current_volume: int, start: date, target: date, strategy: str):
+    """Generate the day-by-day ramp, independently per ISP.
 
-    Fits a smooth exponential curve that reaches exactly target_volume on
-    the final day, capped by the strategy's max daily growth rate. If
-    hitting target_date would require growing faster than the strategy
-    allows, the plan is extended (not silently made more aggressive) --
-    the caller is told via `extended` so the UI can say so explicitly.
+    Each ISP with a target volume > 0 ramps on its OWN exponential curve from
+    its own starting floor to its own target at the strategy's max safe daily
+    rate, nice-rounded (_round_nice) -- this is the model actually used in
+    practice (a client gives Gmail: 5000, Microsoft: 3000, etc. and each
+    ramps on its own schedule), not one combined total split by a fixed
+    percentage. An ISP that reaches its target before the shared plan ends
+    simply holds flat at that target for the remaining days. The daily/
+    weekly total is just the sum of the ISP values for that day.
 
-    Returns (days, extended, duration_days) where days is a list of
-    {day_number, date, planned_total}.
+    All ISPs share the same plan-wide duration_days: if any ISP would need to
+    grow faster than the strategy's cap to hit target_date, the WHOLE plan is
+    extended to whatever that most-constrained ISP needs (not silently made
+    more aggressive for everyone else) -- same "never over-ramp" principle as
+    before, now applied per ISP rather than to one blended curve.
+
+    Returns (days, extended, duration_days) where each day is
+    {day_number, date, planned_total, isp_split: {bucket: value, ...}}.
     """
     # Inclusive of both endpoints, so the LAST scheduled day lands exactly on
     # target_date (not the day before it) -- a user picking a completion
     # date expects the ramp to conclude ON that date.
     duration_days = max((target - start).days + 1, 1)
-    starting_volume = current_volume if current_volume >= cfg.MIN_STARTING_VOLUME else cfg.MIN_STARTING_VOLUME
-
-    if starting_volume >= target_volume:
-        return ([{
-            'day_number': 1, 'date': start.isoformat(), 'planned_total': target_volume,
-        }], False, 1)
-
-    # The loop below performs (duration_days - 1) growth transitions (day 1
-    # is the fixed starting_volume, day duration_days is forced to exactly
-    # target_volume) -- so the exponent here MUST be transitions, not days,
-    # or the computed rate undershoots what's actually needed and the final
-    # forced jump can overshoot the growth cap on the last transition.
-    transitions = max(duration_days - 1, 1)
     max_growth = cfg.STRATEGY_MAX_DAILY_GROWTH.get(strategy, 0.50)
-    required_rate = (target_volume / starting_volume) ** (1.0 / transitions) - 1.0
+
+    isp_targets = {isp: int(float(isp_volumes.get(isp, 0) or 0)) for isp in cfg.ISP_BUCKETS}
+    isp_starts = _isp_starting_volumes(isp_targets, current_volume)
+
+    # Find the most-constrained ISP: the one needing the most growth steps to
+    # safely reach its own target. That sets the plan's real duration.
+    max_needed_transitions = 0
+    for isp in cfg.ISP_BUCKETS:
+        max_needed_transitions = max(
+            max_needed_transitions,
+            _required_transitions(isp_starts[isp], isp_targets[isp], max_growth)
+        )
 
     extended = False
-    if required_rate > max_growth:
-        needed_transitions = math.ceil(math.log(target_volume / starting_volume) / math.log(1 + max_growth))
-        duration_days = max(needed_transitions + 1, duration_days)
-        rate = max_growth
+    if max_needed_transitions == 0:
+        # Every ISP's starting floor already meets or exceeds its own target
+        # (e.g. current_volume already matches/exceeds the plan) -- nothing
+        # to ramp, so the whole plan collapses to a single flat day rather
+        # than padding out to the originally-requested duration_days.
+        duration_days = 1
+    elif max_needed_transitions + 1 > duration_days:
+        duration_days = max_needed_transitions + 1
         extended = True
-    else:
-        rate = required_rate
+
+    isp_series = {
+        isp: _isp_curve(isp_starts[isp], isp_targets[isp], duration_days, max_growth)
+        for isp in cfg.ISP_BUCKETS
+    }
 
     days = []
-    volume = starting_volume
-    for day_number in range(1, duration_days + 1):
-        if day_number == 1:
-            volume = starting_volume
-        elif day_number == duration_days:
-            volume = target_volume
-        else:
-            volume = min(volume * (1 + rate), target_volume)
+    for i in range(duration_days):
+        isp_split = {isp: isp_series[isp][i] for isp in cfg.ISP_BUCKETS}
         days.append({
-            'day_number': day_number,
-            'date': (start + timedelta(days=day_number - 1)).isoformat(),
-            'planned_total': round(volume),
+            'day_number': i + 1,
+            'date': (start + timedelta(days=i)).isoformat(),
+            'planned_total': sum(isp_split.values()),
+            'isp_split': isp_split,
         })
 
     return days, extended, duration_days
@@ -400,27 +489,27 @@ def generate_schedule(plan_id: int) -> List[Dict]:
     start = date.fromisoformat(plan['start_date'])
     target = date.fromisoformat(plan['target_date'])
     days, extended, duration_days = compute_curve(
-        plan['current_volume'], plan['target_volume'], start, target, plan['strategy']
+        plan['isp_mix'], plan['current_volume'], start, target, plan['strategy']
     )
 
     conn = sqlite3.connect(WARMUP_DB_PATH)
     cursor = conn.cursor()
     cursor.execute('DELETE FROM warmup_schedule WHERE plan_id = ?', (plan_id,))
     for day in days:
-        isp_split = _split_by_isp(day['planned_total'], plan['isp_mix'])
+        isp_split = day['isp_split']
         audience = _audience_for_day(day['day_number'], duration_days, plan.get('audience_quality'))
         cursor.execute('''
             INSERT INTO warmup_schedule
                 (plan_id, day_number, scheduled_date, planned_total,
-                 planned_gmail, planned_microsoft, planned_yahoo, planned_apple, planned_other,
+                 planned_gmail, planned_microsoft, planned_yahoo, planned_apple, planned_comcast, planned_other,
                  recommended_audience)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             plan_id, day['day_number'], day['date'], day['planned_total'],
-            isp_split['gmail'], isp_split['microsoft'], isp_split['yahoo'], isp_split['apple'], isp_split['other'],
+            isp_split['gmail'], isp_split['microsoft'], isp_split['yahoo'], isp_split['apple'],
+            isp_split['comcast'], isp_split['other'],
             audience,
         ))
-        day['isp_split'] = isp_split
         day['recommended_audience'] = audience
 
     if extended and target.isoformat() != days[-1]['date']:
@@ -451,7 +540,7 @@ def get_schedule(plan_id: int) -> List[Dict]:
 # --------------------------------------------------------------------------
 
 _ACTUAL_FIELDS = [
-    'actual_total', 'actual_gmail', 'actual_microsoft', 'actual_yahoo', 'actual_apple', 'actual_other',
+    'actual_total', 'actual_gmail', 'actual_microsoft', 'actual_yahoo', 'actual_apple', 'actual_comcast', 'actual_other',
     'delivery_rate', 'hard_bounce_rate', 'soft_bounce_rate', 'spam_rate', 'unsub_rate', 'open_rate', 'click_rate',
 ]
 

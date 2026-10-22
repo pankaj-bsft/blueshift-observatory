@@ -3162,10 +3162,15 @@ class WarmupPlanCreate(BaseModel):
     old_ip: Optional[str] = None
     new_ip: Optional[str] = None
     current_volume: int = 0
-    target_volume: int
+    # Always derived server-side from isp_mix (sum of the per-ISP absolute
+    # target volumes) -- accepted here only so older-shaped payloads don't
+    # fail validation; any value sent is ignored by warmup_service.create_plan.
+    target_volume: Optional[int] = None
     start_date: Optional[str] = None
     target_date: str
     strategy: str = 'balanced'
+    # Absolute daily target volume per ISP (e.g. {"gmail": 5000, ...}), NOT
+    # percentages -- matches how this is actually collected from clients.
     isp_mix: Dict[str, float]
     audience_quality: str = 'highly_engaged'
     notes: Optional[str] = None
@@ -3189,6 +3194,7 @@ class WarmupActualEntry(BaseModel):
     actual_microsoft: Optional[int] = None
     actual_yahoo: Optional[int] = None
     actual_apple: Optional[int] = None
+    actual_comcast: Optional[int] = None
     actual_other: Optional[int] = None
     delivery_rate: Optional[float] = None
     hard_bounce_rate: Optional[float] = None

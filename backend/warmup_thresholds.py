@@ -65,7 +65,21 @@ SCORE_RISK_MIN = 40
 # just never a reputation number.
 REPUTATION_BACKED_ISPS = {"gmail", "microsoft"}
 
-ISP_BUCKETS = ["gmail", "microsoft", "yahoo", "apple", "other"]
+ISP_BUCKETS = ["gmail", "microsoft", "yahoo", "apple", "comcast", "other"]
+
+# --- Nice-number rounding for the generated ramp --------------------------
+# Each day's planned volume (per ISP) is rounded to one of these steps based
+# on its own magnitude, e.g. 612 -> 600, not left as a precise-but-arbitrary
+# curve value -- matches how these plans are actually built and read day to
+# day. List of (upper_bound_exclusive, step); first match wins.
+NICE_ROUNDING_STEPS = [
+    (100, 10),
+    (500, 25),
+    (2000, 50),
+    (10000, 100),
+    (50000, 500),
+    (float('inf'), 1000),
+]
 
 # --- Curve strategy -> maximum daily growth rate -------------------------
 # 1.00 = volume may double day over day (Aggressive); lower is slower/safer.
