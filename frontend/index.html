@@ -1874,6 +1874,10 @@
                     <th @click="sortTable('Spam_report')">Spam</th>
                     <th @click="sortTable('spam_rate')">Spam %</th>
                     <th @click="sortTable('bounce_rate')">Bounce %</th>
+                    <th @click="sortTable('Unique_user_open')">Unique Opens</th>
+                    <th @click="sortTable('unique_open_pct')">Unique Open %</th>
+                    <th @click="sortTable('Unique_user_click')">Unique Clicks</th>
+                    <th @click="sortTable('unique_click_pct')">Unique Click %</th>
                     <th @click="sortTable('risk_score')">Risk Score</th>
                     <th @click="sortTable('classification')">Classification</th>
                   </tr>
@@ -1921,6 +1925,10 @@
                     <td class="text-mono">{{ formatNumber(row.Spam_report) }}</td>
                     <td class="text-mono">{{ formatRate(row.spam_rate) }}%</td>
                     <td class="text-mono">{{ formatRate(row.bounce_rate) }}%</td>
+                    <td class="text-mono">{{ formatTrackedCount(row.Unique_user_open) }}</td>
+                    <td class="text-mono">{{ formatTrackedPct(row.unique_open_pct) }}</td>
+                    <td class="text-mono">{{ formatTrackedCount(row.Unique_user_click) }}</td>
+                    <td class="text-mono">{{ formatTrackedPct(row.unique_click_pct) }}</td>
                     <td class="text-mono">{{ formatRiskScore(row.risk_score) }}</td>
                     <td><span class="badge">{{ row.classification }}</span></td>
                   </tr>
@@ -1950,6 +1958,10 @@
                     <th @click="sortTable('Spam_report')">Spam</th>
                     <th @click="sortTable('spam_rate')">Spam %</th>
                     <th @click="sortTable('bounce_rate')">Bounce %</th>
+                    <th @click="sortTable('Unique_user_open')">Unique Opens</th>
+                    <th @click="sortTable('unique_open_pct')">Unique Open %</th>
+                    <th @click="sortTable('Unique_user_click')">Unique Clicks</th>
+                    <th @click="sortTable('unique_click_pct')">Unique Click %</th>
                     <th @click="sortTable('risk_score')">Risk Score</th>
                     <th @click="sortTable('classification')">Classification</th>
                   </tr>
@@ -1970,6 +1982,10 @@
                     <td class="text-mono">{{ formatNumber(row.Spam_report) }}</td>
                     <td class="text-mono">{{ formatRate(row.spam_rate) }}%</td>
                     <td class="text-mono">{{ formatRate(row.bounce_rate) }}%</td>
+                    <td class="text-mono">{{ formatTrackedCount(row.Unique_user_open) }}</td>
+                    <td class="text-mono">{{ formatTrackedPct(row.unique_open_pct) }}</td>
+                    <td class="text-mono">{{ formatTrackedCount(row.Unique_user_click) }}</td>
+                    <td class="text-mono">{{ formatTrackedPct(row.unique_click_pct) }}</td>
                     <td class="text-mono">{{ formatRiskScore(row.risk_score) }}</td>
                     <td><span class="badge">{{ row.classification }}</span></td>
                   </tr>
@@ -1999,6 +2015,10 @@
                     <th @click="sortTable('Spam_report')">Spam</th>
                     <th @click="sortTable('spam_rate')">Spam %</th>
                     <th @click="sortTable('bounce_rate')">Bounce %</th>
+                    <th @click="sortTable('Unique_user_open')">Unique Opens</th>
+                    <th @click="sortTable('unique_open_pct')">Unique Open %</th>
+                    <th @click="sortTable('Unique_user_click')">Unique Clicks</th>
+                    <th @click="sortTable('unique_click_pct')">Unique Click %</th>
                     <th @click="sortTable('risk_score')">Risk Score</th>
                     <th @click="sortTable('classification')">Classification</th>
                   </tr>
@@ -2019,6 +2039,10 @@
                     <td class="text-mono">{{ formatNumber(row.Spam_report) }}</td>
                     <td class="text-mono">{{ formatRate(row.spam_rate) }}%</td>
                     <td class="text-mono">{{ formatRate(row.bounce_rate) }}%</td>
+                    <td class="text-mono">{{ formatTrackedCount(row.Unique_user_open) }}</td>
+                    <td class="text-mono">{{ formatTrackedPct(row.unique_open_pct) }}</td>
+                    <td class="text-mono">{{ formatTrackedCount(row.Unique_user_click) }}</td>
+                    <td class="text-mono">{{ formatTrackedPct(row.unique_click_pct) }}</td>
                     <td class="text-mono">{{ formatRiskScore(row.risk_score) }}</td>
                     <td><span class="badge">{{ row.classification }}</span></td>
                   </tr>
@@ -2048,6 +2072,10 @@
                     <th @click="sortTable('Spam_report')">Spam</th>
                     <th @click="sortTable('spam_rate')">Spam %</th>
                     <th @click="sortTable('bounce_rate')">Bounce %</th>
+                    <th @click="sortTable('Unique_user_open')">Unique Opens</th>
+                    <th @click="sortTable('unique_open_pct')">Unique Open %</th>
+                    <th @click="sortTable('Unique_user_click')">Unique Clicks</th>
+                    <th @click="sortTable('unique_click_pct')">Unique Click %</th>
                     <th @click="sortTable('risk_score')">Risk Score</th>
                     <th @click="sortTable('classification')">Classification</th>
                   </tr>
@@ -2068,6 +2096,10 @@
                     <td class="text-mono">{{ formatNumber(row.Spam_report) }}</td>
                     <td class="text-mono">{{ formatRate(row.spam_rate) }}%</td>
                     <td class="text-mono">{{ formatRate(row.bounce_rate) }}%</td>
+                    <td class="text-mono">{{ formatTrackedCount(row.Unique_user_open) }}</td>
+                    <td class="text-mono">{{ formatTrackedPct(row.unique_open_pct) }}</td>
+                    <td class="text-mono">{{ formatTrackedCount(row.Unique_user_click) }}</td>
+                    <td class="text-mono">{{ formatTrackedPct(row.unique_click_pct) }}</td>
                     <td class="text-mono">{{ formatRiskScore(row.risk_score) }}</td>
                     <td><span class="badge">{{ row.classification }}</span></td>
                   </tr>
@@ -2097,6 +2129,10 @@
                     <th @click="sortTable('Spam_report')">Spam</th>
                     <th @click="sortTable('spam_rate')">Spam %</th>
                     <th @click="sortTable('bounce_rate')">Bounce %</th>
+                    <th @click="sortTable('Unique_user_open')">Unique Opens</th>
+                    <th @click="sortTable('unique_open_pct')">Unique Open %</th>
+                    <th @click="sortTable('Unique_user_click')">Unique Clicks</th>
+                    <th @click="sortTable('unique_click_pct')">Unique Click %</th>
                     <th @click="sortTable('risk_score')">Risk Score</th>
                     <th @click="sortTable('classification')">Classification</th>
                   </tr>
@@ -2117,6 +2153,10 @@
                     <td class="text-mono">{{ formatNumber(row.Spam_report) }}</td>
                     <td class="text-mono">{{ formatRate(row.spam_rate) }}%</td>
                     <td class="text-mono">{{ formatRate(row.bounce_rate) }}%</td>
+                    <td class="text-mono">{{ formatTrackedCount(row.Unique_user_open) }}</td>
+                    <td class="text-mono">{{ formatTrackedPct(row.unique_open_pct) }}</td>
+                    <td class="text-mono">{{ formatTrackedCount(row.Unique_user_click) }}</td>
+                    <td class="text-mono">{{ formatTrackedPct(row.unique_click_pct) }}</td>
                     <td class="text-mono">{{ formatRiskScore(row.risk_score) }}</td>
                     <td><span class="badge">{{ row.classification }}</span></td>
                   </tr>
@@ -10727,6 +10767,17 @@
         formatRate(rate) {
           if (rate === null || rate === undefined) return '0.00';
           return typeof rate === 'number' ? rate.toFixed(2) : rate;
+        },
+        formatTrackedCount(value) {
+          // Unique opens/clicks weren't collected before this feature shipped --
+          // old rows have no data at all (not zero), so show that plainly
+          // instead of a misleading "0".
+          if (value === null || value === undefined) return 'Not tracked';
+          return this.formatNumber(value);
+        },
+        formatTrackedPct(value) {
+          if (value === null || value === undefined) return 'Not tracked';
+          return `${Number(value).toFixed(2)}%`;
         },
         formatPercent(value, decimals = 2) {
           if (value === null || value === undefined || value === '') return '0.00%';

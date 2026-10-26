@@ -22,6 +22,8 @@ SELECT
   sum(case action when 'bounce' then "count" else 0 end) as Bounces,
   SUM(CASE WHEN action = 'soft_bounce' THEN "count" ELSE 0 END) AS Soft_bounce_count,
   APPROX_COUNT_DISTINCT_DS_HLL(case action when 'soft_bounce' then "message_distinct" else null end) as Unique_soft_bounce,
+  APPROX_COUNT_DISTINCT_DS_HLL(CASE WHEN action = 'open' AND "extended_attributes.opened_by" = 'user' then "message_distinct" else null end) as Unique_user_open,
+  APPROX_COUNT_DISTINCT_DS_HLL(CASE WHEN action = 'click' AND "extended_attributes.clicked_by" = 'user' then "message_distinct" else null end) as Unique_user_click,
   sum(case action when 'spam_report' then "count" else 0 end) as Spam_report,
   sum(case action when 'unsubscribe' then "count" else 0 end) as Unsubscribe,
   LOOKUP(LOOKUP("extended_attributes.adapter_uuid", 'accountadapters_uuid-to-accountadapters_adapter_id'),'adapters_id-to-adapters_name') AS "ESP"
@@ -68,6 +70,22 @@ def init_pulsation_database():
     """)
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_report_date ON daily_metrics(report_date)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_from_domain ON daily_metrics(from_domain)')
+
+    # Unique user opens/clicks were added after this table already had rows in
+    # production -- no backfill, so these are added WITHOUT a DEFAULT (existing
+    # rows read back as NULL/"not tracked" rather than a misleading 0). Uses
+    # the same idempotent PRAGMA table_info + ALTER TABLE ADD COLUMN pattern as
+    # the warm-up planner's Comcast bucket migration (safe on EC2's SQLite
+    # 3.7.17, which has no DROP/RENAME COLUMN support).
+    cursor.execute('PRAGMA table_info(daily_metrics)')
+    existing_cols = {row[1] for row in cursor.fetchall()}
+    for column in ('unique_user_open', 'unique_user_click'):
+        if column not in existing_cols:
+            cursor.execute(f'ALTER TABLE daily_metrics ADD COLUMN {column} INTEGER')
+    for column in ('unique_open_pct', 'unique_click_pct'):
+        if column not in existing_cols:
+            cursor.execute(f'ALTER TABLE daily_metrics ADD COLUMN {column} REAL')
+
     conn.commit()
     conn.close()
     print(f'Pulsation database initialized at {DB_PATH}')
@@ -112,7 +130,8 @@ def process_pulsation_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df['From_domain'] = df['From_domain'].fillna('').astype(str).str.strip().str.lower()
 
 
-    num_cols = ['Sent', 'Delivered', 'Bounces', 'Soft_bounce_count', 'Unique_soft_bounce', 'Spam_report', 'Unsubscribe']
+    num_cols = ['Sent', 'Delivered', 'Bounces', 'Soft_bounce_count', 'Unique_soft_bounce', 'Spam_report', 'Unsubscribe',
+                'Unique_user_open', 'Unique_user_click']
     for c in num_cols:
         df[c] = pd.to_numeric(df.get(c, 0), errors='coerce').fillna(0).astype(int)
 
@@ -121,6 +140,8 @@ def process_pulsation_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df['unsub_rate'] = df.apply(lambda r: round(pct(r['Unsubscribe'], r['Delivered']), 4), axis=1)
     df['bounce_rate'] = df.apply(lambda r: round(pct(r['Bounces'], r['Sent']), 4), axis=1)
     df['soft_bounce_pct'] = df.apply(lambda r: round(pct(r['Soft_bounce_count'], r['Sent']), 4), axis=1)
+    df['unique_open_pct'] = df.apply(lambda r: round(pct(r['Unique_user_open'], r['Delivered']), 4), axis=1)
+    df['unique_click_pct'] = df.apply(lambda r: round(pct(r['Unique_user_click'], r['Delivered']), 4), axis=1)
 
     df['classification'] = df.apply(lambda r: classify_row(r['delivery_rate'], r['spam_rate']), axis=1)
 
@@ -150,7 +171,7 @@ def fetch_pulsation_data(region_name: str, broker_url: str, start_date: str, end
     df = pd.DataFrame(results if isinstance(results, list) else [])
 
     expected = ['From_domain', 'Sent', 'Delivered', 'Bounces', 'Soft_bounce_count',
-                'Unique_soft_bounce', 'Spam_report', 'Unsubscribe', 'ESP']
+                'Unique_soft_bounce', 'Unique_user_open', 'Unique_user_click', 'Spam_report', 'Unsubscribe', 'ESP']
     for c in expected:
         if c not in df.columns:
             df[c] = 0
@@ -178,10 +199,12 @@ def insert_daily_data(df: pd.DataFrame, report_date: str):
         cursor.execute("""
             INSERT OR REPLACE INTO daily_metrics
             (report_date, from_domain, region, esp, sent, delivered, bounces,
-             soft_bounce_count, unique_soft_bounce, spam_report, unsubscribe,
+             soft_bounce_count, unique_soft_bounce, unique_user_open, unique_user_click,
+             spam_report, unsubscribe,
              delivery_rate, spam_rate, unsub_rate, bounce_rate, soft_bounce_pct,
+             unique_open_pct, unique_click_pct,
              risk_score, classification)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             report_date,
             row.get('From_domain', ''),
@@ -192,6 +215,8 @@ def insert_daily_data(df: pd.DataFrame, report_date: str):
             int(row.get('Bounces', 0)),
             int(row.get('Soft_bounce_count', 0)),
             int(row.get('Unique_soft_bounce', 0)),
+            int(row.get('Unique_user_open', 0)),
+            int(row.get('Unique_user_click', 0)),
             int(row.get('Spam_report', 0)),
             int(row.get('Unsubscribe', 0)),
             float(row.get('delivery_rate', 0.0)),
@@ -199,6 +224,8 @@ def insert_daily_data(df: pd.DataFrame, report_date: str):
             float(row.get('unsub_rate', 0.0)),
             float(row.get('bounce_rate', 0.0)),
             float(row.get('soft_bounce_pct', 0.0)),
+            float(row.get('unique_open_pct', 0.0)),
+            float(row.get('unique_click_pct', 0.0)),
             float(row.get('risk_score', 0.0)),
             row.get('classification', 'Unclassified')
         ))
@@ -234,6 +261,8 @@ def query_date_range(start_date: datetime, end_date: datetime) -> pd.DataFrame:
             SUM(bounces) as Bounces,
             SUM(soft_bounce_count) as Soft_bounce_count,
             SUM(unique_soft_bounce) as Unique_soft_bounce,
+            SUM(unique_user_open) as Unique_user_open,
+            SUM(unique_user_click) as Unique_user_click,
             SUM(spam_report) as Spam_report,
             SUM(unsubscribe) as Unsubscribe,
             CASE WHEN SUM(sent) > 0 THEN ROUND(100.0 * SUM(delivered) / SUM(sent), 2) ELSE 0 END as delivery_rate,
@@ -241,6 +270,16 @@ def query_date_range(start_date: datetime, end_date: datetime) -> pd.DataFrame:
             CASE WHEN SUM(delivered) > 0 THEN ROUND(100.0 * SUM(unsubscribe) / SUM(delivered), 4) ELSE 0 END as unsub_rate,
             CASE WHEN SUM(sent) > 0 THEN ROUND(100.0 * SUM(bounces) / SUM(sent), 4) ELSE 0 END as bounce_rate,
             CASE WHEN SUM(sent) > 0 THEN ROUND(100.0 * SUM(soft_bounce_count) / SUM(sent), 4) ELSE 0 END as soft_bounce_pct,
+            CASE
+                WHEN SUM(unique_user_open) IS NULL THEN NULL
+                WHEN SUM(delivered) > 0 THEN ROUND(100.0 * SUM(unique_user_open) / SUM(delivered), 4)
+                ELSE 0
+            END as unique_open_pct,
+            CASE
+                WHEN SUM(unique_user_click) IS NULL THEN NULL
+                WHEN SUM(delivered) > 0 THEN ROUND(100.0 * SUM(unique_user_click) / SUM(delivered), 4)
+                ELSE 0
+            END as unique_click_pct,
             AVG(risk_score) as risk_score,
             MAX(classification) as classification
         FROM daily_metrics
@@ -250,6 +289,15 @@ def query_date_range(start_date: datetime, end_date: datetime) -> pd.DataFrame:
     df = pd.read_sql_query(query, conn, params=(start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')))
     conn.close()
     df = _attach_account_name(df)
+    # unique_user_open/click are nullable (no backfill for pre-rollout rows) --
+    # SUM()/the CASE above naturally yield NaN via pandas when every row in a
+    # group predates the rollout. Convert those to None (not NaN) so the API
+    # response is valid JSON -- `NaN` is not legal JSON and would break
+    # response.json() on the frontend. None/null is how the frontend knows to
+    # render "Not tracked" instead of a misleading 0%.
+    for col in ('Unique_user_open', 'Unique_user_click', 'unique_open_pct', 'unique_click_pct'):
+        if col in df.columns:
+            df[col] = df[col].astype(object).where(df[col].notnull(), None)
     return df
 
 
