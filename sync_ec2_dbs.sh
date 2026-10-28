@@ -73,13 +73,17 @@ echo
 sync_merge "deliverability_history.db" "daily_metrics" \
 "INSERT OR IGNORE INTO daily_metrics
   (report_date, from_domain, region, esp, sent, delivered, bounces,
-   soft_bounce_count, unique_soft_bounce, spam_report, unsubscribe,
+   soft_bounce_count, unique_soft_bounce, unique_user_open, unique_user_click,
+   spam_report, unsubscribe,
    delivery_rate, spam_rate, unsub_rate, bounce_rate, soft_bounce_pct,
+   unique_open_pct, unique_click_pct,
    risk_score, classification, created_at)
  SELECT
    report_date, from_domain, region, esp, sent, delivered, bounces,
-   soft_bounce_count, unique_soft_bounce, spam_report, unsubscribe,
+   soft_bounce_count, unique_soft_bounce, unique_user_open, unique_user_click,
+   spam_report, unsubscribe,
    delivery_rate, spam_rate, unsub_rate, bounce_rate, soft_bounce_pct,
+   unique_open_pct, unique_click_pct,
    risk_score, classification, created_at
  FROM src.daily_metrics;"
 

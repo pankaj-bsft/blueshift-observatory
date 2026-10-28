@@ -13,6 +13,7 @@ explicitly builds a multi-day sequence itself.
 """
 import os
 import sys
+import sqlite3
 import tempfile
 import shutil
 import importlib
@@ -37,7 +38,7 @@ def warmup(monkeypatch):
     # against the FIRST test's already-deleted tmp_dir instead of its own.
     for mod in (
         'data_paths', 'warmup_service', 'warmup_decision_engine', 'warmup_thresholds',
-        'gpt_service', 'spamhaus_service', 'account_mapping_service',
+        'gpt_service', 'spamhaus_service', 'account_mapping_service', 'pulsation_service',
     ):
         sys.modules.pop(mod, None)
 
@@ -358,3 +359,75 @@ class TestNiceRoundingAndPerIspCurves:
         # to Gmail's still-climbing number the whole way through.
         first_ms_at_target = next(i for i, r in enumerate(schedule) if r['planned_microsoft'] == 1000)
         assert first_ms_at_target < len(schedule) - 1
+
+
+# --------------------------------------------------------------------------
+# Actual progress (Pulsation-backed, not elapsed calendar time)
+# --------------------------------------------------------------------------
+
+def _seed_pulsation_sent(domain, rows):
+    """Insert real Pulsation daily_metrics rows for a domain -- rows is a
+    list of (report_date, sent) tuples. Mirrors a tiny slice of what
+    pulsation_service.insert_daily_data() would actually write."""
+    import pulsation_service as psvc
+    psvc.init_pulsation_database()
+    conn = sqlite3.connect(psvc.DB_PATH)
+    cursor = conn.cursor()
+    for report_date, sent in rows:
+        cursor.execute('''
+            INSERT INTO daily_metrics (report_date, from_domain, region, esp, sent, delivered)
+            VALUES (?, ?, 'US', 'Mailgun', ?, ?)
+        ''', (report_date, domain.lower(), sent, sent))
+    conn.commit()
+    conn.close()
+
+
+class TestActualProgress:
+    def test_progress_is_not_tracked_when_pulsation_has_no_data(self, warmup):
+        """A brand new plan with zero real sends is 'not tracked', not 0% --
+        same convention as Pulsation's own unique-open/click columns."""
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc, start_date='2026-09-01', target_date='2026-09-20')
+        fetched = wsvc.get_plan(plan['id'])
+        assert fetched['progress_pct'] is None
+        assert fetched['actual_sent_total'] == 0
+
+    def test_progress_pct_is_actual_sent_over_target_volume(self, warmup):
+        """Progress must reflect real Pulsation sends, not elapsed calendar
+        time -- this is the exact bug report that prompted the feature."""
+        wsvc, engine, cfg = warmup
+        domain = 'progress-test.example.com'
+        plan = make_plan(wsvc, domain=domain, start_date='2026-09-01', target_date='2026-09-20')
+        # target_volume for the default isp_mix is 50,000 (see make_plan)
+        _seed_pulsation_sent(domain, [('2026-09-01', 5000), ('2026-09-02', 7500)])
+        fetched = wsvc.get_plan(plan['id'])
+        assert fetched['actual_sent_total'] == 12500
+        assert fetched['actual_send_days'] == 2
+        assert fetched['progress_pct'] == 25.0  # 12500 / 50000 * 100
+
+    def test_progress_pct_is_capped_at_100(self, warmup):
+        """Sending past target shouldn't push the progress bar past 100%."""
+        wsvc, engine, cfg = warmup
+        domain = 'oversent.example.com'
+        plan = make_plan(wsvc, domain=domain, start_date='2026-09-01', target_date='2026-09-20')
+        _seed_pulsation_sent(domain, [('2026-09-01', 90000)])
+        fetched = wsvc.get_plan(plan['id'])
+        assert fetched['progress_pct'] == 100.0
+
+    def test_progress_ignores_sends_outside_the_plan_window(self, warmup):
+        """A send from before start_date (e.g. the domain was already in use)
+        shouldn't count toward this plan's ramp progress."""
+        wsvc, engine, cfg = warmup
+        domain = 'preexisting.example.com'
+        plan = make_plan(wsvc, domain=domain, start_date='2026-09-10', target_date='2026-09-25')
+        _seed_pulsation_sent(domain, [('2026-08-01', 40000), ('2026-09-12', 1000)])
+        fetched = wsvc.get_plan(plan['id'])
+        assert fetched['actual_sent_total'] == 1000
+
+    def test_list_plans_also_carries_actual_progress(self, warmup):
+        wsvc, engine, cfg = warmup
+        domain = 'listcheck.example.com'
+        plan = make_plan(wsvc, domain=domain, start_date='2026-09-01', target_date='2026-09-20')
+        _seed_pulsation_sent(domain, [('2026-09-01', 25000)])
+        listed = next(p for p in wsvc.list_plans() if p['id'] == plan['id'])
+        assert listed['progress_pct'] == 50.0

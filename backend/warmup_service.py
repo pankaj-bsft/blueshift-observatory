@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 
 from data_paths import data_path
 import warmup_thresholds as cfg
+import pulsation_service
 
 WARMUP_DB_PATH = data_path('warmup.db')
 
@@ -152,6 +153,39 @@ def _row_to_plan(row: sqlite3.Row) -> Dict:
     return d
 
 
+def _attach_actual_progress(plan: Dict) -> Dict:
+    """Progress toward a warm-up plan is how much has actually been sent, not
+    how many calendar days have passed -- a plan with zero real sends is 0%
+    done regardless of how close target_date is. Pulls the real cumulative
+    Sent volume for this plan's domain from Pulsation (matched by domain,
+    case-insensitive) and expresses it as a fraction of target_volume.
+
+    progress_pct is None (not 0) when Pulsation has no data at all for this
+    domain/range yet -- that's "not tracked", same convention as Pulsation's
+    own unique-open/click columns, not a misleading 0%.
+    """
+    today = date.today().isoformat()
+    range_end = min(today, plan['target_date'])
+    if range_end < plan['start_date']:
+        plan['actual_sent_total'] = 0
+        plan['actual_send_days'] = 0
+        plan['progress_pct'] = None
+        return plan
+
+    summary = pulsation_service.get_domain_sent_summary(plan['domain'], plan['start_date'], range_end)
+    plan['actual_sent_total'] = summary['total_sent']
+    plan['actual_send_days'] = summary['days_with_data']
+
+    target = plan.get('target_volume') or 0
+    if summary['days_with_data'] == 0:
+        plan['progress_pct'] = None
+    elif target > 0:
+        plan['progress_pct'] = round(min(100.0, (summary['total_sent'] / target) * 100), 1)
+    else:
+        plan['progress_pct'] = 0.0
+    return plan
+
+
 def create_plan(data: Dict) -> Dict:
     """Create a plan and generate its schedule in one step.
 
@@ -241,7 +275,7 @@ def get_plan(plan_id: int) -> Optional[Dict]:
     cursor.execute('SELECT * FROM warmup_plans WHERE id = ?', (plan_id,))
     row = cursor.fetchone()
     conn.close()
-    return _row_to_plan(row) if row else None
+    return _attach_actual_progress(_row_to_plan(row)) if row else None
 
 
 def list_plans(status: Optional[str] = None) -> List[Dict]:
@@ -254,7 +288,7 @@ def list_plans(status: Optional[str] = None) -> List[Dict]:
         cursor.execute('SELECT * FROM warmup_plans ORDER BY created_at DESC')
     rows = cursor.fetchall()
     conn.close()
-    return [_row_to_plan(r) for r in rows]
+    return [_attach_actual_progress(_row_to_plan(r)) for r in rows]
 
 
 def update_plan_status(plan_id: int, status: str) -> Dict:
