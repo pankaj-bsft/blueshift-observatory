@@ -126,29 +126,30 @@ def _save_account_info_snapshot(response: Dict, source: str = 'live') -> None:
     errors = response.get('errors', {})
     last_synced_at = response.get('last_synced_at') or response.get('last_updated') or now
 
+    data_json = json.dumps(data, ensure_ascii=False)
+    errors_json = json.dumps(errors, ensure_ascii=False)
+    total_records = len(data)
+
     conn = sqlite3.connect(ACCOUNT_INFO_DB)
     cursor = conn.cursor()
+    # Manual UPDATE-then-INSERT upsert, not `INSERT ... ON CONFLICT DO UPDATE`
+    # -- that syntax needs SQLite 3.24+, and EC2's Python links against
+    # 3.7.17 (confirmed; see warmup_service.py/gpt_service.py for the same
+    # pattern elsewhere in this codebase). The ON CONFLICT form silently threw
+    # "near ON: syntax error" on every save attempt on EC2, which meant every
+    # force-refresh there failed with a 500 and the UI never saw fresh data.
     cursor.execute('''
-        INSERT INTO account_info_snapshot
-            (id, data_json, errors_json, last_synced_at, total_records, source, created_at, updated_at)
-        VALUES
-            (1, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-            data_json = excluded.data_json,
-            errors_json = excluded.errors_json,
-            last_synced_at = excluded.last_synced_at,
-            total_records = excluded.total_records,
-            source = excluded.source,
-            updated_at = excluded.updated_at
-    ''', (
-        json.dumps(data, ensure_ascii=False),
-        json.dumps(errors, ensure_ascii=False),
-        last_synced_at,
-        len(data),
-        source,
-        now,
-        now,
-    ))
+        UPDATE account_info_snapshot
+        SET data_json = ?, errors_json = ?, last_synced_at = ?,
+            total_records = ?, source = ?, updated_at = ?
+        WHERE id = 1
+    ''', (data_json, errors_json, last_synced_at, total_records, source, now))
+    if cursor.rowcount == 0:
+        cursor.execute('''
+            INSERT INTO account_info_snapshot
+                (id, data_json, errors_json, last_synced_at, total_records, source, created_at, updated_at)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+        ''', (data_json, errors_json, last_synced_at, total_records, source, now, now))
     conn.commit()
     conn.close()
 
@@ -203,18 +204,32 @@ def fetch_mailgun_data() -> List[Dict]:
     # Fetch from both US and EU regions
     for region, base_url in [('US', MAILGUN_US_BASE_URL), ('EU', MAILGUN_EU_BASE_URL)]:
         try:
-            # Fetch domains
-            response = requests.get(
-                f'{base_url}/domains',
-                auth=('api', MAILGUN_API_KEY),
-                timeout=10
-            )
+            # Fetch ALL domains, paginated. Mailgun's /domains endpoint caps a
+            # single response at 100 items by default when no `limit` is
+            # passed -- this account has 300+ US domains, so an unpaginated
+            # call silently drops everything past the 100th (confirmed via
+            # mail.chocolatefinance.com sitting at position ~269). Page with
+            # `skip`/`limit` until a page comes back shorter than requested.
+            domains = []
+            skip = 0
+            page_size = 1000
+            while True:
+                response = requests.get(
+                    f'{base_url}/domains',
+                    auth=('api', MAILGUN_API_KEY),
+                    params={'limit': page_size, 'skip': skip},
+                    timeout=15
+                )
+                if response.status_code != 200:
+                    print(f'Mailgun {region} API error: {response.status_code} (after {len(domains)} domains fetched)')
+                    break
+                page_items = response.json().get('items', [])
+                domains.extend(page_items)
+                if len(page_items) < page_size:
+                    break
+                skip += page_size
 
-            if response.status_code == 200:
-                data = response.json()
-                domains = data.get('items', [])
-
-                # Fetch IPs for all domains in parallel
+            if domains:
                 domain_ips = {}
                 with ThreadPoolExecutor(max_workers=10) as executor:
                     future_to_domain = {
@@ -247,7 +262,10 @@ def fetch_mailgun_data() -> List[Dict]:
 
                 print(f'Fetched {len(domains)} Mailgun {region} domains with IPs')
             else:
-                print(f'Mailgun {region} API error: {response.status_code}')
+                # The error branch above already logs the HTTP status for a
+                # genuine failure; getting here with zero domains and no
+                # earlier print just means this region has none.
+                print(f'Mailgun {region}: 0 domains found')
 
         except Exception as e:
             print(f'Error fetching Mailgun {region} data: {e}')
