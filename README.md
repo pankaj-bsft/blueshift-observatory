@@ -1,33 +1,38 @@
 # Blueshift Observatory
 
-Blueshift Observatory is an internal email deliverability observability and operations dashboard. It brings together domain, account, IP, DNS, bounce, reputation, and message-quality signals so the deliverability team can monitor health, investigate risk, export reports, and trigger follow-up actions from one place.
+Blueshift Observatory is an internal email deliverability observability and operations dashboard. It brings together domain, account, IP, DNS, bounce, reputation, and message-quality signals so the deliverability team can monitor health, investigate risk, export reports, plan IP/domain warm-ups, and trigger follow-up actions from one place — including through a built-in conversational AI assistant.
 
-The application is built with a FastAPI backend and a Vue-powered static frontend. The backend collects and analyzes data from Druid, Microsoft SNDS, Google Postmaster Tools, ESP APIs, DNS lookups, bounce sources, local caches, and industry update feeds.
+The application is built with a FastAPI backend and a Vue-powered static frontend. The backend collects and analyzes data from Druid, Microsoft SNDS, Google Postmaster Tools, ESP APIs (Mailgun, SparkPost, SendGrid), AWS Athena, DNS lookups, bounce sources, local caches, and industry update feeds.
 
 ## What It Does
 
 Blueshift Observatory supports the core deliverability workflow:
 
 1. Collect metrics from internal event data and external reputation systems.
-2. Classify domain, account, and IP health using delivery, bounce, spam, DNS, and reputation signals.
+2. Classify domain, account, and IP health using delivery, bounce, spam, open/click, DNS, and reputation signals.
 3. Drill into domains/accounts/IPs to identify causes and trends.
 4. Save, export, and email Monthly Business Review reports.
 5. Monitor DNS and reputation changes over time.
 6. Analyze message quality and email content risk.
-7. Surface industry updates relevant to deliverability operations.
+7. Plan, track, and adjust IP/domain warm-up ramps against real send volume.
+8. Ask a conversational AI assistant deliverability questions and get the same underlying data back inline.
+9. Surface industry updates relevant to deliverability operations.
 
 ## Feature Areas
 
 ### Pulsation Deliverability Monitor
 
 - Domain and account health monitoring across configurable time windows.
-- Delivery, bounce, spam, open, click, CTOR, and health-score views.
+- Delivery, bounce, spam, unique user opens, unique user clicks, and health-score views.
 - Risk classifications for low delivery, spam complaints, bounces, and combined risk.
 - Domain and account trend charts.
 - Daily summary view.
 - Spamhaus status and historical trends.
 - Live domain bounce drilldowns with refresh jobs and CSV export.
+- Athena-backed bounce-reason breakdown per domain.
 - Jira ticket creation for remediation workflows.
+
+Unique user opens/clicks are collected going forward only (no backfill) — dates before this was added show as "Not tracked" rather than a misleading 0%, and the existing 365-day retention cleanup covers the new columns automatically.
 
 ### MBR Deliverability Reporting
 
@@ -46,13 +51,14 @@ Blueshift Observatory supports the core deliverability workflow:
 - CSV import and export.
 - Account statistics.
 - Affiliate-account tagging.
-- Read-only Rails-backed account mapping view.
+- Read-only Rails-backed account mapping view (direct MySQL read access).
 
 ### Account Info and ESP Integration
 
-- ESP metadata collection for sending domains and accounts.
+- ESP metadata collection for sending domains and accounts, paginated to the full account size (not just the first page) for Mailgun and SendGrid.
 - Mailgun, SparkPost, and SendGrid integration points.
 - Domain, account, IP address, subaccount, IP pool, region, status, verification, and created-at views.
+- Shared vs. Dedicated IP classification for Mailgun domains — derived from IP reuse across the account's own domains (an IP used by exactly one domain is Dedicated; no IP assigned, or an IP shared with other domains, is Shared). Not applicable to SparkPost/SendGrid, shown as N/A for those rows.
 - Cache clearing and forced refresh support.
 
 ### Microsoft SNDS Analytics
@@ -65,9 +71,10 @@ Blueshift Observatory supports the core deliverability workflow:
 
 ### Google Postmaster Tools
 
-- OAuth-based Google Postmaster Tools connection.
+- Google Postmaster Tools API v2 integration with OAuth-based connection.
 - Domain list and authorization status.
 - Domain reputation, IP reputation, spam, and authentication trends.
+- Domain and subdomain Compliance Status (SPF/DKIM/DMARC, encryption-in-transit, one-click unsubscribe) alongside the existing reputation/spam/authentication views.
 - Overview tables and enhanced reputation-change views.
 - Domain-level detail pages.
 - Manual collection for historical data within the Google API window.
@@ -98,6 +105,28 @@ Blueshift Observatory supports the core deliverability workflow:
 - DNS alert retrieval, unread counts, and read-state management.
 - DNS alert recipient controls.
 
+### Deliverability Warm-up Planner
+
+Plan, track, and adjust IP/domain warm-up ramps for new domains, new dedicated IPs, combined new IP + domain launches, ESP/IP migrations, and infrastructure changes.
+
+- ISP mix collected as absolute daily send volumes per ISP (Gmail, Microsoft, Yahoo, Apple, Comcast, Other) — the same numbers used when building a warm-up plan with a client — with the plan's overall target volume derived from these rather than entered separately.
+- Each ISP ramps independently on its own curve at the chosen strategy's (Conservative/Balanced/Aggressive) maximum safe daily growth rate toward its own target, holding flat once it arrives rather than being stretched to match a slower-growing ISP.
+- Daily planned volumes are rounded to realistic, easy-to-communicate numbers (e.g. 500 → 600, not 612).
+- Weekly grid timeline view (ISP rows × day columns, daily totals, weekly totals) alongside a day-by-day detail table.
+- A decision engine evaluates delivery rate, hard/soft bounce rate, spam complaints, unsubscribes, volume adherence, Spamhaus listing status, authentication status, and — where a real signal exists (Gmail Postmaster, Microsoft SNDS) — reputation, to recommend Increase / Hold / Reduce / Pause with an explainable 0–100 health score and reasons. A single bad day is treated as a transient Reduce, not an automatic Pause; sustained critical signals escalate to Pause.
+- Actuals entry (manual form or CSV import) with automatic re-evaluation of the day's recommendation.
+- Progress is measured from real Pulsation-collected sent volume for the plan's domain, not elapsed calendar time — shows "No sends yet" instead of a misleading percentage when nothing has been tracked for that domain yet.
+- Plan list, detail view, status management (Active/Paused/Completed/Aborted), and a versioned, tunable threshold configuration.
+
+### Observatory Agent (AI Assistant)
+
+A conversational deliverability assistant, built on LangGraph, that answers questions using the same data sources as the rest of the dashboard.
+
+- Pluggable LLM backend selected via `LLM_PROVIDER` — Claude/Anthropic, OpenAI, or a local Ollama model — with no other code changes required to switch.
+- Tools for: SPF/DKIM/DMARC authentication checks, Gmail Postmaster reputation, email delivery/bounce/spam metrics and trend charts, ranking sending domains by a chosen metric, MBR deliverability lookups, account-info lookups, ISP-level breakdowns of a domain's sending, Spamhaus listing checks (single domain or account-wide, including historical trend), and Jira ticket filing.
+- Structured responses: findings, stat cards, trend charts, and tables render inline in the chat alongside the natural-language answer (tool results carry a text summary for the model and a separate UI-only artifact for rendering).
+- Status endpoint to confirm the agent and its configured provider are reachable.
+
 ### Industry Updates
 
 - Deliverability-related industry update feed.
@@ -107,12 +136,14 @@ Blueshift Observatory supports the core deliverability workflow:
 
 ### Scheduled Operations
 
-The backend starts recurring jobs through APScheduler:
+The backend starts recurring jobs through APScheduler as soon as it starts:
 
 - Daily Spamhaus refresh.
 - Daily bounce cleanup.
 - Daily DNS check.
 - Weekly ESP domain sync.
+
+Separately, a few standalone scripts in `backend/` are designed to run from the system crontab rather than in-process (see each script for its own schedule comment): `collect_snds_daily.py`, `collect_gpt_daily.py` / `collect_gpt_daily_offset.py`, and `collect_mbr_account_monthly.py`. These exist because they're long-running or follow a cadence (daily offset windows, monthly) that doesn't fit the in-process scheduler cleanly.
 
 ## Tech Stack
 
@@ -128,6 +159,11 @@ The backend starts recurring jobs through APScheduler:
 - dnspython
 - feedparser
 - Playwright
+- LangChain and LangGraph (Observatory Agent orchestration and tools)
+- Pluggable LLM clients — `langchain-anthropic` (Claude), `langchain-openai`, `langchain-ollama` (local)
+- PyMySQL (read-only Rails-backed account mapping source)
+- boto3 (AWS Athena bounce-reason queries)
+- pytest (backend test suite — dev/CI only, not required at runtime)
 - SQLite-backed local storage through service modules
 
 ### Frontend
@@ -151,16 +187,30 @@ blueshift_observatory/
 │   ├── spamhaus_service.py            # Spamhaus status and trend support
 │   ├── snds_service.py                # Microsoft SNDS collection
 │   ├── snds_analytics_service.py      # SNDS analytics views
-│   ├── gpt_service.py                 # Google Postmaster OAuth and collection
+│   ├── gpt_service.py                 # Google Postmaster OAuth, v2 collection, and compliance status
 │   ├── gpt_analytics_service.py       # Google Postmaster analytics
+│   ├── athena_bounce_service.py       # AWS Athena-backed bounce-reason drilldown
 │   ├── bounce_analytics_service.py    # ESP bounce collection and analysis
 │   ├── eml_analysis_service.py        # EML/message analysis
+│   ├── email_domain_stats_service.py  # Per-domain recipient-ISP sending breakdown
+│   ├── health_score_service.py        # Deliverability health score calculation
+│   ├── mom_service.py                 # Month-over-month volume comparison
+│   ├── pdf_html_service.py            # HTML-to-PDF rendering for exports
+│   ├── esp_domain_sync_service.py     # Scheduled ESP domain registry sync
+│   ├── inbound_service.py             # Test-address generation and inbound polling
+│   ├── warmup_service.py              # Warm-up Planner plan CRUD and curve generation
+│   ├── warmup_decision_engine.py      # Warm-up Planner signal evaluation and recommendations
+│   ├── warmup_thresholds.py           # Versioned, tunable Warm-up Planner thresholds
+│   ├── deliverability_agent/          # Observatory Agent: LangGraph agent, tools, LLM provider selection
 │   ├── dns_*                          # DNS lookup, storage, change detection, alerts
 │   ├── account_*                      # Account mapping and account aggregation services
+│   ├── rails_mapping_service.py       # Read-only Rails (MySQL) account mapping source
 │   ├── mbr_storage_service.py         # Saved MBR report storage
 │   ├── email_service.py               # Report email recipients and SendGrid delivery
 │   ├── industry_updates_service.py    # Industry update collection and storage
 │   ├── jira_service.py                # Jira ticket creation
+│   ├── collect_*.py                   # Standalone cron-driven collectors (SNDS, GPT, MBR monthly)
+│   ├── tests/                         # Pytest suite (Warm-up Planner)
 │   └── requirements.txt               # Python dependencies
 ├── frontend/
 │   ├── index.html                     # Main dashboard UI
@@ -244,6 +294,13 @@ Expected response:
 {"status":"healthy"}
 ```
 
+### Run the Backend Test Suite
+
+```bash
+cd /Users/pankaj/pani/blueshift_observatory/backend
+./venv/bin/pytest tests/ -v
+```
+
 ## Configuration
 
 Configuration is loaded primarily from `.env` files and `backend/config.py`.
@@ -265,10 +322,26 @@ Common environment variables:
 - `BS_ENABLE_SPAMHAUS_IP`
 - `USE_HTML_PDF`
 
+Observatory Agent (Note: read from `backend/deliverability_agent/.env` specifically, not the project-root `.env`):
+
+- `LLM_PROVIDER` — `ollama` (default, local/no API cost), `claude`/`anthropic`, or `openai`.
+- `LLM_MODEL` — e.g. `claude-sonnet-5`, `gpt-4o`, `qwen2.5:7b`.
+- `LLM_TEMPERATURE`, `LLM_MAX_TOKENS` (Claude only), `LLM_CLAUDE_TEMPERATURE` (opt-in; current Claude 5 models reject `temperature`).
+- `ANTHROPIC_API_KEY` (Claude provider) or `OPENAI_API_KEY` (OpenAI provider).
+
+Athena-backed bounce-reason drilldown:
+
+- `ATHENA_ENABLED`, `ATHENA_REGION`, `ATHENA_WORKGROUP`, `ATHENA_DATABASE`, `ATHENA_TABLE`, `ATHENA_OUTPUT`, `AWS_PROFILE`.
+
+Rails-backed account mapping view:
+
+- `BSFT_DB_HOST`, `BSFT_DB_PORT`, `BSFT_DB_NAME`, `BSFT_DB_USER`, `BSFT_DB_PASSWORD`, `BSFT_ADAPTER_IDS`.
+
 Important configuration locations:
 
 - `backend/config.py` contains Druid broker URLs, ESP list, ESP API base URLs, and the Druid query template.
 - `backend/data_paths.py` controls the local data directory, defaulting to `data/` unless `BS_DATA_DIR` is set.
+- `backend/warmup_thresholds.py` contains every tunable Warm-up Planner threshold (volume variance, bounce/spam/unsubscribe bands, health-score weights, nice-rounding steps, strategy growth caps) — change behavior here, not inline in the decision engine.
 - `frontend/js/api.js` defines the frontend API base URL.
 - Some frontend code calls `http://localhost:8001` directly, so keep the backend port aligned unless those references are updated.
 
@@ -288,18 +361,21 @@ The API surface is organized by functional area:
 - `POST /api/fetch-data` - domain-level MBR data from Druid.
 - `POST /api/fetch-data-by-account` - account-level MBR data.
 - `POST /api/export/excel` and `POST /api/export/pdf` - MBR exports.
-- `/api/pulsation/*` - Pulsation collection, query, summary, trends, Spamhaus status, and live bounces.
+- `/api/pulsation/*` - Pulsation collection, query, summary, trends, Spamhaus status, bounce reasons, and live bounces.
 - `/api/mbr/*` - saved report checks, saves, lists, detail, deletes, and trend data.
+- `/api/account-summary/{account_name}` - account-level summary.
 - `/api/email-recipients/*` and `/api/send-report-email` - report email recipient management and sending.
 - `/api/account-mappings/*` - editable account mapping management.
 - `/api/account-mappings-rails/*` - read-only Rails mapping access.
-- `/api/account-info/*` - ESP integration account/domain metadata.
+- `/api/account-info/*` - ESP integration account/domain metadata, including IP type.
 - `/api/snds/*` - Microsoft SNDS analytics and collection.
-- `/api/gpt/*` - Google Postmaster Tools OAuth, collection, and analytics.
+- `/api/gpt/*` - Google Postmaster Tools OAuth, v2 collection, compliance status, and analytics.
 - `/api/bounces/*` - bounce collection, querying, domain lists, and CSV export.
 - `/api/deliverability-analysis/*` - EML analysis and analysis report export.
 - `/api/email-analysis/*` - test-address generation, inbound polling, HTML analysis, and URL analysis.
 - `/api/dns/*` - DNS lookup, monitoring, ESP sync, selectors, alerts, and alert recipients.
+- `/api/warmup/*` - Warm-up Planner plan CRUD, schedule, actuals (including CSV import), recommendations, events, and threshold config.
+- `/api/deliverability/agent` and `/api/deliverability/agent/status` - Observatory Agent chat and reachability check.
 - `/api/industry-updates/*` - industry update refresh, query, sources, and cleanup.
 - `/api/jira/create-ticket` - Jira ticket creation from remediation workflows.
 
@@ -309,6 +385,9 @@ The API surface is organized by functional area:
 - Druid-backed pages require internal network access to US and EU Druid brokers.
 - SNDS, Google Postmaster Tools, SendGrid, Mailgun, and SparkPost features require valid external credentials.
 - DNS monitoring and alerting rely on DNS storage, selectors, recipient configuration, and scheduled checks.
+- The Observatory Agent requires its own provider credentials (`ANTHROPIC_API_KEY`/`OPENAI_API_KEY`) unless running fully local against Ollama; it reads `backend/deliverability_agent/.env` separately from the rest of the app.
+- The Athena-backed bounce-reason drilldown and the Rails-backed account mapping view each require their own external credentials (AWS and MySQL respectively) and are inert without them.
+- Warm-up Planner progress depends on Pulsation having collected real send data for a plan's domain — a plan shows no progress until Pulsation has data for that domain within the plan's date range.
 - `sync_ec2_dbs.sh` can be used by `BLUESHIFT_SYNC_SCRIPT` to sync local data from the configured environment when available.
 
 ## Troubleshooting
@@ -343,13 +422,24 @@ The API surface is organized by functional area:
 
 - Confirm the relevant ESP API key is configured.
 - Confirm domains/accounts exist in the connected ESP.
-- Check backend logs for API status codes or pagination errors.
+- Check backend logs for API status codes or pagination errors — Mailgun and SendGrid both paginate their list endpoints well below a typical account's real size, so an unpaginated call will silently look complete while missing most of the data.
 
 ### DNS Monitoring Looks Incomplete
 
 - Confirm the domain is present in the DNS monitor registry.
 - Add or verify DKIM selectors where needed.
 - Trigger a DNS check from the UI or API and inspect backend logs.
+
+### Observatory Agent Is Unreachable or Errors
+
+- Check `GET /api/deliverability/agent/status`.
+- Confirm `LLM_PROVIDER` and the matching API key (`ANTHROPIC_API_KEY`/`OPENAI_API_KEY`) are set in `backend/deliverability_agent/.env`, or that a local Ollama server is running if using `LLM_PROVIDER=ollama`.
+- Check backend logs for the underlying provider SDK error.
+
+### Warm-up Plan Shows No Progress
+
+- Confirm Pulsation has collected data for the plan's domain within its date range (`/api/pulsation/available-dates`).
+- Progress is computed from real Sent volume, not elapsed calendar time, so a plan with no Pulsation data yet will correctly show no progress rather than a misleading percentage.
 
 ## Related Docs
 
