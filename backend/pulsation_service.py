@@ -412,6 +412,60 @@ def _aggregate_timeseries(df: pd.DataFrame, mode: str) -> pd.DataFrame:
     return grouped
 
 
+def get_domain_sent_summary(domain: str, start_date: str, end_date: str) -> Dict:
+    """Actual Sent volume for a domain within [start_date, end_date] inclusive,
+    summed straight from Pulsation's own collected daily_metrics -- the
+    Warm-up Planner uses this to measure real ramp progress (how much has
+    actually been sent) instead of elapsed calendar time.
+    """
+    domain = (domain or '').strip().lower()
+    if not domain or not start_date or not end_date:
+        return {'total_sent': 0, 'days_with_data': 0}
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            SELECT COALESCE(SUM(sent), 0), COUNT(DISTINCT report_date)
+            FROM daily_metrics
+            WHERE from_domain = ? AND report_date >= ? AND report_date <= ?
+        ''', (domain, start_date, end_date))
+        total_sent, days_with_data = cursor.fetchone()
+    except sqlite3.OperationalError:
+        # Pulsation's daily_metrics table is only created when /api/pulsation/init
+        # (or a collection call) has run at least once -- treat "not initialized
+        # yet" the same as "no data for this domain", not an error.
+        total_sent, days_with_data = 0, 0
+    finally:
+        conn.close()
+    return {'total_sent': int(total_sent or 0), 'days_with_data': int(days_with_data or 0)}
+
+
+def get_trailing_sent_totals(days: int = 30) -> Dict[tuple, int]:
+    """Trailing-N-day Sent volume for every (domain, region) pair, in one
+    query -- used by the Mailgun shared-IP compliance check (any domain on a
+    shared IP exceeding a monthly volume threshold should move to a
+    dedicated IP) so it doesn't issue one query per domain. Keyed by
+    (from_domain, region), both as stored (domain already lowercased).
+    """
+    cutoff_date = (datetime.utcnow().date() - timedelta(days=days)).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            SELECT from_domain, region, SUM(sent)
+            FROM daily_metrics
+            WHERE report_date >= ?
+            GROUP BY from_domain, region
+        ''', (cutoff_date,))
+        rows = cursor.fetchall()
+    except sqlite3.OperationalError:
+        # Same "not initialized yet" convention as get_domain_sent_summary.
+        rows = []
+    finally:
+        conn.close()
+    return {(domain, region): int(sent or 0) for domain, region, sent in rows}
+
+
 def get_available_dates() -> List[str]:
     """Get list of dates with data"""
     conn = sqlite3.connect(DB_PATH)

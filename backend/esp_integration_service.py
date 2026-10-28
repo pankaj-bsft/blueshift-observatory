@@ -17,10 +17,16 @@ from config import (
     SPARKPOST_API_KEY, SPARKPOST_BASE_URL,
     SENDGRID_API_KEY, SENDGRID_BASE_URL
 )
+import pulsation_service
 
 # Account mappings database path
 ACCOUNT_MAPPINGS_DB = data_path('account_mappings.db')
 ACCOUNT_INFO_DB = data_path('account_info.db')
+
+# Compliance policy: a Mailgun domain sending more than this in a trailing
+# 30-day window must not be on a shared IP. Only meaningful for Mailgun --
+# SparkPost/SendGrid rows never get this flag (see their result dicts).
+DEDICATED_IP_MONTHLY_THRESHOLD = 100_000
 
 # Kept for backward compatibility with legacy clear-cache behavior
 _cache = {
@@ -203,6 +209,14 @@ def fetch_mailgun_data() -> List[Dict]:
     """
     results = []
 
+    # One query covers every domain/region -- avoids a per-domain round trip
+    # to Pulsation's DB just to check the dedicated-IP compliance policy.
+    try:
+        trailing_sent_totals = pulsation_service.get_trailing_sent_totals(days=30)
+    except Exception as e:
+        print(f'Error fetching trailing sent totals for dedicated-IP compliance check: {e}')
+        trailing_sent_totals = {}
+
     # Fetch from both US and EU regions
     for region, base_url in [('US', MAILGUN_US_BASE_URL), ('EU', MAILGUN_EU_BASE_URL)]:
         try:
@@ -265,12 +279,15 @@ def fetch_mailgun_data() -> List[Dict]:
                     domain_name = domain.get('name', 'N/A')
                     ips = domain_ip_lists.get(domain_name, [])
                     ip_type = 'Dedicated' if ips and all(ip_usage_count[ip] == 1 for ip in ips) else 'Shared'
+                    monthly_sent = trailing_sent_totals.get((domain_name.lower(), region), 0)
                     results.append({
                         'esp': 'Mailgun',
                         'region': region,
                         'domain': domain_name,
                         'ip_addresses': ', '.join(ips) if ips else 'Shared Pool',
                         'ip_type': ip_type,
+                        'monthly_sent': monthly_sent,
+                        'needs_dedicated_ip': ip_type == 'Shared' and monthly_sent > DEDICATED_IP_MONTHLY_THRESHOLD,
                         'subaccount': 'N/A',  # Mailgun doesn't have subaccounts in same way
                         'ip_pool': 'N/A',
                         'status': domain.get('state', 'unknown'),
@@ -483,6 +500,8 @@ def fetch_sparkpost_data() -> List[Dict]:
                     'domain': domain_name,
                     'ip_addresses': ip_addresses,
                     'ip_type': 'N/A',  # Shared/Dedicated is a Mailgun-only distinction here
+                    'monthly_sent': None,
+                    'needs_dedicated_ip': False,  # compliance policy is Mailgun-only
                     'subaccount': str(domain.get('subaccount_id', 'N/A')),
                     'ip_pool': ip_pool_display,
                     'status': status_data.get('ownership_verified', False) and 'active' or 'pending',
@@ -581,6 +600,8 @@ def fetch_sendgrid_data() -> List[Dict]:
                     'domain': domain.get('domain', 'N/A'),
                     'ip_addresses': ', '.join(ips) if ips else 'Shared Pool',
                     'ip_type': 'N/A',  # Shared/Dedicated is a Mailgun-only distinction here
+                    'monthly_sent': None,
+                    'needs_dedicated_ip': False,  # compliance policy is Mailgun-only
                     'subaccount': domain.get('username', 'N/A'),
                     'ip_pool': ', '.join(ips) if ips else 'N/A',
                     'status': 'active' if domain.get('valid', False) else 'invalid',

@@ -3933,6 +3933,23 @@
             <p style="margin-top: 20px; color: #64748b; font-size: 14px;">Loading account info from local DB...</p>
           </div>
 
+          <!-- Dedicated IP Compliance -->
+          <div v-if="accountInfo && accountInfo.data && accountInfo.data.length > 0" class="stats-grid" style="grid-template-columns: minmax(260px, 340px); margin-bottom: 24px;">
+            <div
+              class="stat-card"
+              :class="accountInfoDedicatedIpViolations.length > 0 ? 'stat-card-critical' : 'stat-card-healthy'"
+              :style="{ cursor: 'pointer', outline: accountInfoShowDedicatedIpViolationsOnly ? '2px solid #2563eb' : 'none' }"
+              @click="toggleDedicatedIpViolationsFilter"
+            >
+              <div class="stat-card-icon-badge">{{ accountInfoDedicatedIpViolations.length > 0 ? '⚠' : '✓' }}</div>
+              <p class="stat-card-label">NEEDS DEDICATED IP</p>
+              <p class="stat-card-value">{{ accountInfoDedicatedIpViolations.length }}</p>
+              <p class="stat-card-subtitle">
+                {{ accountInfoDedicatedIpViolations.length > 0 ? 'Mailgun, shared IP, >100k sent/30d' : 'No shared-IP Mailgun domains over the compliance threshold' }}
+              </p>
+            </div>
+          </div>
+
           <!-- Data Table -->
           <div v-if="accountInfo && accountInfo.data && accountInfo.data.length > 0" class="card-section">
             <div class="card-header">
@@ -8128,6 +8145,7 @@
           accountInfo: null,
           accountInfoLoading: false,
           accountInfoError: null,
+          accountInfoShowDedicatedIpViolationsOnly: false,
           accountInfoFilters: {
             esp: '',
             region: '',
@@ -8729,11 +8747,18 @@
         quickHtmlAnalysisHtml() {
           return this.quickHtmlReport || null;
         },
+        accountInfoDedicatedIpViolations() {
+          if (!this.accountInfo || !this.accountInfo.data) return [];
+          return this.accountInfo.data.filter(item => item.needs_dedicated_ip);
+        },
         filteredAccountInfo() {
           if (!this.accountInfo || !this.accountInfo.data) return [];
 
           return this.accountInfo.data.filter(item => {
             // Apply all filters
+            if (this.accountInfoShowDedicatedIpViolationsOnly && !item.needs_dedicated_ip) {
+              return false;
+            }
             if (this.accountInfoFilters.esp && !item.esp.toLowerCase().includes(this.accountInfoFilters.esp.toLowerCase())) {
               return false;
             }
@@ -12480,7 +12505,12 @@
             verified: '',
             created_at: ''
           };
+          this.accountInfoShowDedicatedIpViolationsOnly = false;
           this.showToast('success', 'Filters Cleared', 'All filters have been reset');
+        },
+
+        toggleDedicatedIpViolationsFilter() {
+          this.accountInfoShowDedicatedIpViolationsOnly = !this.accountInfoShowDedicatedIpViolationsOnly;
         },
 
         // Clear Account Info Cache
