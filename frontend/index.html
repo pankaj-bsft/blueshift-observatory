@@ -4095,7 +4095,11 @@
                       </span>
                       <span v-else style="color: #cbd5e1;">-</span>
                     </td>
-                    <td style="padding: 6px 10px; font-weight: 500; font-family: monospace; color: #1e293b;">{{ item.domain }}</td>
+                    <td style="padding: 6px 10px; font-weight: 500; font-family: monospace;">
+                      <span style="color: #2563eb; cursor: pointer; text-decoration: underline; text-decoration-style: dotted;" @click="showDomainMonthlySent(item.domain)" title="View sent volume by month">
+                        {{ item.domain }}
+                      </span>
+                    </td>
                     <td style="padding: 6px 10px;">
                       <span v-if="item.account_name !== 'Unmapped'" style="font-weight: 500; color: #3b82f6;">
                         {{ item.account_name }}
@@ -7705,6 +7709,47 @@
       </div>
     </div>
 
+    <!-- Domain Monthly Sent Modal -->
+    <div v-if="domainMonthlySentModal.show" class="modal-overlay" @click.self="closeDomainMonthlySentModal">
+      <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-header">
+          <h3 style="font-size: 17px; font-weight: 700; color: #1e293b; margin: 0; font-family: monospace;">{{ domainMonthlySentModal.domain }}</h3>
+          <button class="modal-close" @click="closeDomainMonthlySentModal">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px 24px;">
+          <div v-if="domainMonthlySentModal.loading" style="text-align: center; padding: 30px;">
+            <span class="loading-spinner" style="width: 28px; height: 28px;"></span>
+          </div>
+          <div v-else-if="domainMonthlySentModal.error" style="color: #dc2626; font-size: 13px;">
+            {{ domainMonthlySentModal.error }}
+          </div>
+          <div v-else-if="domainMonthlySentModal.months.length === 0" style="text-align: center; padding: 20px; color: #94a3b8; font-size: 13px;">
+            No Pulsation data for this domain yet.
+          </div>
+          <table v-else style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+              <tr style="border-bottom: 2px solid #e2e8f0;">
+                <th style="text-align: left; padding: 6px 4px; color: #64748b; font-weight: 600;">Month</th>
+                <th style="text-align: right; padding: 6px 4px; color: #64748b; font-weight: 600;">Sent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="m in domainMonthlySentModal.months" :key="m.month" style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 6px 4px; font-family: monospace;">{{ m.month }}</td>
+                <td style="padding: 6px 4px; text-align: right; font-family: monospace;">{{ formatNumber(m.sent) }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr style="border-top: 2px solid #e2e8f0;">
+                <td style="padding: 8px 4px; font-weight: 700;">Total</td>
+                <td style="padding: 8px 4px; text-align: right; font-weight: 700;">{{ formatNumber(domainMonthlySentTotal) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- Delete Confirmation Modal -->
     <div v-if="showDeleteConfirmModal" class="modal-overlay" @click.self="cancelDelete">
       <div class="modal-content" style="max-width: 450px;">
@@ -8146,6 +8191,13 @@
           accountInfoLoading: false,
           accountInfoError: null,
           accountInfoShowDedicatedIpViolationsOnly: false,
+          domainMonthlySentModal: {
+            show: false,
+            domain: '',
+            loading: false,
+            error: '',
+            months: []  // [{ month: '2026-10', sent: 487861 }, ...] most-recent first
+          },
           accountInfoFilters: {
             esp: '',
             region: '',
@@ -8750,6 +8802,9 @@
         accountInfoDedicatedIpViolations() {
           if (!this.accountInfo || !this.accountInfo.data) return [];
           return this.accountInfo.data.filter(item => item.needs_dedicated_ip);
+        },
+        domainMonthlySentTotal() {
+          return this.domainMonthlySentModal.months.reduce((sum, m) => sum + (m.sent || 0), 0);
         },
         filteredAccountInfo() {
           if (!this.accountInfo || !this.accountInfo.data) return [];
@@ -12511,6 +12566,36 @@
 
         toggleDedicatedIpViolationsFilter() {
           this.accountInfoShowDedicatedIpViolationsOnly = !this.accountInfoShowDedicatedIpViolationsOnly;
+        },
+
+        async showDomainMonthlySent(domain) {
+          this.domainMonthlySentModal.show = true;
+          this.domainMonthlySentModal.domain = domain;
+          this.domainMonthlySentModal.loading = true;
+          this.domainMonthlySentModal.error = '';
+          this.domainMonthlySentModal.months = [];
+          try {
+            // days=365 -- Pulsation's own retention cleanup never keeps more
+            // than that anyway, so this always covers every month we have.
+            const resp = await fetch(`${this.API_BASE}/api/pulsation/domain-timeseries/${encodeURIComponent(domain)}?days=365&mode=monthly`);
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'Failed to load monthly sent volume');
+            if (data.status === 'no_data' || !data.data || !data.data.dates || data.data.dates.length === 0) {
+              this.domainMonthlySentModal.months = [];
+            } else {
+              this.domainMonthlySentModal.months = data.data.dates
+                .map((month, i) => ({ month, sent: data.data.sent[i] || 0 }))
+                .reverse(); // most-recent month first
+            }
+          } catch (e) {
+            this.domainMonthlySentModal.error = e.message;
+          } finally {
+            this.domainMonthlySentModal.loading = false;
+          }
+        },
+
+        closeDomainMonthlySentModal() {
+          this.domainMonthlySentModal.show = false;
         },
 
         // Clear Account Info Cache
