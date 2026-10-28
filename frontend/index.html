@@ -3949,6 +3949,7 @@
                     <th style="padding: 8px 10px;">Domain</th>
                     <th style="padding: 8px 10px;">Account Name</th>
                     <th style="padding: 8px 10px;">IP Address</th>
+                    <th style="padding: 8px 10px;">IP Type</th>
                     <th style="padding: 8px 10px;">Subaccount/Subuser</th>
                     <th style="padding: 8px 10px;">IP Pool</th>
                     <th style="padding: 8px 10px;">Status</th>
@@ -4001,6 +4002,17 @@
                         placeholder="Filter IP..."
                         style="width: 100%; padding: 4px 8px; font-size: 12px; height: 32px;"
                       />
+                    </th>
+                    <th style="padding: 6px 8px;">
+                      <select
+                        class="date-input"
+                        v-model="accountInfoFilters.ip_type"
+                        style="width: 100%; padding: 4px 8px; font-size: 12px; height: 32px;"
+                      >
+                        <option value="">All</option>
+                        <option value="Shared">Shared</option>
+                        <option value="Dedicated">Dedicated</option>
+                      </select>
                     </th>
                     <th style="padding: 6px 8px;">
                       <input
@@ -4077,6 +4089,15 @@
                     </td>
                     <td style="padding: 6px 10px; font-size: 11px; font-family: monospace; color: #64748b;">
                       {{ item.ip_addresses }}
+                    </td>
+                    <td style="padding: 6px 10px;">
+                      <span v-if="item.ip_type === 'Dedicated'" class="badge" style="background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #166534; font-size: 11px; padding: 3px 8px;">
+                        Dedicated
+                      </span>
+                      <span v-else-if="item.ip_type === 'Shared'" class="badge" style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; font-size: 11px; padding: 3px 8px;">
+                        Shared
+                      </span>
+                      <span v-else style="color: #cbd5e1;">-</span>
                     </td>
                     <td style="padding: 6px 10px; font-size: 11px; color: #64748b;">{{ item.subaccount }}</td>
                     <td style="padding: 6px 10px; font-size: 11px; color: #64748b;">{{ item.ip_pool }}</td>
@@ -7177,8 +7198,8 @@
                     <td>{{ plan.current_volume.toLocaleString() }}</td>
                     <td>{{ plan.target_volume.toLocaleString() }}</td>
                     <td>
-                      <div style="width: 100px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
-                        <div :style="{width: warmupProgressPct(plan) + '%', height: '100%', background: '#3b82f6'}"></div>
+                      <div style="width: 100px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;" :title="warmupProgressTitle(plan)">
+                        <div :style="{width: (plan.progress_pct || 0) + '%', height: '100%', background: '#3b82f6'}"></div>
                       </div>
                     </td>
                     <td>
@@ -7248,7 +7269,12 @@
               <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
                 <div class="stat-card" style="text-align: center; padding: 16px;">
                   <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase;">Progress</div>
-                  <div style="font-size: 22px; font-weight: 800;">{{ warmupProgressPct(warmupSelectedPlan) }}%</div>
+                  <div style="font-size: 22px; font-weight: 800;">
+                    {{ warmupSelectedPlan.progress_pct === null || warmupSelectedPlan.progress_pct === undefined ? 'No sends yet' : warmupSelectedPlan.progress_pct + '%' }}
+                  </div>
+                  <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+                    {{ formatNumber(warmupSelectedPlan.actual_sent_total) }} / {{ formatNumber(warmupSelectedPlan.target_volume) }} sent
+                  </div>
                 </div>
                 <div class="stat-card" style="text-align: center; padding: 16px;">
                   <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase;">Target Date</div>
@@ -8108,6 +8134,7 @@
             domain: '',
             account_name: '',
             ip_addresses: '',
+            ip_type: '',
             subaccount: '',
             ip_pool: '',
             status: '',
@@ -8722,6 +8749,9 @@
             if (this.accountInfoFilters.ip_addresses && !item.ip_addresses.toLowerCase().includes(this.accountInfoFilters.ip_addresses.toLowerCase())) {
               return false;
             }
+            if (this.accountInfoFilters.ip_type && item.ip_type !== this.accountInfoFilters.ip_type) {
+              return false;
+            }
             if (this.accountInfoFilters.subaccount && !item.subaccount.toLowerCase().includes(this.accountInfoFilters.subaccount.toLowerCase())) {
               return false;
             }
@@ -9038,15 +9068,14 @@
         warmupEventForDate(dateStr) {
           return this.warmupEvents.find(e => e.event_date === dateStr) || null;
         },
-        warmupProgressPct(plan) {
-          if (!plan) return 0;
-          const start = new Date(plan.start_date);
-          const target = new Date(plan.target_date);
-          const now = new Date();
-          const total = target - start;
-          const elapsed = now - start;
-          if (total <= 0) return 100;
-          return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+        warmupProgressTitle(plan) {
+          // Progress reflects actual Pulsation sends for this domain, not
+          // elapsed calendar time -- surface the raw numbers behind it here.
+          if (!plan) return '';
+          if (plan.progress_pct === null || plan.progress_pct === undefined) {
+            return 'No sends tracked yet for this domain';
+          }
+          return `${this.formatNumber(plan.actual_sent_total)} / ${this.formatNumber(plan.target_volume)} sent (${plan.progress_pct}%)`;
         },
 
         // ===== Observatory Agent =====
@@ -12444,6 +12473,7 @@
             domain: '',
             account_name: '',
             ip_addresses: '',
+            ip_type: '',
             subaccount: '',
             ip_pool: '',
             status: '',

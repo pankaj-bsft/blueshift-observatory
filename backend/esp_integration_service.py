@@ -8,6 +8,7 @@ Uses concurrent requests for faster IP fetching
 import json
 import requests
 import sqlite3
+from collections import Counter
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -163,8 +164,12 @@ def _apply_account_names(rows: List[Dict]) -> List[Dict]:
     return rows
 
 
-def fetch_mailgun_domain_ips(base_url: str, domain_name: str) -> str:
-    """Helper function to fetch IPs for a single Mailgun domain"""
+def fetch_mailgun_domain_ips_raw(base_url: str, domain_name: str) -> List[str]:
+    """Helper function to fetch the raw IP list for a single Mailgun domain.
+    Empty list means no IP is assigned (Mailgun's own shared sending pool) --
+    same meaning whether that's genuinely what the domain returned, or the
+    lookup itself failed (this codebase already treated both cases alike
+    before IP-type classification was added)."""
     try:
         ip_response = requests.get(
             f'{base_url}/domains/{domain_name}/ips',
@@ -172,14 +177,11 @@ def fetch_mailgun_domain_ips(base_url: str, domain_name: str) -> str:
             timeout=5
         )
         if ip_response.status_code == 200:
-            ip_data = ip_response.json()
-            ips = ip_data.get('items', [])
-            if ips:
-                return ', '.join(ips)
-        return 'Shared Pool'
+            return ip_response.json().get('items', [])
+        return []
     except Exception as e:
         print(f'Error fetching IPs for {domain_name}: {e}')
-        return 'Shared Pool'
+        return []
 
 
 def fetch_mailgun_data() -> List[Dict]:
@@ -230,29 +232,45 @@ def fetch_mailgun_data() -> List[Dict]:
                 skip += page_size
 
             if domains:
-                domain_ips = {}
+                domain_ip_lists = {}
                 with ThreadPoolExecutor(max_workers=10) as executor:
                     future_to_domain = {
-                        executor.submit(fetch_mailgun_domain_ips, base_url, domain.get('name', 'N/A')): domain.get('name', 'N/A')
+                        executor.submit(fetch_mailgun_domain_ips_raw, base_url, domain.get('name', 'N/A')): domain.get('name', 'N/A')
                         for domain in domains
                     }
 
                     for future in as_completed(future_to_domain):
                         domain_name = future_to_domain[future]
                         try:
-                            domain_ips[domain_name] = future.result()
+                            domain_ip_lists[domain_name] = future.result()
                         except Exception as e:
                             print(f'Error fetching IPs for {domain_name}: {e}')
-                            domain_ips[domain_name] = 'Shared Pool'
+                            domain_ip_lists[domain_name] = []
+
+                # Shared vs. Dedicated is not a field Mailgun's API exposes --
+                # derive it from IP reuse across this region's own domains.
+                # Confirmed empirically (318 US domains): 27 have no IP at
+                # all (Mailgun's literal shared pool), 231 are on one of this
+                # account's dedicated IPs but share it with other domains,
+                # and only 60 sit alone on their own IP. "Shared" covers the
+                # first two cases -- any IP used by more than one domain, or
+                # no IP assigned at all; "Dedicated" is exclusive use.
+                ip_usage_count = Counter()
+                for ips in domain_ip_lists.values():
+                    for ip in ips:
+                        ip_usage_count[ip] += 1
 
                 # Build results with fetched IPs
                 for domain in domains:
                     domain_name = domain.get('name', 'N/A')
+                    ips = domain_ip_lists.get(domain_name, [])
+                    ip_type = 'Dedicated' if ips and all(ip_usage_count[ip] == 1 for ip in ips) else 'Shared'
                     results.append({
                         'esp': 'Mailgun',
                         'region': region,
                         'domain': domain_name,
-                        'ip_addresses': domain_ips.get(domain_name, 'Shared Pool'),
+                        'ip_addresses': ', '.join(ips) if ips else 'Shared Pool',
+                        'ip_type': ip_type,
                         'subaccount': 'N/A',  # Mailgun doesn't have subaccounts in same way
                         'ip_pool': 'N/A',
                         'status': domain.get('state', 'unknown'),
@@ -464,6 +482,7 @@ def fetch_sparkpost_data() -> List[Dict]:
                     'region': 'N/A',
                     'domain': domain_name,
                     'ip_addresses': ip_addresses,
+                    'ip_type': 'N/A',  # Shared/Dedicated is a Mailgun-only distinction here
                     'subaccount': str(domain.get('subaccount_id', 'N/A')),
                     'ip_pool': ip_pool_display,
                     'status': status_data.get('ownership_verified', False) and 'active' or 'pending',
@@ -561,6 +580,7 @@ def fetch_sendgrid_data() -> List[Dict]:
                     'region': 'N/A',
                     'domain': domain.get('domain', 'N/A'),
                     'ip_addresses': ', '.join(ips) if ips else 'Shared Pool',
+                    'ip_type': 'N/A',  # Shared/Dedicated is a Mailgun-only distinction here
                     'subaccount': domain.get('username', 'N/A'),
                     'ip_pool': ', '.join(ips) if ips else 'N/A',
                     'status': 'active' if domain.get('valid', False) else 'invalid',
