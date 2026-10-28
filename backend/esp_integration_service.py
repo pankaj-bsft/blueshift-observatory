@@ -513,19 +513,36 @@ def fetch_sendgrid_data() -> List[Dict]:
         print(f'Error fetching Sendgrid IPs: {e}')
 
     try:
-        # Fetch authenticated domains
-        response = requests.get(
-            f'{SENDGRID_BASE_URL}/whitelabel/domains',
-            headers={
-                'Authorization': f'Bearer {SENDGRID_API_KEY}',
-                'Content-Type': 'application/json'
-            },
-            timeout=10
-        )
+        # Fetch ALL authenticated domains, paginated. SendGrid's
+        # /whitelabel/domains defaults to 50 results per page -- this account
+        # has 251, so an unpaginated call was silently dropping ~80% of them
+        # (same class of bug as Mailgun's /domains). Page with limit/offset
+        # until a page comes back shorter than requested.
+        domains = []
+        offset = 0
+        page_size = 200
+        while True:
+            response = requests.get(
+                f'{SENDGRID_BASE_URL}/whitelabel/domains',
+                headers={
+                    'Authorization': f'Bearer {SENDGRID_API_KEY}',
+                    'Content-Type': 'application/json'
+                },
+                params={'limit': page_size, 'offset': offset},
+                timeout=15
+            )
+            if response.status_code != 200:
+                print(f'Sendgrid API error: {response.status_code} - {response.text} (after {len(domains)} domains fetched)')
+                break
+            page_items = response.json()
+            if not isinstance(page_items, list):
+                break
+            domains.extend(page_items)
+            if len(page_items) < page_size:
+                break
+            offset += page_size
 
-        if response.status_code == 200:
-            domains = response.json()
-
+        if domains:
             for domain in domains:
                 # Check if domain has IPs in the response
                 ips = domain.get('ips', [])
@@ -550,69 +567,19 @@ def fetch_sendgrid_data() -> List[Dict]:
                     'verified': domain.get('valid', False),
                     'created_at': 'N/A'  # Not in API response
                 })
-        else:
-            print(f'Sendgrid API error: {response.status_code} - {response.text}')
+            print(f'Fetched {len(domains)} Sendgrid domains')
 
     except Exception as e:
         print(f'Error fetching Sendgrid data: {e}')
 
-    # Also try to fetch subusers
-    try:
-        response = requests.get(
-            f'{SENDGRID_BASE_URL}/subusers',
-            headers={
-                'Authorization': f'Bearer {SENDGRID_API_KEY}',
-                'Content-Type': 'application/json'
-            },
-            timeout=10
-        )
-
-        if response.status_code == 200:
-            subusers = response.json()
-
-            # For each subuser, fetch their authenticated domains
-            for subuser in subusers[:10]:  # Limit to first 10 to avoid rate limits
-                username = subuser.get('username')
-
-                # Fetch domains for this subuser using on-behalf-of
-                sub_response = requests.get(
-                    f'{SENDGRID_BASE_URL}/whitelabel/domains',
-                    headers={
-                        'Authorization': f'Bearer {SENDGRID_API_KEY}',
-                        'Content-Type': 'application/json',
-                        'on-behalf-of': username
-                    },
-                    timeout=10
-                )
-
-                if sub_response.status_code == 200:
-                    sub_domains = sub_response.json()
-
-                    for domain in sub_domains:
-                        # Check if domain has IPs in the response
-                        ips = domain.get('ips', [])
-
-                        # If no IPs in domain response, try to find IPs assigned to this subuser
-                        if not ips and username:
-                            # Find IPs assigned to this subuser
-                            for ip_addr, subusers_list in all_ips_map.items():
-                                if username in subusers_list:
-                                    ips.append(ip_addr)
-
-                        results.append({
-                            'esp': 'Sendgrid',
-                            'region': 'N/A',
-                            'domain': domain.get('domain', 'N/A'),
-                            'ip_addresses': ', '.join(ips) if ips else 'Shared Pool',
-                            'subaccount': username,
-                            'ip_pool': ', '.join(ips) if ips else 'N/A',
-                            'status': 'active' if domain.get('valid', False) else 'invalid',
-                            'verified': domain.get('valid', False),
-                            'created_at': 'N/A'
-                        })
-
-    except Exception as e:
-        print(f'Error fetching Sendgrid subusers: {e}')
+    # NOTE: this used to also walk the first 10 of this account's 466
+    # subusers via the on-behalf-of header to find subuser-scoped domains.
+    # Removed -- verified empirically that it found zero domains not already
+    # in the main /whitelabel/domains list above (that endpoint already
+    # returns every domain account-wide, subusers included, once properly
+    # paginated), while actively producing duplicate rows. Walking all 466
+    # subusers to be "thorough" was tested and didn't finish in 2 minutes --
+    # pure cost for data already covered above.
 
     return results
 
