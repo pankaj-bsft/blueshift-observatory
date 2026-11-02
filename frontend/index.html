@@ -7234,9 +7234,12 @@
                   </div>
                 </div>
 
-                <button class="btn btn-primary" :disabled="warmupCreating || !warmupNewPlan.name || !warmupNewPlan.domain || !warmupNewPlan.target_date || warmupIspVolumeTotal() <= 0" @click="createWarmupPlan">
+                <button class="btn btn-primary" :disabled="warmupCreating || warmupNewPlanMissingFields.length > 0" @click="createWarmupPlan">
                   {{ warmupCreating ? 'Generating plan…' : 'Generate Warming Plan' }}
                 </button>
+                <div v-if="!warmupCreating && warmupNewPlanMissingFields.length > 0" style="font-size: 12px; color: #dc2626; margin-top: 8px;">
+                  Before you can generate a plan: {{ warmupNewPlanMissingFields.join(', ') }}.
+                </div>
               </div>
 
               <div v-if="warmupLoading && warmupPlans.length === 0" style="text-align: center; padding: 40px; color: #64748b;">Loading…</div>
@@ -8995,6 +8998,17 @@
         },
 
         // ===== Warm-up Planner =====
+        warmupNewPlanMissingFields() {
+          // Surfaced next to the Generate button so a disabled button never
+          // silently does nothing when clicked -- the single most common
+          // real mistake is leaving all ISP volumes at 0.
+          const missing = [];
+          if (!this.warmupNewPlan.name) missing.push('enter a plan name');
+          if (!this.warmupNewPlan.domain) missing.push('enter a domain');
+          if (!this.warmupNewPlan.target_date) missing.push('pick a target completion date');
+          if (this.warmupIspVolumeTotal() <= 0) missing.push('enter at least one ISP\'s target volume above 0');
+          return missing;
+        },
         warmupActiveIsps() {
           const isps = ['gmail', 'microsoft', 'yahoo', 'apple', 'comcast', 'other'];
           const mix = (this.warmupSelectedPlan && this.warmupSelectedPlan.isp_mix) || {};
