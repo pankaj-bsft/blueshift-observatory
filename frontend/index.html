@@ -9298,6 +9298,7 @@
             await this.selectWarmupPlan(data.plan.id);
           } catch (e) {
             this.warmupError = e.message;
+            this.showToast('error', 'Plan Creation Failed', e.message);
           } finally {
             this.warmupCreating = false;
           }
@@ -9335,6 +9336,11 @@
             this.showToast('success', 'Plan Imported', msg);
           } catch (e) {
             this.warmupError = e.message;
+            // The error banner sits above this expanded form and is easy to
+            // scroll past -- a toast makes the failure visible no matter
+            // where the user's looking (this is exactly what was silently
+            // missed when the only feedback was the banner).
+            this.showToast('error', 'Import Failed', e.message);
           } finally {
             this.warmupImporting = false;
           }

@@ -358,7 +358,11 @@ def parse_custom_schedule_csv(file_path: str) -> (List[Dict], List[str]):
     rows = []
     errors = []
     seen_dates = set()
-    with open(file_path, newline='') as f:
+    # utf-8-sig transparently strips a leading UTF-8 BOM if present (and is a
+    # no-op otherwise) -- Excel's "CSV UTF-8" export adds one, which otherwise
+    # silently corrupts the first column's header (e.g. 'date' becomes
+    # '﻿date'), making every row fail as "missing date" with no hint why.
+    with open(file_path, newline='', encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
         if reader.fieldnames:
             reader.fieldnames = [fn.strip().lower() for fn in reader.fieldnames]
@@ -919,7 +923,11 @@ def import_actuals_csv(plan_id: int, file_path: str) -> Dict:
     """
     imported = 0
     errors = []
-    with open(file_path, newline='') as f:
+    # utf-8-sig transparently strips a leading UTF-8 BOM if present (and is a
+    # no-op otherwise) -- Excel's "CSV UTF-8" export adds one, which otherwise
+    # silently corrupts the first column's header (e.g. 'date' becomes
+    # '﻿date'), making every row fail as "missing date" with no hint why.
+    with open(file_path, newline='', encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
         for i, row in enumerate(reader, start=2):
             actual_date = (row.get('actual_date') or '').strip()

@@ -297,6 +297,20 @@ class TestActuals:
         assert result['imported'] == 0
         assert len(result['errors']) == 2
 
+    def test_csv_import_handles_excel_utf8_bom(self, warmup, tmp_path):
+        """Excel's "CSV UTF-8" export prefixes the file with a BOM, which
+        (without utf-8-sig) corrupts the first header cell into '﻿actual_date'
+        -- every row then silently fails as "missing actual_date"."""
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
+        csv_file = tmp_path / 'bom.csv'
+        csv_file.write_bytes(
+            '﻿actual_date,actual_total\n2026-09-29,500\n'.encode('utf-8')
+        )
+        result = wsvc.import_actuals_csv(plan['id'], str(csv_file))
+        assert result['imported'] == 1
+        assert result['errors'] == []
+
     def test_recalculate_all_evaluates_every_actual_date_chronologically(self, warmup):
         wsvc, engine, cfg = warmup
         plan = make_plan(wsvc)
@@ -641,6 +655,21 @@ class TestCustomScheduleImport:
         assert len(rows) == 2
         assert rows[0]['date'] == '2026-11-01'
         assert rows[0]['gmail'] == 500.0
+
+    def test_handles_excel_utf8_bom_in_schedule_csv(self, warmup, tmp_path):
+        """The exact bug report: an Excel "CSV UTF-8" export prefixes a BOM,
+        corrupting the 'date' header so every row failed as "missing date"
+        and the whole import silently produced zero rows."""
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'bom_schedule.csv'
+        csv_path.write_bytes(
+            '﻿date,gmail,microsoft,yahoo,apple,comcast,other\n'
+            '2026-11-01,500,300,100,50,0,100\n'
+            '2026-11-02,1000,600,200,100,0,200\n'.encode('utf-8')
+        )
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
+        assert errors == []
+        assert len(rows) == 2
 
     def test_sorts_out_of_order_rows_chronologically(self, warmup, tmp_path):
         wsvc, engine, cfg = warmup
