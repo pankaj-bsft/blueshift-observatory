@@ -7201,9 +7201,12 @@
                     <input type="file" accept=".csv" @change="warmupImportFile = $event.target.files[0]" />
                   </div>
 
-                  <button class="btn btn-primary" :disabled="warmupImporting || !warmupImportMeta.name || !warmupImportMeta.domain || !warmupImportFile" @click="importWarmupPlanSchedule">
+                  <button class="btn btn-primary" :disabled="warmupImporting || warmupImportMissingFields.length > 0" @click="importWarmupPlanSchedule">
                     {{ warmupImporting ? 'Importing…' : 'Import Plan' }}
                   </button>
+                  <div v-if="!warmupImporting && warmupImportMissingFields.length > 0" style="font-size: 12px; color: #dc2626; margin-top: 8px;">
+                    Before you can import: {{ warmupImportMissingFields.join(', ') }}.
+                  </div>
                 </div>
 
                 <!-- Generate-automatically mode (existing flow) -->
@@ -9129,6 +9132,15 @@
           if (!this.warmupNewPlan.domain) missing.push('enter a domain');
           if (!this.warmupNewPlan.target_date) missing.push('pick a target completion date');
           if (this.warmupIspVolumeTotal() <= 0) missing.push('enter at least one ISP\'s target volume above 0');
+          return missing;
+        },
+        warmupImportMissingFields() {
+          // Same reasoning as warmupNewPlanMissingFields -- a disabled
+          // Import button with no explanation looks exactly like a broken one.
+          const missing = [];
+          if (!this.warmupImportMeta.name) missing.push('enter a plan name');
+          if (!this.warmupImportMeta.domain) missing.push('enter a domain');
+          if (!this.warmupImportFile) missing.push('choose a schedule CSV file');
           return missing;
         },
         warmupActiveIsps() {
