@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -3218,6 +3218,48 @@ async def create_warmup_plan(plan: WarmupPlanCreate):
         raise HTTPException(status_code=500, detail=f'Error creating warmup plan: {str(e)}')
 
 
+@app.post('/api/warmup/plans/import-csv')
+async def import_warmup_plan_csv(
+    name: str = Form(...),
+    domain: str = Form(...),
+    warming_type: str = Form(...),
+    esp: Optional[str] = Form(None),
+    subdomain: Optional[str] = Form(None),
+    region: Optional[str] = Form(None),
+    old_ip: Optional[str] = Form(None),
+    new_ip: Optional[str] = Form(None),
+    audience_quality: str = Form('highly_engaged'),
+    notes: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+):
+    """Create a plan from a client-supplied day-by-day schedule (CSV:
+    date,gmail,microsoft,yahoo,apple,comcast,other) instead of generating
+    one -- tracking (actuals, decisions, health score, exports) works
+    identically afterward regardless of how the schedule was created."""
+    import tempfile
+    with tempfile.NamedTemporaryFile(mode='wb', suffix='.csv', delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+    try:
+        rows, parse_errors = warmup_service.parse_custom_schedule_csv(tmp_path)
+        if not rows:
+            raise HTTPException(status_code=400, detail=f'No valid schedule rows found. Errors: {parse_errors}')
+        result = warmup_service.create_plan_from_schedule({
+            'name': name, 'domain': domain, 'warming_type': warming_type, 'esp': esp,
+            'subdomain': subdomain, 'region': region, 'old_ip': old_ip, 'new_ip': new_ip,
+            'audience_quality': audience_quality, 'notes': notes,
+        }, rows)
+        return {'status': 'success', 'plan': result, 'rows_imported': len(rows), 'row_errors': parse_errors}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error importing warmup plan: {str(e)}')
+    finally:
+        os.unlink(tmp_path)
+
+
 @app.get('/api/warmup/plans')
 async def list_warmup_plans(status: Optional[str] = None):
     try:
@@ -3233,6 +3275,21 @@ async def get_warmup_plan(plan_id: int):
     if not plan:
         raise HTTPException(status_code=404, detail='Warmup plan not found')
     return {'status': 'success', 'plan': plan}
+
+
+@app.delete('/api/warmup/plans/{plan_id}')
+async def delete_warmup_plan(plan_id: int):
+    """Permanently delete a plan and everything scoped to it (schedule,
+    actuals, events, version history). No undo -- the frontend must confirm
+    with the user before calling this."""
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    try:
+        warmup_service.delete_plan(plan_id)
+        return {'status': 'success', 'deleted_plan_id': plan_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error deleting warmup plan: {str(e)}')
 
 
 @app.put('/api/warmup/plans/{plan_id}/config')

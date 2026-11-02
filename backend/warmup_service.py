@@ -347,6 +347,134 @@ def create_plan(data: Dict) -> Dict:
     return get_plan(plan_id)
 
 
+def parse_custom_schedule_csv(file_path: str) -> (List[Dict], List[str]):
+    """Parse a user-supplied day-by-day schedule: one row per date with a
+    planned volume for each ISP. Header must include 'date' plus any of the
+    known ISP buckets (missing ISP columns default to 0 for that row, same
+    "not every client reports every ISP" allowance as the actuals CSV
+    import). Returns (rows, errors) -- never raises on a bad row, so one
+    malformed line doesn't block the rest of a large upload.
+    """
+    rows = []
+    errors = []
+    seen_dates = set()
+    with open(file_path, newline='') as f:
+        reader = csv.DictReader(f)
+        if reader.fieldnames:
+            reader.fieldnames = [fn.strip().lower() for fn in reader.fieldnames]
+        for i, raw_row in enumerate(reader, start=2):
+            row_date = (raw_row.get('date') or '').strip()
+            if not row_date:
+                errors.append(f'Row {i}: missing date')
+                continue
+            try:
+                date.fromisoformat(row_date)
+            except ValueError:
+                errors.append(f'Row {i}: invalid date {row_date!r} (expected YYYY-MM-DD)')
+                continue
+            if row_date in seen_dates:
+                errors.append(f'Row {i}: duplicate date {row_date!r} (first occurrence used)')
+                continue
+
+            isp_volumes = {}
+            row_ok = True
+            for isp in cfg.ISP_BUCKETS:
+                raw = raw_row.get(isp)
+                if raw in (None, ''):
+                    isp_volumes[isp] = 0
+                    continue
+                try:
+                    value = float(str(raw).replace(',', ''))
+                    if value < 0:
+                        raise ValueError
+                    isp_volumes[isp] = value
+                except ValueError:
+                    errors.append(f'Row {i}: invalid value for {isp}: {raw!r}')
+                    row_ok = False
+            if not row_ok:
+                continue
+
+            seen_dates.add(row_date)
+            rows.append({'date': row_date, **isp_volumes})
+
+    rows.sort(key=lambda r: r['date'])
+    return rows, errors
+
+
+def create_plan_from_schedule(data: Dict, schedule_rows: List[Dict]) -> Dict:
+    """Create a plan from a client-supplied day-by-day schedule instead of
+    generating one -- start/target date and isp_mix/target_volume are
+    derived from the uploaded rows (first date, last date, and the final
+    row's per-ISP volumes respectively). Everything downstream -- actuals
+    entry, the decision engine, health score, ISP performance, the Timeline
+    grid, exports -- reads from warmup_schedule exactly the same way
+    regardless of whether it was generated or imported, so tracking works
+    identically with no special-casing once this returns.
+    """
+    name = (data.get('name') or '').strip()
+    domain = (data.get('domain') or '').strip().lower()
+    warming_type = data.get('warming_type')
+    audience_quality = data.get('audience_quality', 'highly_engaged')
+
+    if not name:
+        raise ValueError('name is required')
+    if not domain:
+        raise ValueError('domain is required')
+    if warming_type not in VALID_WARMING_TYPES:
+        raise ValueError(f'warming_type must be one of {sorted(VALID_WARMING_TYPES)}')
+    if audience_quality not in VALID_AUDIENCE_QUALITY:
+        raise ValueError(f'audience_quality must be one of {sorted(VALID_AUDIENCE_QUALITY)}')
+    if len(schedule_rows) < 2:
+        raise ValueError('schedule must have at least 2 rows (a start day and a target day)')
+
+    start_date_str = schedule_rows[0]['date']
+    target_date_str = schedule_rows[-1]['date']
+    isp_mix = {isp: schedule_rows[-1][isp] for isp in cfg.ISP_BUCKETS}
+    validate_isp_mix(isp_mix)
+    target_volume = round(sum(isp_mix.values()))
+    current_volume = round(sum(schedule_rows[0][isp] for isp in cfg.ISP_BUCKETS))
+
+    conn = sqlite3.connect(WARMUP_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO warmup_plans
+            (name, warming_type, esp, domain, subdomain, region, old_ip, new_ip,
+             current_volume, target_volume, start_date, target_date, strategy,
+             isp_mix_json, audience_quality, status, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+    ''', (
+        name, warming_type, data.get('esp'), domain, data.get('subdomain'), data.get('region'),
+        data.get('old_ip'), data.get('new_ip'), current_volume, target_volume,
+        start_date_str, target_date_str, data.get('strategy', 'balanced'), json.dumps(isp_mix),
+        audience_quality, data.get('notes'),
+    ))
+    plan_id = cursor.lastrowid
+
+    duration_days = len(schedule_rows)
+    for i, row in enumerate(schedule_rows):
+        day_number = i + 1
+        audience = _audience_for_day(day_number, duration_days, audience_quality)
+        planned_total = round(sum(row[isp] for isp in cfg.ISP_BUCKETS))
+        cursor.execute('''
+            INSERT INTO warmup_schedule
+                (plan_id, day_number, scheduled_date, planned_total,
+                 planned_gmail, planned_microsoft, planned_yahoo, planned_apple, planned_comcast, planned_other,
+                 recommended_audience)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            plan_id, day_number, row['date'], planned_total,
+            round(row['gmail']), round(row['microsoft']), round(row['yahoo']),
+            round(row['apple']), round(row['comcast']), round(row['other']),
+            audience,
+        ))
+
+    conn.commit()
+    conn.close()
+
+    _snapshot_plan_version(plan_id, reason='imported')
+    return get_plan(plan_id)
+
+
 def validate_isp_mix(isp_mix: Dict) -> None:
     """Validate ISP mix given as absolute daily target volumes per ISP (not
     percentages) -- e.g. {"gmail": 5000, "microsoft": 3000, ...}. This is
@@ -418,6 +546,22 @@ def list_plans(status: Optional[str] = None) -> List[Dict]:
         plan['latest_health_band'] = event['health_band'] if event else None
         plans.append(plan)
     return plans
+
+
+def delete_plan(plan_id: int) -> None:
+    """Permanently delete a plan and everything scoped to it -- schedule,
+    actuals, decision events, and version history. No soft-delete/undo; the
+    caller (API layer) is expected to confirm with the user first."""
+    plan = get_plan(plan_id)
+    if not plan:
+        raise ValueError(f'No warmup plan with id {plan_id}')
+    conn = sqlite3.connect(WARMUP_DB_PATH)
+    cursor = conn.cursor()
+    for table in ('warmup_schedule', 'warmup_actuals', 'warmup_events', 'warmup_plan_versions'):
+        cursor.execute(f'DELETE FROM {table} WHERE plan_id = ?', (plan_id,))
+    cursor.execute('DELETE FROM warmup_plans WHERE id = ?', (plan_id,))
+    conn.commit()
+    conn.close()
 
 
 def update_plan_status(plan_id: int, status: str) -> Dict:

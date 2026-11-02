@@ -581,3 +581,158 @@ class TestPlanExport:
             wsvc.export_plan_to_csv(999999)
         with _pytest.raises(ValueError):
             wsvc.export_plan_to_excel(999999)
+
+
+# --------------------------------------------------------------------------
+# Plan deletion
+# --------------------------------------------------------------------------
+
+class TestPlanDeletion:
+    def test_deleting_a_plan_removes_it_and_all_scoped_data(self, warmup):
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
+        wsvc.record_actual(plan['id'], '2026-09-29', {'actual_total': 500})
+        engine.evaluate(plan['id'], '2026-09-29')
+
+        wsvc.delete_plan(plan['id'])
+
+        assert wsvc.get_plan(plan['id']) is None
+        assert wsvc.get_schedule(plan['id']) == []
+        assert wsvc.get_actuals(plan['id']) == []
+        assert wsvc.get_events(plan['id']) == []
+        assert wsvc.get_plan_versions(plan['id']) == []
+
+    def test_deleting_one_plan_does_not_touch_others(self, warmup):
+        wsvc, engine, cfg = warmup
+        plan_a = make_plan(wsvc, domain='keep-me.example.com')
+        plan_b = make_plan(wsvc, domain='delete-me.example.com')
+        wsvc.delete_plan(plan_b['id'])
+        assert wsvc.get_plan(plan_a['id']) is not None
+        assert wsvc.get_plan(plan_b['id']) is None
+
+    def test_deleting_unknown_plan_raises(self, warmup):
+        wsvc, engine, cfg = warmup
+        import pytest as _pytest
+        with _pytest.raises(ValueError):
+            wsvc.delete_plan(999999)
+
+
+# --------------------------------------------------------------------------
+# Importing a client-supplied schedule (not algorithmically generated)
+# --------------------------------------------------------------------------
+
+def _write_schedule_csv(path, rows):
+    with open(path, 'w', newline='') as f:
+        f.write('date,gmail,microsoft,yahoo,apple,comcast,other\n')
+        for r in rows:
+            f.write(','.join(str(v) for v in r) + '\n')
+
+
+class TestCustomScheduleImport:
+    def test_parses_a_well_formed_schedule_csv(self, warmup, tmp_path):
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'schedule.csv'
+        _write_schedule_csv(csv_path, [
+            ['2026-11-01', 500, 300, 100, 50, 0, 100],
+            ['2026-11-02', 1000, 600, 200, 100, 0, 200],
+        ])
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
+        assert errors == []
+        assert len(rows) == 2
+        assert rows[0]['date'] == '2026-11-01'
+        assert rows[0]['gmail'] == 500.0
+
+    def test_sorts_out_of_order_rows_chronologically(self, warmup, tmp_path):
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'schedule.csv'
+        _write_schedule_csv(csv_path, [
+            ['2026-11-02', 1000, 600, 200, 100, 0, 200],
+            ['2026-11-01', 500, 300, 100, 50, 0, 100],
+        ])
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
+        assert [r['date'] for r in rows] == ['2026-11-01', '2026-11-02']
+
+    def test_bad_rows_are_skipped_with_errors_not_fatal(self, warmup, tmp_path):
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'schedule.csv'
+        _write_schedule_csv(csv_path, [
+            ['2026-11-01', 500, 300, 100, 50, 0, 100],
+            ['not-a-date', 1000, 600, 200, 100, 0, 200],
+            ['2026-11-03', 'oops', 600, 200, 100, 0, 200],
+        ])
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
+        assert len(rows) == 1
+        assert len(errors) == 2
+
+    def test_missing_isp_columns_default_to_zero(self, warmup, tmp_path):
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'schedule.csv'
+        with open(csv_path, 'w') as f:
+            f.write('date,gmail,microsoft\n2026-11-01,500,300\n2026-11-02,1000,600\n')
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
+        assert errors == []
+        assert rows[0]['yahoo'] == 0
+        assert rows[0]['comcast'] == 0
+
+    def test_create_plan_from_schedule_derives_dates_and_target_from_rows(self, warmup, tmp_path):
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'schedule.csv'
+        _write_schedule_csv(csv_path, [
+            ['2026-11-01', 500, 300, 100, 50, 0, 100],
+            ['2026-11-02', 750, 400, 150, 75, 0, 150],
+            ['2026-11-05', 2000, 1200, 400, 200, 0, 400],
+        ])
+        rows, _ = wsvc.parse_custom_schedule_csv(str(csv_path))
+        plan = wsvc.create_plan_from_schedule({
+            'name': 'Imported Plan', 'domain': 'imported.example.com', 'warming_type': 'new_domain',
+        }, rows)
+        assert plan['start_date'] == '2026-11-01'
+        assert plan['target_date'] == '2026-11-05'
+        assert plan['target_volume'] == 2000 + 1200 + 400 + 200 + 0 + 400
+        assert plan['isp_mix']['gmail'] == 2000
+
+    def test_imported_plan_schedule_matches_uploaded_rows_exactly(self, warmup, tmp_path):
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'schedule.csv'
+        _write_schedule_csv(csv_path, [
+            ['2026-11-01', 500, 300, 100, 50, 0, 100],
+            ['2026-11-02', 1000, 600, 200, 100, 0, 200],
+        ])
+        rows, _ = wsvc.parse_custom_schedule_csv(str(csv_path))
+        plan = wsvc.create_plan_from_schedule({
+            'name': 'Imported Plan', 'domain': 'imported2.example.com', 'warming_type': 'new_domain',
+        }, rows)
+        schedule = wsvc.get_schedule(plan['id'])
+        assert len(schedule) == 2
+        assert schedule[0]['planned_gmail'] == 500
+        assert schedule[0]['planned_total'] == 500 + 300 + 100 + 50 + 0 + 100
+        assert schedule[1]['planned_gmail'] == 1000
+
+    def test_imported_plan_tracks_normally_through_the_decision_engine(self, warmup, tmp_path):
+        """The whole point: once imported, actuals/decisions/health score
+        work exactly as they do for a generated plan -- no special-casing."""
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'schedule.csv'
+        _write_schedule_csv(csv_path, [
+            ['2026-09-29', 225, 125, 75, 25, 0, 50],
+            ['2026-09-30', 266, 148, 89, 30, 0, 58],
+        ])
+        rows, _ = wsvc.parse_custom_schedule_csv(str(csv_path))
+        plan = wsvc.create_plan_from_schedule({
+            'name': 'Tracked Import', 'domain': REAL_DOMAIN, 'warming_type': 'new_domain',
+        }, rows)
+        wsvc.record_actual(plan['id'], '2026-09-29', {
+            'actual_total': 500, 'delivery_rate': 98.0, 'hard_bounce_rate': 0.1,
+            'soft_bounce_rate': 0.2, 'spam_rate': 0.01, 'unsub_rate': 0.05,
+        })
+        result = engine.evaluate(plan['id'], '2026-09-29')
+        assert result['decision'] in ('increase', 'hold', 'reduce', 'pause')
+        assert result['health_score'] is not None
+
+    def test_create_plan_from_schedule_requires_at_least_two_rows(self, warmup, tmp_path):
+        wsvc, engine, cfg = warmup
+        import pytest as _pytest
+        with _pytest.raises(ValueError):
+            wsvc.create_plan_from_schedule({
+                'name': 'Too Short', 'domain': 'short.example.com', 'warming_type': 'new_domain',
+            }, [{'date': '2026-11-01', 'gmail': 500, 'microsoft': 0, 'yahoo': 0, 'apple': 0, 'comcast': 0, 'other': 0}])
