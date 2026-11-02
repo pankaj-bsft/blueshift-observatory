@@ -7295,6 +7295,8 @@
                   <button v-if="!warmupSelectedPlan.is_approved" class="btn btn-primary" @click="approveWarmupPlan" :disabled="warmupApproving">
                     {{ warmupApproving ? 'Approving…' : '✓ Approve Plan' }}
                   </button>
+                  <button class="btn btn-secondary" @click="exportWarmupPlan('csv')" title="Export CSV">⬇ CSV</button>
+                  <button class="btn btn-secondary" @click="exportWarmupPlan('excel')" title="Export Excel">⬇ Excel</button>
                   <select class="date-input" :value="warmupSelectedPlan.status" @change="setWarmupPlanStatus($event.target.value)">
                     <option value="active">Active</option>
                     <option value="paused">Paused</option>
@@ -9310,6 +9312,25 @@
             this.warmupError = e.message;
           } finally {
             this.warmupApproving = false;
+          }
+        },
+        async exportWarmupPlan(format) {
+          if (!this.warmupSelectedPlan) return;
+          const ext = format === 'excel' ? 'xlsx' : 'csv';
+          const path = format === 'excel' ? 'export-excel' : 'export-csv';
+          try {
+            const resp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/${path}`);
+            if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).detail || 'Export failed');
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `warmup_plan_${this.warmupSelectedPlan.domain}.${ext}`;
+            document.body.appendChild(a); a.click();
+            window.URL.revokeObjectURL(url); document.body.removeChild(a);
+            this.showToast('success', 'Exported', `${format === 'excel' ? 'Excel' : 'CSV'} downloaded.`);
+          } catch (e) {
+            this.showToast('error', 'Export Failed', e.message);
           }
         },
         async loadWarmupPlanVersions() {

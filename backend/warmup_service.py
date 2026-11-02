@@ -11,7 +11,9 @@ independently testable from the parts that need live data.
 import sqlite3
 import json
 import csv
+import io
 import math
+import pandas as pd
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional
 
@@ -848,6 +850,112 @@ def get_events(plan_id: int) -> List[Dict]:
         rows.append(d)
     conn.close()
     return rows
+
+
+def get_export_rows(plan_id: int) -> List[Dict]:
+    """Day-by-day schedule joined with that date's actual total and
+    evaluated decision (if any) -- the shared data behind both the CSV and
+    Excel plan exports. A day with no actuals/no evaluation yet gets None
+    for those fields, never a fabricated 0 or 'no decision' label."""
+    schedule = get_schedule(plan_id)
+    actuals_by_date = {a['actual_date']: a for a in get_actuals(plan_id)}
+    events_by_date = {e['event_date']: e for e in get_events(plan_id)}
+
+    rows = []
+    for day in schedule:
+        day_date = date.fromisoformat(day['scheduled_date'])
+        actual = actuals_by_date.get(day['scheduled_date'])
+        event = events_by_date.get(day['scheduled_date'])
+        row = {
+            'day_number': day['day_number'],
+            'date': day['scheduled_date'],
+            'day_of_week': day_date.strftime('%A'),
+            'planned_total': day['planned_total'],
+        }
+        for isp in cfg.ISP_BUCKETS:
+            row[f'planned_{isp}'] = day.get(f'planned_{isp}', 0)
+        row['recommended_audience'] = day.get('recommended_audience')
+        row['actual_total'] = actual['actual_total'] if actual else None
+        row['decision'] = event['decision'] if event else None
+        row['health_score'] = event['health_score'] if event else None
+        rows.append(row)
+    return rows
+
+
+_EXPORT_COLUMNS = (
+    ['Day', 'Date', 'Day of Week', 'Planned Total']
+    + [f'Planned {isp.capitalize()}' for isp in cfg.ISP_BUCKETS]
+    + ['Recommended Audience', 'Actual Total', 'Decision', 'Health Score']
+)
+
+
+def _export_row_values(row: Dict) -> List:
+    values = [row['day_number'], row['date'], row['day_of_week'], row['planned_total']]
+    values += [row[f'planned_{isp}'] for isp in cfg.ISP_BUCKETS]
+    values += [row['recommended_audience'], row['actual_total'], row['decision'], row['health_score']]
+    return values
+
+
+def export_plan_to_csv(plan_id: int) -> str:
+    """Plan metadata header followed by the full day-by-day schedule, joined
+    with actuals/decisions where recorded. Missing values render as blank,
+    not 0 -- a blank Actual Total means "not recorded yet", not "zero sent".
+    """
+    plan = get_plan(plan_id)
+    if not plan:
+        raise ValueError(f'No warmup plan with id {plan_id}')
+    rows = get_export_rows(plan_id)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([f'# Warmup Plan: {plan["name"]}'])
+    writer.writerow([f'# Domain: {plan["domain"]} ({plan["esp"]})'])
+    writer.writerow([f'# Warming Type: {plan["warming_type"]}'])
+    writer.writerow([f'# Strategy: {plan["strategy"]}'])
+    writer.writerow([f'# Status: {plan["status"]}'])
+    writer.writerow([f'# Approved: {"Yes" if plan["is_approved"] else "No"}'])
+    writer.writerow([f'# Start Date: {plan["start_date"]}'])
+    writer.writerow([f'# Target Date: {plan["target_date"]}'])
+    writer.writerow([f'# Target Volume: {plan["target_volume"]}'])
+    writer.writerow([f'# Generated: {datetime.utcnow().isoformat()}Z'])
+    writer.writerow([])
+    writer.writerow(_EXPORT_COLUMNS)
+    for row in rows:
+        writer.writerow(_export_row_values(row))
+    return output.getvalue()
+
+
+def export_plan_to_excel(plan_id: int) -> bytes:
+    """Same content as export_plan_to_csv, as two sheets -- Plan Details and
+    Schedule -- for exactly the "Export CSV / Export Excel" plan controls."""
+    plan = get_plan(plan_id)
+    if not plan:
+        raise ValueError(f'No warmup plan with id {plan_id}')
+    rows = get_export_rows(plan_id)
+
+    details_df = pd.DataFrame([
+        {'Field': 'Plan Name', 'Value': plan['name']},
+        {'Field': 'Domain', 'Value': plan['domain']},
+        {'Field': 'ESP', 'Value': plan['esp']},
+        {'Field': 'Warming Type', 'Value': plan['warming_type']},
+        {'Field': 'Strategy', 'Value': plan['strategy']},
+        {'Field': 'Status', 'Value': plan['status']},
+        {'Field': 'Approved', 'Value': 'Yes' if plan['is_approved'] else 'No'},
+        {'Field': 'Start Date', 'Value': plan['start_date']},
+        {'Field': 'Target Date', 'Value': plan['target_date']},
+        {'Field': 'Target Volume', 'Value': plan['target_volume']},
+        {'Field': 'Current Volume', 'Value': plan['current_volume']},
+        {'Field': 'Audience Quality', 'Value': plan['audience_quality']},
+        {'Field': 'Generated At (UTC)', 'Value': datetime.utcnow().isoformat()},
+    ])
+    schedule_df = pd.DataFrame([_export_row_values(row) for row in rows], columns=_EXPORT_COLUMNS)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        details_df.to_excel(writer, sheet_name='Plan Details', index=False)
+        schedule_df.to_excel(writer, sheet_name='Schedule', index=False)
+    output.seek(0)
+    return output.getvalue()
 
 
 def get_latest_event(plan_id: int) -> Optional[Dict]:

@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from datetime import datetime
 import os
+import re
 import subprocess
 import io
 import uuid
@@ -3368,6 +3369,42 @@ async def approve_warmup_plan(plan_id: int):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error approving warmup plan: {str(e)}')
+
+
+@app.get('/api/warmup/plans/{plan_id}/export-csv')
+async def export_warmup_plan_csv(plan_id: int):
+    """Plan metadata + full day-by-day schedule (joined with actuals/decisions
+    where recorded) as a downloadable CSV."""
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    try:
+        csv_data = warmup_service.export_plan_to_csv(plan_id)
+        safe_name = re.sub(r'[^A-Za-z0-9_.-]+', '_', plan['name'])
+        filename = f'warmup_plan_{safe_name}_{plan_id}.csv'
+        return StreamingResponse(iter([csv_data]), media_type='text/csv',
+                                 headers={'Content-Disposition': f'attachment; filename={filename}'})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error exporting warmup plan CSV: {str(e)}')
+
+
+@app.get('/api/warmup/plans/{plan_id}/export-excel')
+async def export_warmup_plan_excel(plan_id: int):
+    """Same content as the CSV export, as two sheets (Plan Details, Schedule)."""
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    try:
+        excel_data = warmup_service.export_plan_to_excel(plan_id)
+        safe_name = re.sub(r'[^A-Za-z0-9_.-]+', '_', plan['name'])
+        filename = f'warmup_plan_{safe_name}_{plan_id}.xlsx'
+        return StreamingResponse(
+            io.BytesIO(excel_data),
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={'Content-Disposition': f'attachment; filename={filename}'}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error exporting warmup plan Excel: {str(e)}')
 
 
 @app.get('/api/warmup/config')

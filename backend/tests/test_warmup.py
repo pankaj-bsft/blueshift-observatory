@@ -508,3 +508,54 @@ class TestPlanVersioning:
         # Must reflect the LATEST evaluated date (09-30), not the first.
         assert listed['latest_decision'] is not None
         assert listed['latest_health_score'] is not None
+
+
+# --------------------------------------------------------------------------
+# Plan export (CSV / Excel)
+# --------------------------------------------------------------------------
+
+class TestPlanExport:
+    def test_csv_export_includes_metadata_header_and_full_schedule(self, warmup):
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
+        csv_text = wsvc.export_plan_to_csv(plan['id'])
+        assert f'# Warmup Plan: {plan["name"]}' in csv_text
+        assert f'# Domain: {plan["domain"]}' in csv_text
+        assert 'Day,Date,Day of Week,Planned Total' in csv_text
+        schedule = wsvc.get_schedule(plan['id'])
+        # Every scheduled day shows up as a data row.
+        assert csv_text.count('\n') >= len(schedule)
+
+    def test_csv_export_leaves_unrecorded_actuals_blank_not_zero(self, warmup):
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
+        csv_text = wsvc.export_plan_to_csv(plan['id'])
+        lines = [l for l in csv_text.splitlines() if l and not l.startswith('#')]
+        header, data_rows = lines[0], lines[1:]
+        assert len(data_rows) > 0
+        first_row = data_rows[0].split(',')
+        actual_total_idx = header.split(',').index('Actual Total')
+        # No actuals ever recorded for this plan -- must be blank, not "0".
+        assert first_row[actual_total_idx] == ''
+
+    def test_excel_export_has_plan_details_and_schedule_sheets(self, warmup):
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
+        xlsx_bytes = wsvc.export_plan_to_excel(plan['id'])
+        assert xlsx_bytes[:2] == b'PK'  # xlsx files are zip archives
+
+        import io
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+        assert set(wb.sheetnames) == {'Plan Details', 'Schedule'}
+        schedule_ws = wb['Schedule']
+        schedule = wsvc.get_schedule(plan['id'])
+        assert schedule_ws.max_row == len(schedule) + 1  # +1 header row
+
+    def test_export_raises_for_unknown_plan(self, warmup):
+        wsvc, engine, cfg = warmup
+        import pytest as _pytest
+        with _pytest.raises(ValueError):
+            wsvc.export_plan_to_csv(999999)
+        with _pytest.raises(ValueError):
+            wsvc.export_plan_to_excel(999999)
