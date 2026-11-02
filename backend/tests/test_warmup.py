@@ -431,3 +431,80 @@ class TestActualProgress:
         _seed_pulsation_sent(domain, [('2026-09-01', 25000)])
         listed = next(p for p in wsvc.list_plans() if p['id'] == plan['id'])
         assert listed['progress_pct'] == 50.0
+
+
+# --------------------------------------------------------------------------
+# Plan version history and approval workflow
+# --------------------------------------------------------------------------
+
+class TestPlanVersioning:
+    def test_creating_a_plan_records_an_initial_version(self, warmup):
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
+        versions = wsvc.get_plan_versions(plan['id'])
+        assert len(versions) == 1
+        assert versions[0]['version_number'] == 1
+        assert versions[0]['reason'] == 'created'
+        assert versions[0]['isp_mix'] == plan['isp_mix']
+
+    def test_editing_config_snapshots_the_old_version_before_applying_the_change(self, warmup):
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
+        original_isp_mix = dict(plan['isp_mix'])
+
+        new_isp_mix = {'gmail': 30000, 'microsoft': 15000, 'yahoo': 5000, 'apple': 0, 'comcast': 0, 'other': 0}
+        wsvc.update_plan_config(plan['id'], {'isp_mix': new_isp_mix})
+
+        versions = wsvc.get_plan_versions(plan['id'])
+        assert len(versions) == 2
+        # Most recent first -- the snapshot taken just before the edit.
+        assert versions[0]['version_number'] == 2
+        assert versions[0]['reason'] == 'config_updated'
+        assert versions[0]['isp_mix'] == original_isp_mix  # the OLD config, not the new one
+        assert versions[1]['version_number'] == 1
+        assert versions[1]['reason'] == 'created'
+
+    def test_approving_a_plan_sets_approved_flag_and_snapshots_a_version(self, warmup):
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
+        assert plan['is_approved'] is False
+
+        approved = wsvc.approve_plan(plan['id'])
+        assert approved['is_approved'] is True
+        assert approved['approved_at'] is not None
+
+        versions = wsvc.get_plan_versions(plan['id'])
+        assert versions[0]['reason'] == 'approved'
+
+    def test_editing_an_approved_plan_automatically_unapproves_it(self, warmup):
+        """Human approval must be required before changing an approved
+        schedule -- an edit silently keeping is_approved=True would defeat
+        that; editing must force a fresh, visible re-approval."""
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
+        wsvc.approve_plan(plan['id'])
+
+        edited = wsvc.update_plan_config(plan['id'], {'strategy': 'aggressive'})
+        assert edited['is_approved'] is False
+        assert edited['approved_at'] is None
+
+    def test_list_plans_surfaces_the_most_recent_decision_and_health_score(self, warmup):
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
+
+        # No actuals/events yet -- should be None, not a stale/fabricated value.
+        listed = next(p for p in wsvc.list_plans() if p['id'] == plan['id'])
+        assert listed['latest_decision'] is None
+        assert listed['latest_health_score'] is None
+
+        for actual_date in ('2026-09-29', '2026-09-30'):
+            wsvc.record_actual(plan['id'], actual_date, {
+                'actual_total': plan['target_volume'], 'delivery_rate': 98.0, 'hard_bounce_rate': 0.1,
+                'soft_bounce_rate': 0.2, 'spam_rate': 0.01, 'unsub_rate': 0.05,
+            })
+            engine.evaluate(plan['id'], actual_date)
+
+        listed = next(p for p in wsvc.list_plans() if p['id'] == plan['id'])
+        # Must reflect the LATEST evaluated date (09-30), not the first.
+        assert listed['latest_decision'] is not None
+        assert listed['latest_health_score'] is not None

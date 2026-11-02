@@ -7093,6 +7093,36 @@
               </div>
             </div>
 
+            <!-- Overview: cross-project health rollup -->
+            <div v-if="warmupPlans.length" style="display: grid; grid-template-columns: repeat(3, 1fr) 1fr 1fr 1.3fr; gap: 16px; margin-bottom: 24px;">
+              <div class="stat-card" style="text-align: center; padding: 16px; border-left: 3px solid #16a34a;">
+                <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">On Track</div>
+                <div style="font-size: 24px; font-weight: 800; color: #16a34a;">{{ warmupOverviewStats.onTrack }}</div>
+              </div>
+              <div class="stat-card" style="text-align: center; padding: 16px; border-left: 3px solid #ea580c;">
+                <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Needs Attention</div>
+                <div style="font-size: 24px; font-weight: 800; color: #ea580c;">{{ warmupOverviewStats.attention }}</div>
+              </div>
+              <div class="stat-card" style="text-align: center; padding: 16px; border-left: 3px solid #dc2626;">
+                <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">On Hold</div>
+                <div style="font-size: 24px; font-weight: 800; color: #dc2626;">{{ warmupOverviewStats.onHold }}</div>
+              </div>
+              <div class="stat-card" style="text-align: center; padding: 16px;">
+                <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Planned Vol. (Active)</div>
+                <div style="font-size: 18px; font-weight: 800; color: #1e293b;">{{ formatNumber(warmupOverviewStats.totalPlannedVolume) }}</div>
+              </div>
+              <div class="stat-card" style="text-align: center; padding: 16px;">
+                <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Actual Vol. (Active)</div>
+                <div style="font-size: 18px; font-weight: 800; color: #1e293b;">{{ formatNumber(warmupOverviewStats.totalActualVolume) }}</div>
+              </div>
+              <div class="stat-card" style="text-align: center; padding: 16px;">
+                <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 6px;">Overall Health</div>
+                <div v-if="warmupOverviewStats.avgHealthScore !== null" style="font-size: 20px; font-weight: 800; color: #1e293b;">{{ warmupOverviewStats.avgHealthScore }}</div>
+                <div v-else style="font-size: 13px; font-weight: 600; color: #94a3b8;">No data yet</div>
+                <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">{{ warmupOverviewStats.scoredCount }} of {{ warmupOverviewStats.activeTotalCount }} active plans evaluated</div>
+              </div>
+            </div>
+
             <div class="card-section" style="margin-bottom: 24px;">
               <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 class="card-title">Warming Plans</h3>
@@ -7179,10 +7209,17 @@
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                  <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">
-                    Target Volume per ISP
-                    <span style="font-weight: 400; color: #94a3b8;">-- the daily send volume your client wants to reach for each, same numbers you'd normally collect from them</span>
-                  </label>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 12px; font-weight: 600; color: #475569;">
+                      Target Volume per ISP
+                      <span style="font-weight: 400; color: #94a3b8;">-- the daily send volume your client wants to reach for each, same numbers you'd normally collect from them</span>
+                    </label>
+                    <label class="btn btn-sm btn-default" style="cursor: pointer; white-space: nowrap; margin-left: 12px;">
+                      📄 Import CSV
+                      <input type="file" accept=".csv" style="display: none;" @change="importWarmupIspMixCsv" />
+                    </label>
+                  </div>
+                  <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">CSV format: two columns, <code>isp,volume</code> (e.g. <code>gmail,25000</code>) -- one row per ISP, header row optional.</div>
                   <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;">
                     <div v-for="isp in ['gmail','microsoft','yahoo','apple','comcast','other']" :key="isp">
                       <label style="font-size: 11px; color: #64748b; text-transform: capitalize; display: block; margin-bottom: 2px;">{{ isp }}</label>
@@ -7241,13 +7278,20 @@
             <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 16px; padding: 24px 32px; margin-bottom: 20px; border: 1px solid #bfdbfe;">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                  <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0;">{{ warmupSelectedPlan.name }}</h2>
+                  <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0;">
+                    {{ warmupSelectedPlan.name }}
+                    <span v-if="warmupSelectedPlan.is_approved" class="badge" style="background: #dcfce7; color: #166534; font-size: 11px; padding: 3px 8px; vertical-align: middle;" :title="'Approved ' + formatDateTime(warmupSelectedPlan.approved_at)">✓ Approved</span>
+                    <span v-else class="badge" style="background: #f1f5f9; color: #64748b; font-size: 11px; padding: 3px 8px; vertical-align: middle;">Not Approved</span>
+                  </h2>
                   <p style="font-size: 13px; color: #64748b; margin: 0;">{{ warmupSelectedPlan.domain }} · {{ warmupSelectedPlan.esp }} · {{ warmupSelectedPlan.strategy }} strategy</p>
                   <div v-if="warmupSelectedPlan.duration_extended" style="font-size: 12px; color: #92400e; background: #fef3c7; display: inline-block; padding: 3px 10px; border-radius: 8px; margin-top: 8px;">
                     ⚠ Target date extended to {{ warmupSelectedPlan.target_date }} -- the original deadline wasn't reachable at the {{ warmupSelectedPlan.strategy }} pace.
                   </div>
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center;">
+                  <button v-if="!warmupSelectedPlan.is_approved" class="btn btn-primary" @click="approveWarmupPlan" :disabled="warmupApproving">
+                    {{ warmupApproving ? 'Approving…' : '✓ Approve Plan' }}
+                  </button>
                   <select class="date-input" :value="warmupSelectedPlan.status" @change="setWarmupPlanStatus($event.target.value)">
                     <option value="active">Active</option>
                     <option value="paused">Paused</option>
@@ -7277,8 +7321,8 @@
 
             <!-- Sub-tabs -->
             <div style="display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0;">
-              <button v-for="tab in [['overview','Overview'],['timeline','Timeline'],['isp','ISP Performance'],['planned_vs_actual','Planned vs Actual'],['actuals','Enter Actuals']]"
-                      :key="tab[0]" @click="warmupActiveTab = tab[0]"
+              <button v-for="tab in [['overview','Overview'],['timeline','Timeline'],['isp','ISP Performance'],['planned_vs_actual','Planned vs Actual'],['actuals','Enter Actuals'],['versions','Version History']]"
+                      :key="tab[0]" @click="warmupActiveTab = tab[0]; if (tab[0] === 'versions') loadWarmupPlanVersions();"
                       style="padding: 10px 18px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600;"
                       :style="{color: warmupActiveTab === tab[0] ? '#2563eb' : '#64748b', borderBottom: warmupActiveTab === tab[0] ? '2px solid #2563eb' : '2px solid transparent', marginBottom: '-2px'}">
                 {{ tab[1] }}
@@ -7467,6 +7511,36 @@
                   <input type="file" accept=".csv" style="display: none;" @change="importWarmupActualsCsv" :disabled="warmupCsvImporting" />
                 </label>
               </div>
+            </div>
+
+            <!-- Version History tab -->
+            <div v-if="warmupActiveTab === 'versions'" class="card-section" style="padding: 24px;">
+              <div style="font-size: 12px; color: #94a3b8; margin-bottom: 16px;">
+                A new version is snapshotted automatically whenever the plan is created, its config is edited, or it's approved -- nothing is ever overwritten.
+              </div>
+              <div v-if="warmupVersionsLoading" style="text-align: center; padding: 30px; color: #64748b;">Loading…</div>
+              <table v-else-if="warmupVersions.length" class="mappings-table" style="width: 100%;">
+                <thead>
+                  <tr><th>Version</th><th>Reason</th><th>Strategy</th><th>Target Volume</th><th>Target Date</th><th>Status</th><th>Snapshotted At</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="v in warmupVersions" :key="v.id">
+                    <td style="font-weight: 700;">v{{ v.version_number }}</td>
+                    <td>
+                      <span class="badge" style="text-transform: capitalize; font-size: 11px; padding: 3px 8px;"
+                            :style="{background: v.reason === 'approved' ? '#dcfce7' : v.reason === 'created' ? '#eff6ff' : '#fef3c7', color: v.reason === 'approved' ? '#166534' : v.reason === 'created' ? '#1e40af' : '#92400e'}">
+                        {{ v.reason.replace('_', ' ') }}
+                      </span>
+                    </td>
+                    <td style="text-transform: capitalize;">{{ v.strategy }}</td>
+                    <td>{{ v.target_volume.toLocaleString() }}</td>
+                    <td>{{ v.target_date }}</td>
+                    <td style="text-transform: capitalize;">{{ v.status }}</td>
+                    <td style="font-size: 12px; color: #64748b;">{{ formatDateTime(v.snapshot_at) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else style="text-align: center; padding: 30px; color: #94a3b8;">No version history yet.</div>
             </div>
           </div>
         </div>
@@ -8454,6 +8528,9 @@
           warmupActiveTab: 'overview',
           warmupShowCreateForm: false,
           warmupCreating: false,
+          warmupApproving: false,
+          warmupVersions: [],
+          warmupVersionsLoading: false,
           warmupNewPlan: {
             name: '', warming_type: 'new_domain', esp: 'Mailgun', domain: '', subdomain: '', region: 'US',
             old_ip: '', new_ip: '', current_volume: 0, target_date: '',
@@ -8938,6 +9015,29 @@
             weeks.push({ label: `Week ${weeks.length + 1}`, days: weekDays, weeklyTotals });
           }
           return weeks;
+        },
+        warmupOverviewStats() {
+          const active = this.warmupPlans.filter(p => p.status === 'active');
+          const onTrack = active.filter(p => p.latest_decision === 'increase' || p.latest_decision === 'hold').length;
+          const attention = active.filter(p => p.latest_decision === 'reduce').length;
+          // "On hold" combines plans the team has manually paused AND active
+          // plans the decision engine already flagged to pause but no one has
+          // acted on yet -- both are "needs eyes on this", just at different
+          // points in the human-approval loop.
+          const onHold = this.warmupPlans.filter(p => p.status === 'paused').length
+            + active.filter(p => p.latest_decision === 'pause').length;
+          const totalPlannedVolume = active.reduce((sum, p) => sum + (p.target_volume || 0), 0);
+          const totalActualVolume = active.reduce((sum, p) => sum + (p.actual_sent_total || 0), 0);
+          const scored = active.filter(p => p.latest_health_score !== null && p.latest_health_score !== undefined);
+          const avgHealthScore = scored.length
+            ? Math.round(scored.reduce((sum, p) => sum + p.latest_health_score, 0) / scored.length)
+            : null;
+          return {
+            activeCount: active.length,
+            onTrack, attention, onHold,
+            totalPlannedVolume, totalActualVolume,
+            avgHealthScore, scoredCount: scored.length, activeTotalCount: active.length,
+          };
         }
       },
 
@@ -8979,6 +9079,45 @@
             audience_quality: 'highly_engaged', notes: '',
           };
         },
+        importWarmupIspMixCsv(event) {
+          const file = event.target.files[0];
+          if (!file) return;
+          const knownIsps = ['gmail', 'microsoft', 'yahoo', 'apple', 'comcast', 'other'];
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const lines = String(e.target.result).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            const unmatched = [];
+            let matchedCount = 0;
+            for (const line of lines) {
+              const parts = line.split(',').map(p => p.trim());
+              if (parts.length < 2) continue;
+              const [rawIsp, rawVolume] = parts;
+              const isp = rawIsp.toLowerCase();
+              // Skip an optional header row (e.g. "isp,volume") without erroring.
+              if (isp === 'isp' && isNaN(parseFloat(rawVolume))) continue;
+              const volume = parseFloat(String(rawVolume).replace(/[,$]/g, ''));
+              if (isNaN(volume)) continue;
+              if (!knownIsps.includes(isp)) {
+                unmatched.push(rawIsp);
+                continue;
+              }
+              this.warmupNewPlan.isp_volumes[isp] = volume;
+              matchedCount++;
+            }
+            if (matchedCount > 0) {
+              this.showToast('success', 'ISP Mix Imported', `Populated ${matchedCount} ISP${matchedCount === 1 ? '' : 's'} from the CSV.`);
+            }
+            if (unmatched.length > 0) {
+              this.showToast('warning', 'Some Rows Skipped', `Unrecognized ISP name(s): ${unmatched.join(', ')}. Expected one of: ${knownIsps.join(', ')}.`);
+            }
+            if (matchedCount === 0 && unmatched.length === 0) {
+              this.showToast('error', 'Nothing Imported', 'Could not find any valid "isp,volume" rows in this file.');
+            }
+          };
+          reader.readAsText(file);
+          event.target.value = ''; // allow re-selecting the same file
+        },
+
         async createWarmupPlan() {
           const total = this.warmupIspVolumeTotal();
           if (total <= 0) {
@@ -9019,6 +9158,7 @@
           this.warmupLoading = true;
           this.warmupError = '';
           this.warmupActiveTab = 'overview';
+          this.warmupVersions = [];
           try {
             const [planResp, schedResp, actualsResp, eventsResp] = await Promise.all([
               fetch(`${this.API_BASE}/api/warmup/plans/${planId}`),
@@ -9140,6 +9280,36 @@
             await this.loadWarmupPlans();
           } catch (e) {
             this.warmupError = e.message;
+          }
+        },
+        async approveWarmupPlan() {
+          if (!this.warmupSelectedPlan) return;
+          this.warmupApproving = true;
+          try {
+            const resp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/approve`, { method: 'POST' });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'Failed to approve plan');
+            this.warmupSelectedPlan = data.plan;
+            await this.loadWarmupPlans();
+            this.showToast('success', 'Plan Approved', `${this.warmupSelectedPlan.name} is now approved.`);
+          } catch (e) {
+            this.warmupError = e.message;
+          } finally {
+            this.warmupApproving = false;
+          }
+        },
+        async loadWarmupPlanVersions() {
+          if (!this.warmupSelectedPlan) return;
+          this.warmupVersionsLoading = true;
+          try {
+            const resp = await fetch(`${this.API_BASE}/api/warmup/plans/${this.warmupSelectedPlan.id}/versions`);
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'Failed to load version history');
+            this.warmupVersions = data.versions;
+          } catch (e) {
+            this.warmupError = e.message;
+          } finally {
+            this.warmupVersionsLoading = false;
           }
         },
         warmupActualForDate(dateStr) {

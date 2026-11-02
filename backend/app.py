@@ -3343,6 +3343,33 @@ async def get_warmup_events(plan_id: int):
     return {'status': 'success', 'events': warmup_service.get_events(plan_id)}
 
 
+@app.get('/api/warmup/plans/{plan_id}/versions')
+async def get_warmup_plan_versions(plan_id: int):
+    """Full config version history for a plan (created/config_updated/approved
+    snapshots), most recent first."""
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    return {'status': 'success', 'versions': warmup_service.get_plan_versions(plan_id)}
+
+
+@app.post('/api/warmup/plans/{plan_id}/approve')
+async def approve_warmup_plan(plan_id: int):
+    """Mark the plan's current configuration as approved. Any later config
+    edit automatically un-approves it -- re-approval is always an explicit,
+    visible human action."""
+    plan = warmup_service.get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Warmup plan not found')
+    try:
+        result = warmup_service.approve_plan(plan_id)
+        return {'status': 'success', 'plan': result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error approving warmup plan: {str(e)}')
+
+
 @app.get('/api/warmup/config')
 async def get_warmup_config():
     """The centralized, versioned threshold configuration driving the decision engine."""

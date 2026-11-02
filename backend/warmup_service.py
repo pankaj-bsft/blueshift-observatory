@@ -118,9 +118,32 @@ def initialize_database():
         )
     ''')
 
+    # Plan version history -- a snapshot of a plan's ramp configuration taken
+    # on creation, on every config edit (BEFORE the edit is applied, so the
+    # prior config is never lost), and on approval. Satisfies "do not
+    # overwrite previously approved plans without retaining the previous
+    # version" and "all significant plan changes must be logged".
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS warmup_plan_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plan_id INTEGER NOT NULL,
+            version_number INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            name TEXT NOT NULL,
+            target_volume INTEGER NOT NULL,
+            target_date DATE NOT NULL,
+            strategy TEXT NOT NULL,
+            isp_mix_json TEXT NOT NULL,
+            status TEXT NOT NULL,
+            snapshot_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(plan_id, version_number)
+        )
+    ''')
+
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_warmup_schedule_plan ON warmup_schedule(plan_id, day_number)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_warmup_actuals_plan ON warmup_actuals(plan_id, actual_date)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_warmup_events_plan ON warmup_events(plan_id, event_date)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_warmup_plan_versions_plan ON warmup_plan_versions(plan_id, version_number)')
 
     # Comcast added as a 6th ISP bucket after the fact -- SQLite 3.7 (EC2) has
     # no ON CONFLICT/RENAME COLUMN but ADD COLUMN works fine there, so this
@@ -131,6 +154,8 @@ def initialize_database():
     for table, column, col_def in [
         ('warmup_schedule', 'planned_comcast', 'INTEGER DEFAULT 0'),
         ('warmup_actuals', 'actual_comcast', 'INTEGER'),
+        ('warmup_plans', 'is_approved', 'INTEGER DEFAULT 0'),
+        ('warmup_plans', 'approved_at', 'TIMESTAMP'),
     ]:
         cursor.execute(f'PRAGMA table_info({table})')
         existing_cols = {row[1] for row in cursor.fetchall()}
@@ -150,7 +175,77 @@ def _row_to_plan(row: sqlite3.Row) -> Dict:
     d = dict(row)
     d['isp_mix'] = json.loads(d.pop('isp_mix_json') or '{}')
     d['duration_extended'] = bool(d.get('duration_extended'))
+    d['is_approved'] = bool(d.get('is_approved'))
     return d
+
+
+def _snapshot_plan_version(plan_id: int, reason: str) -> None:
+    """Record the plan's CURRENT (pre-change) config as a new version row.
+    Called before create_plan's initial insert settles in (reason='created'),
+    before update_plan_config applies an edit (reason='config_updated'), and
+    on approve_plan (reason='approved') -- so a plan's history is never lost,
+    per "do not overwrite previously approved plans without retaining the
+    previous version."
+    """
+    plan = get_plan(plan_id)
+    if not plan:
+        return
+    conn = sqlite3.connect(WARMUP_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT COALESCE(MAX(version_number), 0) FROM warmup_plan_versions WHERE plan_id = ?', (plan_id,))
+    next_version = cursor.fetchone()[0] + 1
+    cursor.execute('''
+        INSERT INTO warmup_plan_versions
+            (plan_id, version_number, reason, name, target_volume, target_date,
+             strategy, isp_mix_json, status, snapshot_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        plan_id, next_version, reason, plan['name'], plan['target_volume'], plan['target_date'],
+        plan['strategy'], json.dumps(plan['isp_mix']), plan['status'], datetime.utcnow(),
+    ))
+    conn.commit()
+    conn.close()
+
+
+def get_plan_versions(plan_id: int) -> List[Dict]:
+    """Full version history for a plan, most recent first."""
+    conn = sqlite3.connect(WARMUP_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute(
+        'SELECT * FROM warmup_plan_versions WHERE plan_id = ? ORDER BY version_number DESC',
+        (plan_id,)
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    versions = []
+    for row in rows:
+        v = dict(row)
+        v['isp_mix'] = json.loads(v.pop('isp_mix_json') or '{}')
+        versions.append(v)
+    return versions
+
+
+def approve_plan(plan_id: int) -> Dict:
+    """Mark the plan's CURRENT configuration as approved, snapshotting it as
+    a version first. Any subsequent config edit automatically un-approves
+    the plan (see update_plan_config) -- re-approval is a deliberate, visible
+    action, never implicit, per "human approval must be required before
+    changing an approved warmup schedule."
+    """
+    plan = get_plan(plan_id)
+    if not plan:
+        raise ValueError(f'No warmup plan with id {plan_id}')
+    _snapshot_plan_version(plan_id, reason='approved')
+    conn = sqlite3.connect(WARMUP_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE warmup_plans SET is_approved = 1, approved_at = ?, updated_at = ? WHERE id = ?',
+        (datetime.utcnow(), datetime.utcnow(), plan_id)
+    )
+    conn.commit()
+    conn.close()
+    return get_plan(plan_id)
 
 
 def _attach_actual_progress(plan: Dict) -> Dict:
@@ -246,6 +341,7 @@ def create_plan(data: Dict) -> Dict:
     conn.close()
 
     generate_schedule(plan_id)
+    _snapshot_plan_version(plan_id, reason='created')
     return get_plan(plan_id)
 
 
@@ -278,6 +374,27 @@ def get_plan(plan_id: int) -> Optional[Dict]:
     return _attach_actual_progress(_row_to_plan(row)) if row else None
 
 
+def _latest_events_by_plan() -> Dict[int, Dict]:
+    """Most recent warmup_events row per plan, in one query -- avoids N+1 when
+    building the cross-project overview (every plan needs its latest
+    decision/health score, not just the one being viewed)."""
+    conn = sqlite3.connect(WARMUP_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT e.plan_id, e.decision, e.health_score, e.health_band, e.event_date
+        FROM warmup_events e
+        INNER JOIN (
+            SELECT plan_id, MAX(event_date) AS max_date
+            FROM warmup_events
+            GROUP BY plan_id
+        ) latest ON e.plan_id = latest.plan_id AND e.event_date = latest.max_date
+    ''')
+    rows = cursor.fetchall()
+    conn.close()
+    return {row['plan_id']: dict(row) for row in rows}
+
+
 def list_plans(status: Optional[str] = None) -> List[Dict]:
     conn = sqlite3.connect(WARMUP_DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -288,7 +405,17 @@ def list_plans(status: Optional[str] = None) -> List[Dict]:
         cursor.execute('SELECT * FROM warmup_plans ORDER BY created_at DESC')
     rows = cursor.fetchall()
     conn.close()
-    return [_attach_actual_progress(_row_to_plan(r)) for r in rows]
+
+    latest_events = _latest_events_by_plan()
+    plans = []
+    for r in rows:
+        plan = _attach_actual_progress(_row_to_plan(r))
+        event = latest_events.get(plan['id'])
+        plan['latest_decision'] = event['decision'] if event else None
+        plan['latest_health_score'] = event['health_score'] if event else None
+        plan['latest_health_band'] = event['health_band'] if event else None
+        plans.append(plan)
+    return plans
 
 
 def update_plan_status(plan_id: int, status: str) -> Dict:
@@ -328,12 +455,18 @@ def update_plan_config(plan_id: int, data: Dict) -> Dict:
     if target <= start:
         raise ValueError('target_date must be after start_date')
 
+    # Snapshot the OLD config before applying the edit -- never lost, per
+    # "do not overwrite previously approved plans without retaining the
+    # previous version."
+    _snapshot_plan_version(plan_id, reason='config_updated')
+
     conn = sqlite3.connect(WARMUP_DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
         UPDATE warmup_plans
         SET target_volume = ?, target_date = ?, strategy = ?, isp_mix_json = ?,
-            duration_extended = 0, updated_at = ?
+            duration_extended = 0, updated_at = ?,
+            is_approved = 0, approved_at = NULL
         WHERE id = ?
     ''', (target_volume, target.isoformat(), strategy, json.dumps(isp_mix), datetime.utcnow(), plan_id))
     conn.commit()
