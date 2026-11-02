@@ -515,22 +515,41 @@ class TestPlanVersioning:
 # --------------------------------------------------------------------------
 
 class TestPlanExport:
-    def test_csv_export_includes_metadata_header_and_full_schedule(self, warmup):
+    def test_csv_export_includes_metadata_header_isp_grid_and_detail(self, warmup):
         wsvc, engine, cfg = warmup
         plan = make_plan(wsvc)
         csv_text = wsvc.export_plan_to_csv(plan['id'])
         assert f'# Warmup Plan: {plan["name"]}' in csv_text
         assert f'# Domain: {plan["domain"]}' in csv_text
+        # ISP-wise weekly grid -- matches the Timeline tab's layout (ISP
+        # rows, day columns), not a flat per-day table with ISP columns.
+        assert 'Week 1' in csv_text
+        assert 'Gmail,' in csv_text
+        assert 'Daily Totals,' in csv_text
+        assert 'Weekly Total' in csv_text
+        # Day-by-day detail section (actuals/decisions) still present.
+        assert 'Day-by-day detail' in csv_text
         assert 'Day,Date,Day of Week,Planned Total' in csv_text
+
+    def test_csv_isp_grid_daily_totals_match_schedule(self, warmup):
+        wsvc, engine, cfg = warmup
+        plan = make_plan(wsvc)
         schedule = wsvc.get_schedule(plan['id'])
-        # Every scheduled day shows up as a data row.
-        assert csv_text.count('\n') >= len(schedule)
+        grid = wsvc.get_isp_weekly_grid(plan['id'])
+        # Every ISP row for a given day should sum to that day's planned_total.
+        for week in grid:
+            for i, day in enumerate(week['days']):
+                isp_sum = sum(day.get(f'planned_{isp}', 0) for isp in week['isps'])
+                assert isp_sum == day['planned_total']
+        # Weekly totals match the actual schedule length.
+        assert sum(len(w['days']) for w in grid) == len(schedule)
 
     def test_csv_export_leaves_unrecorded_actuals_blank_not_zero(self, warmup):
         wsvc, engine, cfg = warmup
         plan = make_plan(wsvc)
         csv_text = wsvc.export_plan_to_csv(plan['id'])
-        lines = [l for l in csv_text.splitlines() if l and not l.startswith('#')]
+        detail_section = csv_text.split('Day-by-day detail')[1]
+        lines = [l for l in detail_section.splitlines() if l]
         header, data_rows = lines[0], lines[1:]
         assert len(data_rows) > 0
         first_row = data_rows[0].split(',')
@@ -538,7 +557,7 @@ class TestPlanExport:
         # No actuals ever recorded for this plan -- must be blank, not "0".
         assert first_row[actual_total_idx] == ''
 
-    def test_excel_export_has_plan_details_and_schedule_sheets(self, warmup):
+    def test_excel_export_has_isp_grid_and_detail_sheets(self, warmup):
         wsvc, engine, cfg = warmup
         plan = make_plan(wsvc)
         xlsx_bytes = wsvc.export_plan_to_excel(plan['id'])
@@ -547,10 +566,13 @@ class TestPlanExport:
         import io
         import openpyxl
         wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
-        assert set(wb.sheetnames) == {'Plan Details', 'Schedule'}
-        schedule_ws = wb['Schedule']
+        assert set(wb.sheetnames) == {'Plan Details', 'ISP Weekly Grid', 'Day-by-Day Detail'}
+        detail_ws = wb['Day-by-Day Detail']
         schedule = wsvc.get_schedule(plan['id'])
-        assert schedule_ws.max_row == len(schedule) + 1  # +1 header row
+        assert detail_ws.max_row == len(schedule) + 1  # +1 header row
+        grid_ws = wb['ISP Weekly Grid']
+        assert grid_ws['A1'].value == 'Week 1'
+        assert grid_ws['A2'].value == 'ISP'
 
     def test_export_raises_for_unknown_plan(self, warmup):
         wsvc, engine, cfg = warmup

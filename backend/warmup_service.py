@@ -882,29 +882,57 @@ def get_export_rows(plan_id: int) -> List[Dict]:
     return rows
 
 
-_EXPORT_COLUMNS = (
-    ['Day', 'Date', 'Day of Week', 'Planned Total']
-    + [f'Planned {isp.capitalize()}' for isp in cfg.ISP_BUCKETS]
-    + ['Recommended Audience', 'Actual Total', 'Decision', 'Health Score']
-)
+_DETAIL_COLUMNS = ['Day', 'Date', 'Day of Week', 'Planned Total', 'Recommended Audience',
+                   'Actual Total', 'Decision', 'Health Score']
 
 
-def _export_row_values(row: Dict) -> List:
-    values = [row['day_number'], row['date'], row['day_of_week'], row['planned_total']]
-    values += [row[f'planned_{isp}'] for isp in cfg.ISP_BUCKETS]
-    values += [row['recommended_audience'], row['actual_total'], row['decision'], row['health_score']]
-    return values
+def _detail_row_values(row: Dict) -> List:
+    return [row['day_number'], row['date'], row['day_of_week'], row['planned_total'],
+            row['recommended_audience'], row['actual_total'], row['decision'], row['health_score']]
+
+
+def _active_isps(plan: Dict) -> List[str]:
+    """Same rule as the frontend's warmupActiveIsps(): ISPs with a nonzero
+    target in this plan's mix, or all of them if somehow none are set."""
+    mix = plan.get('isp_mix') or {}
+    active = [isp for isp in cfg.ISP_BUCKETS if float(mix.get(isp, 0) or 0) > 0]
+    return active or list(cfg.ISP_BUCKETS)
+
+
+def get_isp_weekly_grid(plan_id: int) -> List[Dict]:
+    """ISP rows x day columns, grouped by week, mirroring the Timeline tab's
+    grid exactly (same grouping the frontend's warmupScheduleWeeks() computed
+    property builds) -- this, not the flat day-by-day table, is what a client
+    actually reads as "the plan"."""
+    plan = get_plan(plan_id)
+    schedule = get_schedule(plan_id)
+    isps = _active_isps(plan)
+    weeks = []
+    for i in range(0, len(schedule), 7):
+        week_days = schedule[i:i + 7]
+        weekly_totals = {isp: sum(d.get(f'planned_{isp}', 0) for d in week_days) for isp in isps}
+        weekly_totals['total'] = sum(d['planned_total'] for d in week_days)
+        weeks.append({
+            'label': f'Week {len(weeks) + 1}',
+            'days': week_days,
+            'isps': isps,
+            'weekly_totals': weekly_totals,
+        })
+    return weeks
 
 
 def export_plan_to_csv(plan_id: int) -> str:
-    """Plan metadata header followed by the full day-by-day schedule, joined
-    with actuals/decisions where recorded. Missing values render as blank,
-    not 0 -- a blank Actual Total means "not recorded yet", not "zero sent".
+    """Plan metadata, then the ISP-wise weekly grid (ISP rows x day columns,
+    Daily Totals, Weekly Total -- matching the Timeline tab), then the flat
+    day-by-day detail (actuals/decisions where recorded). Missing values
+    render as blank, not 0 -- a blank Actual Total means "not recorded yet",
+    not "zero sent".
     """
     plan = get_plan(plan_id)
     if not plan:
         raise ValueError(f'No warmup plan with id {plan_id}')
-    rows = get_export_rows(plan_id)
+    weeks = get_isp_weekly_grid(plan_id)
+    detail_rows = get_export_rows(plan_id)
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -918,20 +946,31 @@ def export_plan_to_csv(plan_id: int) -> str:
     writer.writerow([f'# Target Date: {plan["target_date"]}'])
     writer.writerow([f'# Target Volume: {plan["target_volume"]}'])
     writer.writerow([f'# Generated: {datetime.utcnow().isoformat()}Z'])
+
+    for week in weeks:
+        writer.writerow([])
+        writer.writerow([week['label']])
+        writer.writerow(['ISP'] + [f"Day {d['day_number']} ({d['scheduled_date']})" for d in week['days']] + ['Weekly Total'])
+        for isp in week['isps']:
+            writer.writerow([isp.capitalize()] + [d.get(f'planned_{isp}', 0) for d in week['days']] + [week['weekly_totals'][isp]])
+        writer.writerow(['Daily Totals'] + [d['planned_total'] for d in week['days']] + [week['weekly_totals']['total']])
+
     writer.writerow([])
-    writer.writerow(_EXPORT_COLUMNS)
-    for row in rows:
-        writer.writerow(_export_row_values(row))
+    writer.writerow(['Day-by-day detail'])
+    writer.writerow(_DETAIL_COLUMNS)
+    for row in detail_rows:
+        writer.writerow(_detail_row_values(row))
     return output.getvalue()
 
 
 def export_plan_to_excel(plan_id: int) -> bytes:
-    """Same content as export_plan_to_csv, as two sheets -- Plan Details and
-    Schedule -- for exactly the "Export CSV / Export Excel" plan controls."""
+    """Same content as export_plan_to_csv, as three sheets -- Plan Details,
+    ISP Weekly Grid, and Day-by-Day Detail."""
     plan = get_plan(plan_id)
     if not plan:
         raise ValueError(f'No warmup plan with id {plan_id}')
-    rows = get_export_rows(plan_id)
+    weeks = get_isp_weekly_grid(plan_id)
+    detail_rows = get_export_rows(plan_id)
 
     details_df = pd.DataFrame([
         {'Field': 'Plan Name', 'Value': plan['name']},
@@ -948,12 +987,32 @@ def export_plan_to_excel(plan_id: int) -> bytes:
         {'Field': 'Audience Quality', 'Value': plan['audience_quality']},
         {'Field': 'Generated At (UTC)', 'Value': datetime.utcnow().isoformat()},
     ])
-    schedule_df = pd.DataFrame([_export_row_values(row) for row in rows], columns=_EXPORT_COLUMNS)
+    detail_df = pd.DataFrame([_detail_row_values(row) for row in detail_rows], columns=_DETAIL_COLUMNS)
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         details_df.to_excel(writer, sheet_name='Plan Details', index=False)
-        schedule_df.to_excel(writer, sheet_name='Schedule', index=False)
+
+        startrow = 0
+        for week in weeks:
+            grid_rows = []
+            for isp in week['isps']:
+                grid_rows.append(
+                    [isp.capitalize()] + [d.get(f'planned_{isp}', 0) for d in week['days']] + [week['weekly_totals'][isp]]
+                )
+            grid_rows.append(
+                ['Daily Totals'] + [d['planned_total'] for d in week['days']] + [week['weekly_totals']['total']]
+            )
+            columns = ['ISP'] + [f"Day {d['day_number']} ({d['scheduled_date']})" for d in week['days']] + ['Weekly Total']
+            week_df = pd.DataFrame(grid_rows, columns=columns)
+            # label row, then the table, then a blank spacer row before the next week
+            pd.DataFrame([[week['label']]]).to_excel(
+                writer, sheet_name='ISP Weekly Grid', index=False, header=False, startrow=startrow
+            )
+            week_df.to_excel(writer, sheet_name='ISP Weekly Grid', index=False, startrow=startrow + 1)
+            startrow += len(week_df) + 3
+
+        detail_df.to_excel(writer, sheet_name='Day-by-Day Detail', index=False)
     output.seek(0)
     return output.getvalue()
 
