@@ -671,6 +671,59 @@ class TestCustomScheduleImport:
         assert errors == []
         assert len(rows) == 2
 
+    def test_handles_semicolon_delimiter_and_aliased_isp_headers(self, warmup, tmp_path):
+        """Real client files aren't always comma-delimited with exact 'gmail'
+        headers -- Outlook/AOL/iCloud/Xfinity are common real-world labels."""
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'semicolon.csv'
+        csv_path.write_text(
+            'Send Date;Gmail Volume;Outlook;AOL;iCloud;Xfinity;Misc\n'
+            '12/01/2026;500;300;100;50;0;100\n'
+            '12/02/2026;750;400;150;75;0;150\n'
+        )
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
+        assert errors == []
+        assert len(rows) == 2
+        assert rows[0]['date'] == '2026-12-01'
+        assert rows[0]['microsoft'] == 300.0  # from 'Outlook'
+        assert rows[0]['yahoo'] == 100.0      # from 'AOL'
+        assert rows[0]['apple'] == 50.0       # from 'iCloud'
+        assert rows[0]['comcast'] == 0.0      # from 'Xfinity'
+        assert rows[0]['other'] == 100.0      # from 'Misc'
+
+    def test_handles_tab_delimiter_and_human_date_format(self, warmup, tmp_path):
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'tabbed.csv'
+        csv_path.write_text('Day\tGmail\tMicrosoft\tYahoo\n1-Dec-2026\t500\t300\t100\n2-Dec-2026\t750\t400\t150\n')
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
+        assert errors == []
+        assert len(rows) == 2
+        assert rows[0]['date'] == '2026-12-01'
+
+    def test_handles_excel_serial_date_numbers(self, warmup, tmp_path):
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'serial.csv'
+        # 46357 == 2026-12-01 as an Excel serial date (days since 1899-12-30)
+        csv_path.write_text('Schedule,Gmail,Microsoft\n46357,500,300\n46358,750,400\n')
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
+        assert errors == []
+        assert len(rows) == 2
+        assert rows[0]['date'] == '2026-12-01'
+
+    def test_never_misreads_a_plain_volume_column_as_dates(self, warmup, tmp_path):
+        """Regression: dateutil.parser.parse('500') "succeeds" by guessing
+        it's the bare year 500 AD -- without a guard, a transposed file (ISP
+        rows, week columns of plain numbers) would silently produce garbage
+        dates instead of a clear error."""
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'transposed.csv'
+        csv_path.write_text('ISP,Week1,Week2\nGmail,500,750\nMicrosoft,300,400\n')
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
+        assert rows == []
+        assert len(errors) == 1
+        assert 'Could not find a date column' in errors[0]
+        assert 'ISP, Week1, Week2' in errors[0]
+
     def test_sorts_out_of_order_rows_chronologically(self, warmup, tmp_path):
         wsvc, engine, cfg = warmup
         csv_path = tmp_path / 'schedule.csv'

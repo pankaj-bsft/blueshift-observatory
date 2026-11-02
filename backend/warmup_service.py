@@ -347,13 +347,101 @@ def create_plan(data: Dict) -> Dict:
     return get_plan(plan_id)
 
 
+_ISP_COLUMN_ALIASES = {
+    'gmail': ['gmail', 'google'],
+    'microsoft': ['microsoft', 'outlook', 'hotmail', 'live', 'msn', 'office365'],
+    'yahoo': ['yahoo', 'aol', 'ymail'],
+    'apple': ['apple', 'icloud'],
+    'comcast': ['comcast', 'xfinity'],
+    'other': ['other', 'misc', 'rest', 'remaining'],
+}
+
+_DATE_HEADER_ALIASES = ['date', 'day', 'send_date', 'senddate', 'schedule_date', 'scheduled_date',
+                         'calendar_date', 'sent_date', 'mail_date', 'warmup_date']
+
+# An Excel "serial date" (days since 1899-12-30) in this range covers
+# roughly 2009-2064 -- wide enough to catch a real schedule, narrow enough
+# not to misfire on a stray volume number that happens to be 5 digits.
+_EXCEL_SERIAL_DATE_RANGE = (39000, 60000)
+
+
+def _sniff_delimiter(sample: str) -> str:
+    try:
+        return csv.Sniffer().sniff(sample, delimiters=',;\t|').delimiter
+    except csv.Error:
+        return ','
+
+
+def _try_parse_date(raw) -> Optional[str]:
+    """Accepts ISO (2026-12-01), most common human date formats (12/01/2026,
+    Dec 1 2026, 1-Dec-2026, ...), and Excel's serial date number -- returns
+    an ISO date string, or None if nothing recognizable. This, not a fixed
+    format requirement, is what lets "any CSV someone actually has" work."""
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text).isoformat()
+    except ValueError:
+        pass
+    is_purely_numeric = text.replace('.', '', 1).replace('-', '', 1).isdigit()
+    if is_purely_numeric:
+        # A bare number is either an Excel serial date or (far more likely in
+        # practice) a volume figure that happens to share a column with
+        # dates -- never hand it to dateutil below, which "succeeds" by
+        # guessing it's a bare year (e.g. parses "500" as the year 500 AD).
+        # That silent misparse is worse than rejecting it: it would make a
+        # volume column look like a valid, if nonsensical, date column.
+        try:
+            serial = float(text)
+            if _EXCEL_SERIAL_DATE_RANGE[0] <= serial <= _EXCEL_SERIAL_DATE_RANGE[1]:
+                return (datetime(1899, 12, 30) + timedelta(days=serial)).date().isoformat()
+        except ValueError:
+            pass
+        return None
+    try:
+        import dateutil.parser
+        return dateutil.parser.parse(text).date().isoformat()
+    except (ValueError, OverflowError, ImportError):
+        return None
+
+
+def _detect_date_column(fieldnames: List[str], sample_rows: List[Dict]) -> Optional[str]:
+    """Prefer a column whose NAME looks like a date field; fall back to
+    whichever column's VALUES actually parse as dates (covers a header
+    named anything at all, e.g. a plain "" or a client's own label)."""
+    lowered = {fn: fn.strip().lower() for fn in fieldnames}
+    for fn, low in lowered.items():
+        if low in _DATE_HEADER_ALIASES:
+            return fn
+    for fn in fieldnames:
+        if fn in _ISP_COLUMN_ALIASES or _match_isp_column(fn):
+            continue
+        if sample_rows and all(_try_parse_date(row.get(fn)) for row in sample_rows if row.get(fn)):
+            return fn
+    return None
+
+
+def _match_isp_column(fieldname: str) -> Optional[str]:
+    low = fieldname.strip().lower()
+    for isp, aliases in _ISP_COLUMN_ALIASES.items():
+        if any(alias in low for alias in aliases):
+            return isp
+    return None
+
+
 def parse_custom_schedule_csv(file_path: str) -> (List[Dict], List[str]):
     """Parse a user-supplied day-by-day schedule: one row per date with a
-    planned volume for each ISP. Header must include 'date' plus any of the
-    known ISP buckets (missing ISP columns default to 0 for that row, same
-    "not every client reports every ISP" allowance as the actuals CSV
-    import). Returns (rows, errors) -- never raises on a bad row, so one
-    malformed line doesn't block the rest of a large upload.
+    planned volume for each ISP. Deliberately tolerant of whatever shape a
+    real client file actually has -- comma/semicolon/tab delimited, any
+    common date format (or an Excel serial date number), and ISP columns
+    matched by alias (Outlook/Hotmail -> microsoft, AOL -> yahoo, iCloud ->
+    apple, Xfinity -> comcast, ...) rather than requiring an exact header.
+    Missing ISP columns default to 0 for that row. Returns (rows, errors) --
+    never raises on a single bad row, so one malformed line doesn't block
+    the rest of a large upload.
     """
     rows = []
     errors = []
@@ -363,43 +451,53 @@ def parse_custom_schedule_csv(file_path: str) -> (List[Dict], List[str]):
     # silently corrupts the first column's header (e.g. 'date' becomes
     # '﻿date'), making every row fail as "missing date" with no hint why.
     with open(file_path, newline='', encoding='utf-8-sig') as f:
-        reader = csv.DictReader(f)
-        if reader.fieldnames:
-            reader.fieldnames = [fn.strip().lower() for fn in reader.fieldnames]
-        for i, raw_row in enumerate(reader, start=2):
-            row_date = (raw_row.get('date') or '').strip()
-            if not row_date:
-                errors.append(f'Row {i}: missing date')
+        content = f.read()
+    if not content.strip():
+        return [], ['File is empty']
+
+    delimiter = _sniff_delimiter(content[:4096])
+    reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
+    if not reader.fieldnames:
+        return [], ['No header row found']
+    raw_rows = list(reader)
+
+    date_col = _detect_date_column(reader.fieldnames, raw_rows[:5])
+    if not date_col:
+        return [], [
+            f"Could not find a date column. Columns found: {', '.join(reader.fieldnames)}. "
+            f"Rename one column to 'date' (or a similar name), or make sure its values look like dates."
+        ]
+    isp_cols = {fn: _match_isp_column(fn) for fn in reader.fieldnames if fn != date_col}
+    isp_cols = {fn: isp for fn, isp in isp_cols.items() if isp}
+
+    for i, raw_row in enumerate(raw_rows, start=2):
+        row_date = _try_parse_date(raw_row.get(date_col))
+        if not row_date:
+            errors.append(f"Row {i}: could not parse a date from {raw_row.get(date_col)!r}")
+            continue
+        if row_date in seen_dates:
+            errors.append(f'Row {i}: duplicate date {row_date!r} (first occurrence used)')
+            continue
+
+        isp_volumes = {isp: 0 for isp in cfg.ISP_BUCKETS}
+        row_ok = True
+        for fn, isp in isp_cols.items():
+            raw = raw_row.get(fn)
+            if raw in (None, ''):
                 continue
             try:
-                date.fromisoformat(row_date)
+                value = float(str(raw).replace(',', '').replace('$', '').strip())
+                if value < 0:
+                    raise ValueError
+                isp_volumes[isp] = isp_volumes.get(isp, 0) + value
             except ValueError:
-                errors.append(f'Row {i}: invalid date {row_date!r} (expected YYYY-MM-DD)')
-                continue
-            if row_date in seen_dates:
-                errors.append(f'Row {i}: duplicate date {row_date!r} (first occurrence used)')
-                continue
+                errors.append(f'Row {i}: invalid value for {fn}: {raw!r}')
+                row_ok = False
+        if not row_ok:
+            continue
 
-            isp_volumes = {}
-            row_ok = True
-            for isp in cfg.ISP_BUCKETS:
-                raw = raw_row.get(isp)
-                if raw in (None, ''):
-                    isp_volumes[isp] = 0
-                    continue
-                try:
-                    value = float(str(raw).replace(',', ''))
-                    if value < 0:
-                        raise ValueError
-                    isp_volumes[isp] = value
-                except ValueError:
-                    errors.append(f'Row {i}: invalid value for {isp}: {raw!r}')
-                    row_ok = False
-            if not row_ok:
-                continue
-
-            seen_dates.add(row_date)
-            rows.append({'date': row_date, **isp_volumes})
+        seen_dates.add(row_date)
+        rows.append({'date': row_date, **isp_volumes})
 
     rows.sort(key=lambda r: r['date'])
     return rows, errors
