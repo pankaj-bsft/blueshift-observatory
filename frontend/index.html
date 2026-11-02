@@ -7191,12 +7191,18 @@
                         <option value="inactive">Old/inactive</option>
                       </select>
                     </div>
+                    <div>
+                      <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">
+                        Start Date <span style="font-weight: 400; color: #94a3b8;">(only needed if your file uses Day 1/Day 2/... instead of real dates)</span>
+                      </label>
+                      <input class="date-input" type="date" style="width: 100%;" v-model="warmupImportMeta.start_date" />
+                    </div>
                   </div>
 
                   <div style="margin-bottom: 16px;">
-                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">Schedule CSV</label>
+                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 8px;">Schedule File</label>
                     <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">
-                      Columns: <code>date,gmail,microsoft,yahoo,apple,comcast,other</code> -- one row per day, dates in any order (sorted automatically). Missing ISP columns default to 0. Start/target dates and the plan's target volume are derived from your first and last rows.
+                      Understands most real warm-up plan layouts: one row per date with an ISP per column (any header names, any common date format), <em>or</em> a weekly grid with ISP rows and Day 1/Day 2/... columns (if yours looks like this, fill in Start Date above). ISP names are matched loosely -- Outlook/Hotmail → Microsoft, AOL → Yahoo, iCloud → Apple, Xfinity → Comcast.
                     </div>
                     <input type="file" accept=".csv" @change="warmupImportFile = $event.target.files[0]" />
                   </div>
@@ -8657,7 +8663,7 @@
           warmupImportMeta: {
             name: '', domain: '', warming_type: 'new_domain', esp: 'Mailgun',
             subdomain: '', region: 'US', old_ip: '', new_ip: '',
-            audience_quality: 'highly_engaged', notes: '',
+            audience_quality: 'highly_engaged', notes: '', start_date: '',
           },
           warmupNewPlan: {
             name: '', warming_type: 'new_domain', esp: 'Mailgun', domain: '', subdomain: '', region: 'US',
@@ -9325,14 +9331,18 @@
             this.warmupImportMeta = {
               name: '', domain: '', warming_type: 'new_domain', esp: 'Mailgun',
               subdomain: '', region: 'US', old_ip: '', new_ip: '',
-              audience_quality: 'highly_engaged', notes: '',
+              audience_quality: 'highly_engaged', notes: '', start_date: '',
             };
             await this.loadWarmupPlans();
             await this.selectWarmupPlan(data.plan.id);
+            // row_errors includes both skipped rows and non-fatal warnings
+            // (e.g. "Perdue -> Other" for an unrecognized ISP label) -- the
+            // plan still imports either way, so this is "worth a look", not
+            // a failure.
             const msg = data.row_errors && data.row_errors.length
-              ? `Imported ${data.rows_imported} days. ${data.row_errors.length} row(s) skipped -- see console.`
+              ? `Imported ${data.rows_imported} days. ${data.row_errors.length} note(s) -- see console.`
               : `Imported ${data.rows_imported} days.`;
-            if (data.row_errors && data.row_errors.length) console.warn('Schedule import row errors:', data.row_errors);
+            if (data.row_errors && data.row_errors.length) console.warn('Schedule import notes:', data.row_errors);
             this.showToast('success', 'Plan Imported', msg);
           } catch (e) {
             this.warmupError = e.message;

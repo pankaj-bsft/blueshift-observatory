@@ -13,6 +13,7 @@ import json
 import csv
 import io
 import math
+import re
 import pandas as pd
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional
@@ -432,30 +433,14 @@ def _match_isp_column(fieldname: str) -> Optional[str]:
     return None
 
 
-def parse_custom_schedule_csv(file_path: str) -> (List[Dict], List[str]):
-    """Parse a user-supplied day-by-day schedule: one row per date with a
-    planned volume for each ISP. Deliberately tolerant of whatever shape a
-    real client file actually has -- comma/semicolon/tab delimited, any
-    common date format (or an Excel serial date number), and ISP columns
-    matched by alias (Outlook/Hotmail -> microsoft, AOL -> yahoo, iCloud ->
-    apple, Xfinity -> comcast, ...) rather than requiring an exact header.
-    Missing ISP columns default to 0 for that row. Returns (rows, errors) --
-    never raises on a single bad row, so one malformed line doesn't block
-    the rest of a large upload.
-    """
+_DAY_HEADER_RE = re.compile(r'^day\s*(\d+)$', re.IGNORECASE)
+
+
+def _parse_row_per_date_csv(content: str, delimiter: str) -> (List[Dict], List[str]):
+    """One row per date, a column per ISP -- see parse_custom_schedule_csv."""
     rows = []
     errors = []
     seen_dates = set()
-    # utf-8-sig transparently strips a leading UTF-8 BOM if present (and is a
-    # no-op otherwise) -- Excel's "CSV UTF-8" export adds one, which otherwise
-    # silently corrupts the first column's header (e.g. 'date' becomes
-    # '﻿date'), making every row fail as "missing date" with no hint why.
-    with open(file_path, newline='', encoding='utf-8-sig') as f:
-        content = f.read()
-    if not content.strip():
-        return [], ['File is empty']
-
-    delimiter = _sniff_delimiter(content[:4096])
     reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
     if not reader.fieldnames:
         return [], ['No header row found']
@@ -464,8 +449,7 @@ def parse_custom_schedule_csv(file_path: str) -> (List[Dict], List[str]):
     date_col = _detect_date_column(reader.fieldnames, raw_rows[:5])
     if not date_col:
         return [], [
-            f"Could not find a date column. Columns found: {', '.join(reader.fieldnames)}. "
-            f"Rename one column to 'date' (or a similar name), or make sure its values look like dates."
+            f"Could not find a date column. Columns found: {', '.join(reader.fieldnames)}."
         ]
     isp_cols = {fn: _match_isp_column(fn) for fn in reader.fieldnames if fn != date_col}
     isp_cols = {fn: isp for fn, isp in isp_cols.items() if isp}
@@ -501,6 +485,128 @@ def parse_custom_schedule_csv(file_path: str) -> (List[Dict], List[str]):
 
     rows.sort(key=lambda r: r['date'])
     return rows, errors
+
+
+def _parse_transposed_weekly_grid(content: str, delimiter: str, start_date: str) -> (List[Dict], List[str]):
+    """The shape a real agency warm-up plan is actually built in: stacked
+    "Week N" blocks, each with a header row of "Day 1".."Day 7" and one data
+    row per ISP underneath (ISP as ROW, day as COLUMN) -- the same
+    orientation as this app's own Timeline grid, plus whatever side-tables
+    and notes a human spreadsheet accumulates in the unused columns/rows
+    around it. Those are ignored entirely: only cells at the exact (row,
+    column) positions identified by a real "Day N" header are ever read.
+
+    No calendar dates exist in a file like this, only relative day numbers
+    -- start_date anchors day 1 (or whatever the lowest day number present
+    is) to a real calendar date.
+    """
+    errors = []
+    raw_rows = list(csv.reader(io.StringIO(content), delimiter=delimiter))
+    start = date.fromisoformat(start_date)
+
+    day_volumes: Dict[int, Dict[str, float]] = {}
+    unrecognized_labels = set()
+    found_any_block = False
+
+    i = 0
+    while i < len(raw_rows):
+        row = raw_rows[i]
+        header_cell = (row[1] if len(row) > 1 else '').strip()
+        if not _DAY_HEADER_RE.match(header_cell):
+            i += 1
+            continue
+
+        found_any_block = True
+        day_cols = []  # [(column_index, day_number), ...]
+        for col_idx in range(1, len(row)):
+            m = _DAY_HEADER_RE.match((row[col_idx] or '').strip())
+            if m:
+                day_cols.append((col_idx, int(m.group(1))))
+
+        j = i + 1
+        while j < len(raw_rows):
+            data_row = raw_rows[j]
+            label = (data_row[0] if data_row else '').strip()
+            next_header_cell = (data_row[1] if len(data_row) > 1 else '').strip()
+            if not label or label.lower() == 'daily totals' or _DAY_HEADER_RE.match(next_header_cell):
+                break
+            isp = _match_isp_column(label)
+            if not isp:
+                isp = 'other'
+                unrecognized_labels.add(label)
+            for col_idx, day_num in day_cols:
+                raw = data_row[col_idx] if col_idx < len(data_row) else ''
+                if not (raw or '').strip():
+                    continue
+                try:
+                    value = float(str(raw).replace(',', '').replace('$', '').strip())
+                except ValueError:
+                    errors.append(f"Row {j + 1}, Day {day_num}: invalid value for {label!r}: {raw!r}")
+                    continue
+                day_volumes.setdefault(day_num, {isp_bucket: 0 for isp_bucket in cfg.ISP_BUCKETS})
+                day_volumes[day_num][isp] = day_volumes[day_num].get(isp, 0) + value
+            j += 1
+        i = j
+
+    if not found_any_block:
+        return [], ['No "Week ... / Day N" style section found either.']
+
+    if unrecognized_labels:
+        errors.append(
+            f"Row label(s) not recognized as a known ISP -- added to Other: {', '.join(sorted(unrecognized_labels))}."
+        )
+
+    min_day = min(day_volumes)
+    rows = []
+    for day_num in sorted(day_volumes):
+        row_date = (start + timedelta(days=day_num - min_day)).isoformat()
+        rows.append({'date': row_date, **day_volumes[day_num]})
+    return rows, errors
+
+
+def parse_custom_schedule_csv(file_path: str, start_date: Optional[str] = None) -> (List[Dict], List[str]):
+    """Parse a user-supplied day-by-day schedule. Tries two shapes, in order:
+
+    1. One row per date, a column per ISP (date column detected by name or
+       by its values; ISP columns matched by alias).
+    2. A transposed weekly grid -- stacked "Week N" blocks with ISP rows and
+       "Day N" day columns, the shape these plans are actually built in by
+       hand. This shape has no real calendar dates, so `start_date` (a
+       caller-supplied ISO date for day 1) is required for it to resolve;
+       if shape 1 matches, start_date is ignored.
+
+    Deliberately tolerant of comma/semicolon/tab/pipe delimiters, common
+    date formats (or Excel serial date numbers), and ISP names matched by
+    alias (Outlook/Hotmail -> microsoft, AOL -> yahoo, iCloud -> apple,
+    Xfinity -> comcast, ...). Returns (rows, errors) -- never raises on a
+    single bad row, so one malformed line doesn't block the rest of a large
+    upload.
+    """
+    # utf-8-sig transparently strips a leading UTF-8 BOM if present (and is a
+    # no-op otherwise) -- Excel's "CSV UTF-8" export adds one, which otherwise
+    # silently corrupts the first column's header (e.g. 'date' becomes
+    # '﻿date'), making every row fail as "missing date" with no hint why.
+    with open(file_path, newline='', encoding='utf-8-sig') as f:
+        content = f.read()
+    if not content.strip():
+        return [], ['File is empty']
+
+    delimiter = _sniff_delimiter(content[:4096])
+
+    rows, row_per_date_errors = _parse_row_per_date_csv(content, delimiter)
+    if rows:
+        return rows, row_per_date_errors
+
+    if start_date:
+        grid_rows, grid_errors = _parse_transposed_weekly_grid(content, delimiter, start_date)
+        if grid_rows:
+            return grid_rows, grid_errors
+        return [], row_per_date_errors + grid_errors
+
+    return [], row_per_date_errors + [
+        "This also looks like it might be a weekly grid (ISP rows, Day-number columns) rather than one row "
+        "per date -- if so, provide a start date and re-upload so day numbers can be converted to real dates."
+    ]
 
 
 def create_plan_from_schedule(data: Dict, schedule_rows: List[Dict]) -> Dict:

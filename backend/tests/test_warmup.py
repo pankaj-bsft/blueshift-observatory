@@ -720,9 +720,7 @@ class TestCustomScheduleImport:
         csv_path.write_text('ISP,Week1,Week2\nGmail,500,750\nMicrosoft,300,400\n')
         rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
         assert rows == []
-        assert len(errors) == 1
-        assert 'Could not find a date column' in errors[0]
-        assert 'ISP, Week1, Week2' in errors[0]
+        assert any('Could not find a date column' in e and 'ISP, Week1, Week2' in e for e in errors)
 
     def test_sorts_out_of_order_rows_chronologically(self, warmup, tmp_path):
         wsvc, engine, cfg = warmup
@@ -818,3 +816,108 @@ class TestCustomScheduleImport:
             wsvc.create_plan_from_schedule({
                 'name': 'Too Short', 'domain': 'short.example.com', 'warming_type': 'new_domain',
             }, [{'date': '2026-11-01', 'gmail': 500, 'microsoft': 0, 'yahoo': 0, 'apple': 0, 'comcast': 0, 'other': 0}])
+
+
+# --------------------------------------------------------------------------
+# Transposed weekly grid (ISP rows, "Day N" columns, stacked "Week N"
+# blocks) -- the real shape an agency warm-up plan is actually built in,
+# with noise columns/rows from the surrounding spreadsheet ignored.
+# --------------------------------------------------------------------------
+
+_TRANSPOSED_GRID_FIXTURE = (
+    ',,,,,,,,,,,,,,,,\n'
+    'Weekly Warm Up Breakdown,,,,,,,,,,,,,,,Mailable Base,\n'
+    ',,,,,,,,,,,"FOR INTERNAL CALCULATIONS ONLY\nCOPY FILE AND REMOVE","",,,Gmail,"36,860"\n'
+    '~15 Day Engaged,,,,,,,,,,,,,,,Yahoo,"8,177"\n'
+    'Week One,Day 1,Day 2,Day 3,Day 4,Day 5,Day 6,Day 7,Weekly Totals,,,Audi Denver,Current Total,Needed,Remaining,Perdue,"2,983"\n'
+    'Gmail,50,75,125,200,300,450,650,"1,850",,,"9,485","245,110","7,487","-237,623",Comcast,"1,445"\n'
+    'Perdue,50,75,100,125,150,200,300,"1,000",,,"1,380","31,583","1,581","-30,002",Other,"5,657"\n'
+    'Yahoo,50,75,100,125,150,200,300,"1,000",,,"1,857","68,877","1,326","-67,551",Total,"55,122"\n'
+    'Comcast,50,75,100,125,150,200,300,"1,000",,,,,,,,\n'
+    'Other,100,200,300,400,600,800,"1,250","3,650",,,"2,569","121,057","2,869","-118,188",,\n'
+    'Daily Totals,300,500,725,975,"1,350","1,850","2,800","8,500",,,"15,291",,,,,\n'
+    ',,,,,,,,,,,Total Volume,13263,,,,\n'
+    '~30 Day Engaged,,,,,,,,,,,,,,,,\n'
+    'Week Two,Day 8,Day 9,Day 10,Day 11,Day 12,Day 13,Day 14,Weekly Totals,,,,,,,,\n'
+    'Gmail,900,"1,250","1,750","2,500","3,500","5,000","7,000","21,900",,,,,,,,\n'
+    'Perdue,400,500,650,800,"1,000","1,250","1,500","6,100",,,,,,,,\n'
+    'Yahoo,400,600,900,"1,200","1,600","2,000","2,500","9,200",,,,,,,,\n'
+    'Comcast,400,600,900,"1,200","1,445","1,700","1,900","8,145",,,,,,,,\n'
+    'Other,"1,750","2,500","3,500","5,657","7,000","9,000","11,000","40,407",,,,,,,,\n'
+    'Daily Totals,"3,850","5,450","7,700","11,357","14,545","18,950","23,900","85,752",,,,,,,,\n'
+    ',,,,,,,,,,,,,,,,\n'
+    '~60 Day Engaged,,,,,,,,,,,,,,,,\n'
+    'Week Three,Day 15,,,,,,,Weekly Totals,,,,,,,,\n'
+    'Gmail,"9,500",,,,,,,"9,500",,,,,,,,\n'
+    'Perdue,"2,000",,,,,,,"2,000",,,,,,,,\n'
+    'Yahoo,"3,000",,,,,,,"3,000",,,,,,,,\n'
+    'Comcast,"2,200",,,,,,,"2,200",,,,,,,,\n'
+    'Other,"11,000",,,,,,,"11,000",,,,,,,,\n'
+    'Daily Totals,"27,700",0,0,0,0,0,0,"27,700",,,,,,,,\n'
+    ',,,,,,,,,,,,,,,,\n'
+    '90 Day Engaged,,,,,,,,,,,,,,,,\n'
+    'Week Four,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday,Weekly Totals,,,,,,,,\n'
+    'Gmail,,,,,,,,0,,,,,,,,\n'
+    'Microsoft,,,,,,,,0,,,,,,,,\n'
+    'Daily Totals,0,0,0,0,0,0,0,0,,,,,,,,\n'
+)
+
+
+class TestTransposedWeeklyGridImport:
+    def test_parses_real_world_agency_file_shape(self, warmup, tmp_path):
+        """Modeled directly on an actual client file -- stacked Week blocks,
+        a 'FOR INTERNAL CALCULATIONS ONLY' notes cell, a 'Mailable Base'
+        side-table, an 'Audi Denver' current/needed/remaining side-table, an
+        unrecognized 'Perdue' ISP row, and a trailing all-zero weekday-named
+        block that must NOT be picked up (no 'Day N' pattern -> ignored)."""
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'agency_plan.csv'
+        csv_path.write_text(_TRANSPOSED_GRID_FIXTURE)
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path), start_date='2026-12-01')
+        assert len(rows) == 15  # Week One (7) + Week Two (7) + Week Three (1) -- the Monday-block is ignored
+        assert rows[0]['date'] == '2026-12-01'
+        assert rows[-1]['date'] == '2026-12-15'
+        # Day 1: Gmail 50, Perdue 50 (-> other), Yahoo 50, Comcast 50, Other 100+50=150
+        assert rows[0]['gmail'] == 50
+        assert rows[0]['yahoo'] == 50
+        assert rows[0]['comcast'] == 50
+        assert rows[0]['other'] == 150
+        assert rows[0]['microsoft'] == 0
+        assert any('Perdue' in e and 'Other' in e for e in errors)
+
+    def test_transposed_grid_day_totals_match_source_daily_totals_row(self, warmup, tmp_path):
+        """Cross-check against the file's own 'Daily Totals' row (which this
+        parser doesn't read, it's recomputed) -- confirms no value is lost
+        or double-counted across the noise columns."""
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'agency_plan.csv'
+        csv_path.write_text(_TRANSPOSED_GRID_FIXTURE)
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path), start_date='2026-12-01')
+        day1 = rows[0]
+        assert sum(day1[isp] for isp in cfg.ISP_BUCKETS) == 300  # file's Daily Totals for Day 1
+        day8 = rows[7]
+        assert sum(day8[isp] for isp in cfg.ISP_BUCKETS) == 3850  # file's Daily Totals for Day 8
+
+    def test_transposed_grid_requires_start_date(self, warmup, tmp_path):
+        """No real calendar dates exist in this shape -- without a start
+        date there's nothing to anchor day numbers to, so it must fail
+        clearly rather than guess."""
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'agency_plan.csv'
+        csv_path.write_text(_TRANSPOSED_GRID_FIXTURE)
+        rows, errors = wsvc.parse_custom_schedule_csv(str(csv_path))
+        assert rows == []
+        assert any('weekly grid' in e.lower() for e in errors)
+
+    def test_imported_transposed_plan_tracks_normally(self, warmup, tmp_path):
+        wsvc, engine, cfg = warmup
+        csv_path = tmp_path / 'agency_plan.csv'
+        csv_path.write_text(_TRANSPOSED_GRID_FIXTURE)
+        rows, _ = wsvc.parse_custom_schedule_csv(str(csv_path), start_date='2026-09-29')
+        plan = wsvc.create_plan_from_schedule({
+            'name': 'Agency Import', 'domain': REAL_DOMAIN, 'warming_type': 'new_ip_and_domain',
+        }, rows)
+        assert plan['start_date'] == '2026-09-29'
+        wsvc.record_actual(plan['id'], '2026-09-29', {'actual_total': 300, 'delivery_rate': 98.0})
+        result = engine.evaluate(plan['id'], '2026-09-29')
+        assert result['decision'] in ('increase', 'hold', 'reduce', 'pause')

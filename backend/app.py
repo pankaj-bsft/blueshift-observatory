@@ -3230,18 +3230,23 @@ async def import_warmup_plan_csv(
     new_ip: Optional[str] = Form(None),
     audience_quality: str = Form('highly_engaged'),
     notes: Optional[str] = Form(None),
+    start_date: Optional[str] = Form(None),
     file: UploadFile = File(...),
 ):
-    """Create a plan from a client-supplied day-by-day schedule (CSV:
-    date,gmail,microsoft,yahoo,apple,comcast,other) instead of generating
-    one -- tracking (actuals, decisions, health score, exports) works
-    identically afterward regardless of how the schedule was created."""
+    """Create a plan from a client-supplied day-by-day schedule. Understands
+    two shapes: one row per date (any reasonable column names/date format),
+    or a transposed weekly grid (ISP rows, "Day N" columns, stacked "Week N"
+    blocks) -- the shape these plans are actually built in by hand. The
+    second shape has no real calendar dates, so `start_date` anchors day 1
+    to an actual date; it's ignored if the file already has real dates.
+    Tracking (actuals, decisions, health score, exports) works identically
+    afterward regardless of how the schedule was created."""
     import tempfile
     with tempfile.NamedTemporaryFile(mode='wb', suffix='.csv', delete=False) as tmp:
         tmp.write(await file.read())
         tmp_path = tmp.name
     try:
-        rows, parse_errors = warmup_service.parse_custom_schedule_csv(tmp_path)
+        rows, parse_errors = warmup_service.parse_custom_schedule_csv(tmp_path, start_date=start_date)
         if not rows:
             raise HTTPException(status_code=400, detail=f'No valid schedule rows found. Errors: {parse_errors}')
         result = warmup_service.create_plan_from_schedule({
