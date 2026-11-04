@@ -139,6 +139,16 @@ def save_dns_result(result: dict, account: str = None, esp: str = None, check_da
     ptr     = result.get('ptr', {})
     chain   = result.get('spf_chain', {})
 
+    # check_spf()'s "multiple SPF records found" case returns `value` as a
+    # list of the raw records (vs. a single string in every other case) --
+    # spf_value is a TEXT column, so SQLite rejects a list with "Error
+    # binding parameter N - probably unsupported type". Collapse it to one
+    # readable string so the column stays plain text for both the frontend
+    # display and dns_change_detector's diffing.
+    spf_value = spf.get('value')
+    if isinstance(spf_value, list):
+        spf_value = ' | '.join(spf_value)
+
     conn = sqlite3.connect(DNS_DB_PATH)
     c = conn.cursor()
 
@@ -182,7 +192,7 @@ def save_dns_result(result: dict, account: str = None, esp: str = None, check_da
         WHERE domain = ? AND check_date = ?
     ''', (
         account, esp, checked_at,
-        spf.get('status'), spf.get('value'), spf.get('lookup_count'),
+        spf.get('status'), spf_value, spf.get('lookup_count'),
         dkim.get('status'), dkim.get('selector'), dkim.get('value'),
         dmarc.get('status'), dmarc.get('policy'), dmarc.get('policy_level'), dmarc.get('value'),
         mx.get('status'), json.dumps(mx.get('value')),
@@ -221,7 +231,7 @@ def save_dns_result(result: dict, account: str = None, esp: str = None, check_da
             )
         ''', (
             domain, account, esp, check_date_str, checked_at,
-            spf.get('status'), spf.get('value'), spf.get('lookup_count'),
+            spf.get('status'), spf_value, spf.get('lookup_count'),
             dkim.get('status'), dkim.get('selector'), dkim.get('value'),
             dmarc.get('status'), dmarc.get('policy'), dmarc.get('policy_level'), dmarc.get('value'),
             mx.get('status'), json.dumps(mx.get('value')),
