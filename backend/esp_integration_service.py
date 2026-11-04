@@ -190,16 +190,26 @@ def fetch_mailgun_domain_ips_raw(base_url: str, domain_name: str) -> List[str]:
         return []
 
 
-def fetch_mailgun_account_owned_ips(base_url: str) -> set:
-    """All IPs this Mailgun account owns/leases in this region (GET /v3/ips,
-    paginated) -- these are "dedicated" in Mailgun's own product sense: not
-    part of Mailgun's generic multi-tenant shared pool, regardless of how
-    many of THIS account's own domains are routed through one of them.
-    Returns an empty set on failure (caller falls back to the older
+def fetch_mailgun_account_owned_ips(base_url: str) -> dict:
+    """Per-IP dedicated/shared ground truth for this Mailgun account in this
+    region (GET /v3/ips, paginated). Returns {ip: dedicated_bool}.
+
+    IMPORTANT: the response's flat `items` list is NOT a list of dedicated
+    IPs -- it includes every IP the account has any relationship with,
+    dedicated AND shared-pool alike (confirmed live: 70 dedicated + 8
+    non-dedicated = 78 items in the EU account). The real per-IP truth is
+    each entry's own `dedicated` boolean in the `details` array:
+    [{"ip": "...", "dedicated": true/false, "enabled": bool, "is_on_warmup": bool}, ...].
+    Confirmed via a real report: mail.lendable.co.uk's 141.193.32.6 has
+    dedicated=false (Shared) while 204.220.173.55 has dedicated=true
+    (Dedicated) -- both were in `items`, so the old items-membership check
+    wrongly called both "Dedicated".
+
+    Returns an empty dict on failure (caller falls back to the older
     per-domain-exclusivity heuristic rather than show everything as
     incorrectly "Shared" off a transient API error).
     """
-    owned = set()
+    owned = {}
     skip = 0
     page_size = 1000
     while True:
@@ -212,12 +222,17 @@ def fetch_mailgun_account_owned_ips(base_url: str) -> set:
             )
         except Exception as e:
             print(f'Error fetching account-owned IPs from {base_url}: {e}')
-            return set()
+            return {}
         if response.status_code != 200:
             print(f'Mailgun account IPs API error at {base_url}: {response.status_code}')
-            return set()
-        items = response.json().get('items', [])
-        owned.update(items)
+            return {}
+        payload = response.json()
+        details = payload.get('details', [])
+        for det in details:
+            ip = det.get('ip')
+            if ip:
+                owned[ip] = bool(det.get('dedicated'))
+        items = payload.get('items', [])
         if len(items) < page_size:
             break
         skip += page_size
@@ -324,9 +339,12 @@ def fetch_mailgun_data() -> List[Dict]:
                     if owned_ips:
                         # Per-IP ownership, not just a single domain-wide
                         # verdict -- a domain CAN have a real mix (one
-                        # account-owned IP plus one from Mailgun's shared
-                        # pool), and collapsing that to one label hides it.
-                        ip_details = [{'ip': ip, 'dedicated': ip in owned_ips} for ip in ips]
+                        # dedicated IP plus one from Mailgun's shared pool),
+                        # and collapsing that to one label hides it. Use each
+                        # IP's own `dedicated` flag -- membership in the /ips
+                        # response alone isn't enough, since that list also
+                        # includes non-dedicated/shared-pool IPs.
+                        ip_details = [{'ip': ip, 'dedicated': owned_ips.get(ip, False)} for ip in ips]
                     else:
                         # Account-owned-IP lookup failed -- fall back to the
                         # old per-domain-exclusivity heuristic per IP rather

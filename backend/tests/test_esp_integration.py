@@ -2,13 +2,24 @@
 Tests for esp_integration_service's Mailgun Shared/Dedicated IP classification
 and the dedicated-IP compliance check.
 
-Uses unittest.mock to simulate Mailgun's API responses -- these two checks
-were wrong once already (IP Type conflated "exclusive to one domain" with
-Mailgun's own "account-owned, not the generic shared pool" definition,
-reported via a real customer domain: email.rentcafe.com's IPs are
-account-owned/Dedicated in Mailgun but were shown as Shared here because 7
-sibling domains route through the same 2 IPs). These tests encode the
-corrected, verified-against-the-real-report behavior as a regression guard.
+Uses unittest.mock to simulate Mailgun's API responses -- this check has
+been wrong twice already:
+1. IP Type conflated "exclusive to one domain" with Mailgun's own
+   "account-owned, not the generic shared pool" definition, reported via a
+   real customer domain: email.rentcafe.com's IPs are account-owned/
+   Dedicated in Mailgun but were shown as Shared here because 7 sibling
+   domains route through the same 2 IPs.
+2. After fixing #1 by checking membership in GET /v3/ips' flat `items`
+   list, a second report (mail.lendable.co.uk) showed that `items` is NOT
+   a list of dedicated IPs -- it includes both dedicated AND shared-pool
+   IPs the account has any relationship with. The real per-IP truth is
+   each entry's own `dedicated` boolean in the response's `details` array.
+   Confirmed live: 141.193.32.6 has dedicated=false (Shared) while
+   204.220.173.55 has dedicated=true (Dedicated), yet both appeared in
+   `items`.
+
+These tests encode the corrected, verified-against-both-real-reports
+behavior as a regression guard.
 
 Run with: cd backend && ./venv/bin/pytest tests/test_esp_integration.py -v
 """
@@ -27,6 +38,19 @@ def _mock_response(status_code=200, json_data=None):
     resp.status_code = status_code
     resp.json.return_value = json_data or {}
     return resp
+
+
+def _ips_response(dedicated_ips=(), shared_ips=()):
+    """Builds a GET /v3/ips mock response with both `items` (every IP the
+    account has any relationship with) and `details` (the real per-IP
+    `dedicated` ground truth) -- mirroring Mailgun's actual shape, where
+    `items` alone is NOT a list of dedicated IPs."""
+    details = (
+        [{'ip': ip, 'dedicated': True, 'enabled': True, 'is_on_warmup': False} for ip in dedicated_ips] +
+        [{'ip': ip, 'dedicated': False, 'enabled': True, 'is_on_warmup': False} for ip in shared_ips]
+    )
+    items = list(dedicated_ips) + list(shared_ips)
+    return _mock_response(200, {'items': items, 'details': details})
 
 
 def _router(domains_payload, owned_ips_payload, domain_ips_payloads):
@@ -73,7 +97,7 @@ class TestMailgunIpTypeClassification:
         ]}
         fake_get = _router(
             domains_payload,
-            _mock_response(200, {'items': ['69.72.43.209', '161.38.195.219']}),
+            _ips_response(dedicated_ips=['69.72.43.209', '161.38.195.219']),
             {
                 'email.rentcafe.com': ['69.72.43.209', '161.38.195.219'],
                 'living.rentcafe.com': ['69.72.43.209', '161.38.195.219'],
@@ -100,7 +124,7 @@ class TestMailgunIpTypeClassification:
         domains_payload = {'items': [{'name': 'nopool.example.com', 'state': 'active', 'created_at': 'x'}]}
         fake_get = _router(
             domains_payload,
-            _mock_response(200, {'items': ['1.2.3.4']}),
+            _ips_response(dedicated_ips=['1.2.3.4']),
             {'nopool.example.com': []},
         )
 
@@ -120,7 +144,7 @@ class TestMailgunIpTypeClassification:
         domains_payload = {'items': [{'name': 'solo.example.com', 'state': 'active', 'created_at': 'x'}]}
         fake_get = _router(
             domains_payload,
-            _mock_response(200, {'items': ['9.9.9.9']}),
+            _ips_response(dedicated_ips=['9.9.9.9']),
             {'solo.example.com': ['9.9.9.9']},
         )
 
@@ -142,8 +166,8 @@ class TestMailgunIpTypeClassification:
         domains_payload = {'items': [{'name': 'onsharedpool.example.com', 'state': 'active', 'created_at': 'x'}]}
         fake_get = _router(
             domains_payload,
-            _mock_response(200, {'items': ['5.5.5.5']}),  # account owns a different IP
-            {'onsharedpool.example.com': ['8.8.8.8']},     # not in the owned pool
+            _ips_response(dedicated_ips=['5.5.5.5']),  # account owns a different IP
+            {'onsharedpool.example.com': ['8.8.8.8']},  # not in the owned pool at all
         )
 
         monkeypatch.setattr(esp.requests, 'get', fake_get)
@@ -176,11 +200,16 @@ class TestMailgunIpTypeClassification:
         """A domain CAN have both a dedicated and a shared-pool IP at the
         same time -- collapsing that to one domain-wide label hides it.
         ip_type must read "Mixed", and ip_details must show which IP is
-        which so the per-IP truth is visible, not just a single verdict."""
+        which so the per-IP truth is visible, not just a single verdict.
+
+        Mirrors the real mail.lendable.co.uk report: BOTH IPs appear in
+        Mailgun's `items` list, but only `details[].dedicated` tells them
+        apart (141.193.32.6=false/Shared, 198.244.62.220=true/Dedicated) --
+        a plain items-membership check wrongly calls both "Dedicated"."""
         domains_payload = {'items': [{'name': 'mixed.example.com', 'state': 'active', 'created_at': 'x'}]}
         fake_get = _router(
             domains_payload,
-            _mock_response(200, {'items': ['198.244.62.220']}),  # only this one is account-owned
+            _ips_response(dedicated_ips=['198.244.62.220'], shared_ips=['141.193.32.6']),
             {'mixed.example.com': ['141.193.32.6', '198.244.62.220']},
         )
 
