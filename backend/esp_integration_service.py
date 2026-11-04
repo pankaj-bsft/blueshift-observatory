@@ -190,6 +190,40 @@ def fetch_mailgun_domain_ips_raw(base_url: str, domain_name: str) -> List[str]:
         return []
 
 
+def fetch_mailgun_account_owned_ips(base_url: str) -> set:
+    """All IPs this Mailgun account owns/leases in this region (GET /v3/ips,
+    paginated) -- these are "dedicated" in Mailgun's own product sense: not
+    part of Mailgun's generic multi-tenant shared pool, regardless of how
+    many of THIS account's own domains are routed through one of them.
+    Returns an empty set on failure (caller falls back to the older
+    per-domain-exclusivity heuristic rather than show everything as
+    incorrectly "Shared" off a transient API error).
+    """
+    owned = set()
+    skip = 0
+    page_size = 1000
+    while True:
+        try:
+            response = requests.get(
+                f'{base_url}/ips',
+                auth=('api', MAILGUN_API_KEY),
+                params={'limit': page_size, 'skip': skip},
+                timeout=15
+            )
+        except Exception as e:
+            print(f'Error fetching account-owned IPs from {base_url}: {e}')
+            return set()
+        if response.status_code != 200:
+            print(f'Mailgun account IPs API error at {base_url}: {response.status_code}')
+            return set()
+        items = response.json().get('items', [])
+        owned.update(items)
+        if len(items) < page_size:
+            break
+        skip += page_size
+    return owned
+
+
 def fetch_mailgun_data() -> List[Dict]:
     """
     Fetch domain and IP info from Mailgun (both US and EU regions)
@@ -261,14 +295,22 @@ def fetch_mailgun_data() -> List[Dict]:
                             print(f'Error fetching IPs for {domain_name}: {e}')
                             domain_ip_lists[domain_name] = []
 
-                # Shared vs. Dedicated is not a field Mailgun's API exposes --
-                # derive it from IP reuse across this region's own domains.
-                # Confirmed empirically (318 US domains): 27 have no IP at
-                # all (Mailgun's literal shared pool), 231 are on one of this
-                # account's dedicated IPs but share it with other domains,
-                # and only 60 sit alone on their own IP. "Shared" covers the
-                # first two cases -- any IP used by more than one domain, or
-                # no IP assigned at all; "Dedicated" is exclusive use.
+                # "Dedicated" must match what Mailgun itself calls dedicated:
+                # an IP this account owns/leases (GET /v3/ips), regardless of
+                # how many of the account's OWN domains are routed through
+                # it. Confirmed via a real report: email.rentcafe.com's 2 IPs
+                # are account-owned (genuinely "Dedicated" in Mailgun) but
+                # also used by 7 sibling domains (living.rentcafe.com,
+                # commercialedge.com, ...) -- the earlier per-domain-exclusivity
+                # definition called that "Shared", which doesn't match
+                # Mailgun's own dashboard and was the reported bug.
+                owned_ips = fetch_mailgun_account_owned_ips(base_url)
+
+                # The multi-domain reputation-pooling risk the compliance
+                # check exists for is still real even on an account-owned IP
+                # (8 client domains sharing reputation on 2 IPs is still a
+                # risk regardless of who owns those IPs) -- so that signal is
+                # kept, just decoupled from the now Mailgun-matching ip_type.
                 ip_usage_count = Counter()
                 for ips in domain_ip_lists.values():
                     for ip in ips:
@@ -278,7 +320,14 @@ def fetch_mailgun_data() -> List[Dict]:
                 for domain in domains:
                     domain_name = domain.get('name', 'N/A')
                     ips = domain_ip_lists.get(domain_name, [])
-                    ip_type = 'Dedicated' if ips and all(ip_usage_count[ip] == 1 for ip in ips) else 'Shared'
+                    if owned_ips:
+                        ip_type = 'Dedicated' if ips and all(ip in owned_ips for ip in ips) else 'Shared'
+                    else:
+                        # Account-owned-IP lookup failed -- fall back to the
+                        # old heuristic rather than confidently mislabel
+                        # everything "Shared" off a transient API error.
+                        ip_type = 'Dedicated' if ips and all(ip_usage_count[ip] == 1 for ip in ips) else 'Shared'
+                    shared_with_other_domains = (not ips) or any(ip_usage_count[ip] > 1 for ip in ips)
                     monthly_sent = trailing_sent_totals.get((domain_name.lower(), region), 0)
                     results.append({
                         'esp': 'Mailgun',
@@ -287,7 +336,7 @@ def fetch_mailgun_data() -> List[Dict]:
                         'ip_addresses': ', '.join(ips) if ips else 'Shared Pool',
                         'ip_type': ip_type,
                         'monthly_sent': monthly_sent,
-                        'needs_dedicated_ip': ip_type == 'Shared' and monthly_sent > DEDICATED_IP_MONTHLY_THRESHOLD,
+                        'needs_dedicated_ip': shared_with_other_domains and monthly_sent > DEDICATED_IP_MONTHLY_THRESHOLD,
                         'subaccount': 'N/A',  # Mailgun doesn't have subaccounts in same way
                         'ip_pool': 'N/A',
                         'status': domain.get('state', 'unknown'),
