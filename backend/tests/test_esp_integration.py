@@ -171,3 +171,24 @@ class TestMailgunIpTypeClassification:
         row = next(r for r in results if r['domain'] == 'fallback.example.com')
         # Exclusive to itself under the fallback heuristic -> Dedicated.
         assert row['ip_type'] == 'Dedicated'
+
+    def test_domain_with_one_owned_and_one_shared_ip_is_mixed_with_per_ip_detail(self, esp, monkeypatch):
+        """A domain CAN have both a dedicated and a shared-pool IP at the
+        same time -- collapsing that to one domain-wide label hides it.
+        ip_type must read "Mixed", and ip_details must show which IP is
+        which so the per-IP truth is visible, not just a single verdict."""
+        domains_payload = {'items': [{'name': 'mixed.example.com', 'state': 'active', 'created_at': 'x'}]}
+        fake_get = _router(
+            domains_payload,
+            _mock_response(200, {'items': ['198.244.62.220']}),  # only this one is account-owned
+            {'mixed.example.com': ['141.193.32.6', '198.244.62.220']},
+        )
+
+        monkeypatch.setattr(esp.requests, 'get', fake_get)
+        with patch.object(esp.pulsation_service, 'get_trailing_sent_totals', return_value={}):
+            results = esp.fetch_mailgun_data()
+
+        row = next(r for r in results if r['domain'] == 'mixed.example.com')
+        assert row['ip_type'] == 'Mixed'
+        details_by_ip = {d['ip']: d['dedicated'] for d in row['ip_details']}
+        assert details_by_ip == {'141.193.32.6': False, '198.244.62.220': True}

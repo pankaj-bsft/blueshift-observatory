@@ -4029,6 +4029,7 @@
                         <option value="">All</option>
                         <option value="Shared">Shared</option>
                         <option value="Dedicated">Dedicated</option>
+                        <option value="Mixed">Mixed</option>
                       </select>
                     </th>
                     <th style="padding: 6px 8px;">
@@ -4109,11 +4110,19 @@
                       </span>
                     </td>
                     <td style="padding: 6px 10px; font-size: 11px; font-family: monospace; color: #64748b;">
-                      {{ item.ip_addresses }}
+                      <template v-if="item.ip_details && item.ip_details.length">
+                        <span v-for="(d, idx) in item.ip_details" :key="d.ip">
+                          <span :style="{color: d.dedicated ? '#166534' : '#92400e'}" :title="d.dedicated ? 'Dedicated' : 'Shared'">{{ d.ip }}</span><span v-if="idx < item.ip_details.length - 1">, </span>
+                        </span>
+                      </template>
+                      <template v-else>{{ item.ip_addresses }}</template>
                     </td>
                     <td style="padding: 6px 10px;">
                       <span v-if="item.ip_type === 'Dedicated'" class="badge" style="background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #166534; font-size: 11px; padding: 3px 8px;">
                         Dedicated
+                      </span>
+                      <span v-else-if="item.ip_type === 'Mixed'" class="badge" style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #166534; font-size: 11px; padding: 3px 8px;" title="Some IPs are dedicated, some are shared -- see IP Address column">
+                        Mixed
                       </span>
                       <span v-else-if="item.ip_type === 'Shared'" class="badge" style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; font-size: 11px; padding: 3px 8px;">
                         Shared

@@ -320,13 +320,29 @@ def fetch_mailgun_data() -> List[Dict]:
                 for domain in domains:
                     domain_name = domain.get('name', 'N/A')
                     ips = domain_ip_lists.get(domain_name, [])
+
                     if owned_ips:
-                        ip_type = 'Dedicated' if ips and all(ip in owned_ips for ip in ips) else 'Shared'
+                        # Per-IP ownership, not just a single domain-wide
+                        # verdict -- a domain CAN have a real mix (one
+                        # account-owned IP plus one from Mailgun's shared
+                        # pool), and collapsing that to one label hides it.
+                        ip_details = [{'ip': ip, 'dedicated': ip in owned_ips} for ip in ips]
                     else:
                         # Account-owned-IP lookup failed -- fall back to the
-                        # old heuristic rather than confidently mislabel
-                        # everything "Shared" off a transient API error.
-                        ip_type = 'Dedicated' if ips and all(ip_usage_count[ip] == 1 for ip in ips) else 'Shared'
+                        # old per-domain-exclusivity heuristic per IP rather
+                        # than confidently mislabel everything off a
+                        # transient API error.
+                        ip_details = [{'ip': ip, 'dedicated': ip_usage_count[ip] == 1} for ip in ips]
+
+                    if not ip_details:
+                        ip_type = 'Shared'
+                    elif all(d['dedicated'] for d in ip_details):
+                        ip_type = 'Dedicated'
+                    elif any(d['dedicated'] for d in ip_details):
+                        ip_type = 'Mixed'
+                    else:
+                        ip_type = 'Shared'
+
                     shared_with_other_domains = (not ips) or any(ip_usage_count[ip] > 1 for ip in ips)
                     monthly_sent = trailing_sent_totals.get((domain_name.lower(), region), 0)
                     results.append({
@@ -334,6 +350,7 @@ def fetch_mailgun_data() -> List[Dict]:
                         'region': region,
                         'domain': domain_name,
                         'ip_addresses': ', '.join(ips) if ips else 'Shared Pool',
+                        'ip_details': ip_details,
                         'ip_type': ip_type,
                         'monthly_sent': monthly_sent,
                         'needs_dedicated_ip': shared_with_other_domains and monthly_sent > DEDICATED_IP_MONTHLY_THRESHOLD,
@@ -549,6 +566,7 @@ def fetch_sparkpost_data() -> List[Dict]:
                     'domain': domain_name,
                     'ip_addresses': ip_addresses,
                     'ip_type': 'N/A',  # Shared/Dedicated is a Mailgun-only distinction here
+                    'ip_details': [],
                     'monthly_sent': None,
                     'needs_dedicated_ip': False,  # compliance policy is Mailgun-only
                     'subaccount': str(domain.get('subaccount_id', 'N/A')),
@@ -649,6 +667,7 @@ def fetch_sendgrid_data() -> List[Dict]:
                     'domain': domain.get('domain', 'N/A'),
                     'ip_addresses': ', '.join(ips) if ips else 'Shared Pool',
                     'ip_type': 'N/A',  # Shared/Dedicated is a Mailgun-only distinction here
+                    'ip_details': [],
                     'monthly_sent': None,
                     'needs_dedicated_ip': False,  # compliance policy is Mailgun-only
                     'subaccount': domain.get('username', 'N/A'),
