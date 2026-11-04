@@ -142,57 +142,46 @@ def save_dns_result(result: dict, account: str = None, esp: str = None, check_da
     conn = sqlite3.connect(DNS_DB_PATH)
     c = conn.cursor()
 
+    checked_at = datetime.utcnow().isoformat()
+    check_date_str = check_date.isoformat()
+
+    # Manual UPDATE-then-INSERT upsert, not `INSERT ... ON CONFLICT DO
+    # UPDATE` -- that syntax needs SQLite 3.24+, and EC2's Python links
+    # against 3.7.17 (confirmed; same pattern as
+    # esp_integration_service.py's _save_account_info_snapshot). The
+    # ON CONFLICT form threw "near ON: syntax error" on every single
+    # domain's daily check on EC2, silently breaking DNS history saves
+    # (and therefore change detection and its email alert) since
+    # 2026-05-21 with no visible error anywhere but the server log.
     c.execute('''
-        INSERT INTO dns_history (
-            domain, account, esp, check_date, checked_at,
-            spf_status, spf_value, spf_lookups,
-            dkim_status, dkim_selector, dkim_value,
-            dmarc_status, dmarc_policy, dmarc_policy_level, dmarc_value,
-            mx_status, mx_value,
-            bimi_status, bimi_value,
-            mta_sts_status, mta_sts_mode,
-            tls_rpt_status, tls_rpt_value,
-            ptr_status, ptr_value,
-            spf_chain
-        ) VALUES (
-            ?,?,?,?,?,
-            ?,?,?,
-            ?,?,?,
-            ?,?,?,?,
-            ?,?,
-            ?,?,
-            ?,?,
-            ?,?,
-            ?,?,
-            ?
-        )
-        ON CONFLICT(domain, check_date) DO UPDATE SET
-            account         = excluded.account,
-            esp             = excluded.esp,
-            checked_at      = excluded.checked_at,
-            spf_status      = excluded.spf_status,
-            spf_value       = excluded.spf_value,
-            spf_lookups     = excluded.spf_lookups,
-            dkim_status     = excluded.dkim_status,
-            dkim_selector   = excluded.dkim_selector,
-            dkim_value      = excluded.dkim_value,
-            dmarc_status    = excluded.dmarc_status,
-            dmarc_policy    = excluded.dmarc_policy,
-            dmarc_policy_level = excluded.dmarc_policy_level,
-            dmarc_value     = excluded.dmarc_value,
-            mx_status       = excluded.mx_status,
-            mx_value        = excluded.mx_value,
-            bimi_status     = excluded.bimi_status,
-            bimi_value      = excluded.bimi_value,
-            mta_sts_status  = excluded.mta_sts_status,
-            mta_sts_mode    = excluded.mta_sts_mode,
-            tls_rpt_status  = excluded.tls_rpt_status,
-            tls_rpt_value   = excluded.tls_rpt_value,
-            ptr_status      = excluded.ptr_status,
-            ptr_value       = excluded.ptr_value,
-            spf_chain       = excluded.spf_chain
+        UPDATE dns_history SET
+            account             = ?,
+            esp                 = ?,
+            checked_at          = ?,
+            spf_status          = ?,
+            spf_value           = ?,
+            spf_lookups         = ?,
+            dkim_status         = ?,
+            dkim_selector       = ?,
+            dkim_value          = ?,
+            dmarc_status        = ?,
+            dmarc_policy        = ?,
+            dmarc_policy_level  = ?,
+            dmarc_value         = ?,
+            mx_status           = ?,
+            mx_value            = ?,
+            bimi_status         = ?,
+            bimi_value          = ?,
+            mta_sts_status      = ?,
+            mta_sts_mode        = ?,
+            tls_rpt_status      = ?,
+            tls_rpt_value       = ?,
+            ptr_status          = ?,
+            ptr_value           = ?,
+            spf_chain           = ?
+        WHERE domain = ? AND check_date = ?
     ''', (
-        domain, account, esp, check_date.isoformat(), datetime.utcnow().isoformat(),
+        account, esp, checked_at,
         spf.get('status'), spf.get('value'), spf.get('lookup_count'),
         dkim.get('status'), dkim.get('selector'), dkim.get('value'),
         dmarc.get('status'), dmarc.get('policy'), dmarc.get('policy_level'), dmarc.get('value'),
@@ -202,7 +191,46 @@ def save_dns_result(result: dict, account: str = None, esp: str = None, check_da
         tls.get('status'), tls.get('value'),
         ptr.get('status'), json.dumps(ptr.get('value')),
         json.dumps(chain),
+        domain, check_date_str,
     ))
+
+    if c.rowcount == 0:
+        c.execute('''
+            INSERT INTO dns_history (
+                domain, account, esp, check_date, checked_at,
+                spf_status, spf_value, spf_lookups,
+                dkim_status, dkim_selector, dkim_value,
+                dmarc_status, dmarc_policy, dmarc_policy_level, dmarc_value,
+                mx_status, mx_value,
+                bimi_status, bimi_value,
+                mta_sts_status, mta_sts_mode,
+                tls_rpt_status, tls_rpt_value,
+                ptr_status, ptr_value,
+                spf_chain
+            ) VALUES (
+                ?,?,?,?,?,
+                ?,?,?,
+                ?,?,?,
+                ?,?,?,?,
+                ?,?,
+                ?,?,
+                ?,?,
+                ?,?,
+                ?,?,
+                ?
+            )
+        ''', (
+            domain, account, esp, check_date_str, checked_at,
+            spf.get('status'), spf.get('value'), spf.get('lookup_count'),
+            dkim.get('status'), dkim.get('selector'), dkim.get('value'),
+            dmarc.get('status'), dmarc.get('policy'), dmarc.get('policy_level'), dmarc.get('value'),
+            mx.get('status'), json.dumps(mx.get('value')),
+            bimi.get('status'), bimi.get('value'),
+            mta.get('status'), mta.get('mode'),
+            tls.get('status'), tls.get('value'),
+            ptr.get('status'), json.dumps(ptr.get('value')),
+            json.dumps(chain),
+        ))
 
     conn.commit()
     conn.close()
@@ -300,15 +328,20 @@ def get_domain_history(domain: str, days: int = 90) -> List[dict]:
 # ─── Custom selectors ─────────────────────────────────────────────────────────
 
 def save_custom_selector(domain: str, selector: str):
+    now = datetime.utcnow().isoformat()
     conn = sqlite3.connect(DNS_DB_PATH)
     c = conn.cursor()
+    # Manual UPDATE-then-INSERT upsert -- see save_dns_result() above for why
+    # ON CONFLICT can't be used on EC2's SQLite 3.7.17.
     c.execute('''
-        INSERT INTO dns_custom_selectors (domain, selector, added_at, updated_at)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(domain) DO UPDATE SET
-            selector   = excluded.selector,
-            updated_at = excluded.updated_at
-    ''', (domain, selector, datetime.utcnow().isoformat(), datetime.utcnow().isoformat()))
+        UPDATE dns_custom_selectors SET selector = ?, updated_at = ?
+        WHERE domain = ?
+    ''', (selector, now, domain))
+    if c.rowcount == 0:
+        c.execute('''
+            INSERT INTO dns_custom_selectors (domain, selector, added_at, updated_at)
+            VALUES (?, ?, ?, ?)
+        ''', (domain, selector, now, now))
     conn.commit()
     conn.close()
 
@@ -402,11 +435,13 @@ def sync_alert_recipients(mbr_recipients: list):
     """
     conn = sqlite3.connect(DNS_DB_PATH)
     c = conn.cursor()
+    # INSERT OR IGNORE, not `ON CONFLICT DO NOTHING` -- see save_dns_result()
+    # above for why ON CONFLICT can't be used on EC2's SQLite 3.7.17.
+    # OR IGNORE has worked throughout this codebase since SQLite 3.x.
     for email in mbr_recipients:
         c.execute('''
-            INSERT INTO dns_alert_recipients (email, enabled, updated_at)
+            INSERT OR IGNORE INTO dns_alert_recipients (email, enabled, updated_at)
             VALUES (?, 1, ?)
-            ON CONFLICT(email) DO NOTHING
         ''', (email, datetime.utcnow().isoformat()))
     conn.commit()
     conn.close()
@@ -424,15 +459,21 @@ def get_alert_recipients() -> list:
 
 
 def set_alert_recipient_enabled(email: str, enabled: bool):
+    now = datetime.utcnow().isoformat()
+    enabled_val = 1 if enabled else 0
     conn = sqlite3.connect(DNS_DB_PATH)
     c = conn.cursor()
+    # Manual UPDATE-then-INSERT upsert -- see save_dns_result() above for why
+    # ON CONFLICT can't be used on EC2's SQLite 3.7.17.
     c.execute('''
-        INSERT INTO dns_alert_recipients (email, enabled, updated_at)
-        VALUES (?, ?, ?)
-        ON CONFLICT(email) DO UPDATE SET
-            enabled = excluded.enabled,
-            updated_at = excluded.updated_at
-    ''', (email, 1 if enabled else 0, datetime.utcnow().isoformat()))
+        UPDATE dns_alert_recipients SET enabled = ?, updated_at = ?
+        WHERE email = ?
+    ''', (enabled_val, now, email))
+    if c.rowcount == 0:
+        c.execute('''
+            INSERT INTO dns_alert_recipients (email, enabled, updated_at)
+            VALUES (?, ?, ?)
+        ''', (email, enabled_val, now))
     conn.commit()
     conn.close()
 
