@@ -321,11 +321,12 @@ def fetch_mailgun_data() -> List[Dict]:
                 # Mailgun's own dashboard and was the reported bug.
                 owned_ips = fetch_mailgun_account_owned_ips(base_url)
 
-                # The multi-domain reputation-pooling risk the compliance
-                # check exists for is still real even on an account-owned IP
-                # (8 client domains sharing reputation on 2 IPs is still a
-                # risk regardless of who owns those IPs) -- so that signal is
-                # kept, just decoupled from the now Mailgun-matching ip_type.
+                # ip_usage_count only feeds the per-domain-exclusivity
+                # fallback heuristic below (used when the owned-IP lookup
+                # itself fails) -- it is NOT used for the compliance flag:
+                # a domain with an all-Dedicated ip_type is considered fully
+                # covered even if sibling domains route through the same
+                # dedicated IPs, per explicit user decision.
                 ip_usage_count = Counter()
                 for ips in domain_ip_lists.values():
                     for ip in ips:
@@ -361,7 +362,14 @@ def fetch_mailgun_data() -> List[Dict]:
                     else:
                         ip_type = 'Shared'
 
-                    shared_with_other_domains = (not ips) or any(ip_usage_count[ip] > 1 for ip in ips)
+                    # Flag only real remaining shared-pool exposure: a
+                    # domain with at least one non-Dedicated IP (Shared or
+                    # Mixed). A domain whose IPs are ALL Dedicated is fully
+                    # covered and skipped, even if sibling domains route
+                    # through those same dedicated IPs -- per explicit user
+                    # decision, ownership (not sibling reuse) is what ends
+                    # the compliance concern.
+                    has_shared_ip = ip_type in ('Shared', 'Mixed')
                     monthly_sent = trailing_sent_totals.get((domain_name.lower(), region), 0)
                     results.append({
                         'esp': 'Mailgun',
@@ -371,7 +379,7 @@ def fetch_mailgun_data() -> List[Dict]:
                         'ip_details': ip_details,
                         'ip_type': ip_type,
                         'monthly_sent': monthly_sent,
-                        'needs_dedicated_ip': shared_with_other_domains and monthly_sent > DEDICATED_IP_MONTHLY_THRESHOLD,
+                        'needs_dedicated_ip': has_shared_ip and monthly_sent > DEDICATED_IP_MONTHLY_THRESHOLD,
                         'subaccount': 'N/A',  # Mailgun doesn't have subaccounts in same way
                         'ip_pool': 'N/A',
                         'status': domain.get('state', 'unknown'),
