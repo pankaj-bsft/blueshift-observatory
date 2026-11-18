@@ -1332,7 +1332,59 @@
     .agent-clear-btn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.28); border-radius: 10px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; backdrop-filter: blur(10px); white-space: nowrap; }
     .agent-clear-btn:hover { background: rgba(255,255,255,0.28); }
 
-  </style>
+  
+    /* ===== DEL Tickets overview ===== */
+    .delx { --delx-s1:#2a78d6; --delx-s2:#eb6834; --delx-s3:#1baf7a; --delx-s4:#eda100;
+            --delx-ink:#0f172a; --delx-ink2:#475569; --delx-muted:#94a3b8; --delx-line:#e2e8f0;
+            --delx-track:#eef2f7; --delx-surface:#ffffff; margin-bottom:20px; }
+    .delx-kpis { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); background:var(--delx-surface);
+                 border:1px solid var(--delx-line); border-radius:14px; overflow:hidden; margin-bottom:12px; }
+    .delx-kpi { padding:12px 16px; border-left:1px solid var(--delx-line); cursor:pointer; transition:background .15s;
+                display:flex; align-items:flex-end; justify-content:space-between; gap:8px; min-width:0; }
+    .delx-kpi:first-child { border-left:0; }
+    .delx-kpi:hover { background:#f8fafc; }
+    .delx-kpi-label { font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--delx-ink2); }
+    .delx-kpi-value { font-size:26px; font-weight:800; color:var(--delx-ink); line-height:1.1; margin-top:2px; font-variant-numeric:tabular-nums; }
+    .delx-kpi-sub { font-size:12px; color:var(--delx-ink2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .delx-kpi-sub b { color:var(--delx-ink); font-weight:600; }
+    .delx-warn { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#92400e;
+                 background:#fef3c7; border-radius:999px; padding:1px 7px; margin-left:6px; vertical-align:middle; }
+    .delx-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px; }
+    .delx-panel { background:var(--delx-surface); border:1px solid var(--delx-line); border-radius:14px; padding:12px 14px; min-width:0; }
+    .delx-panel.wide { grid-column:span 2; }
+    @media (min-width: 900px) { .delx-grid { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+    @media (max-width: 1250px) { .delx-kpi svg { display:none; } }
+    @media (max-width: 760px) { .delx-panel.wide { grid-column:auto; } .delx-kpis { grid-template-columns:repeat(2, minmax(0,1fr)); }
+                                .delx-kpi { border-left:0; border-top:1px solid var(--delx-line); } }
+    .delx-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:8px; }
+    .delx-title { font-size:12px; font-weight:700; color:var(--delx-ink); }
+    .delx-cap { font-size:11px; color:var(--delx-muted); white-space:nowrap; }
+    .delx-legend { display:flex; gap:12px; font-size:11px; color:var(--delx-ink2); }
+    .delx-sw { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+    .delx-seg { display:flex; gap:2px; height:12px; margin:4px 0 10px; }
+    .delx-seg > div { height:100%; cursor:pointer; min-width:3px; }
+    .delx-seg > div:first-child { border-radius:4px 0 0 4px; } .delx-seg > div:last-child { border-radius:0 4px 4px 0; }
+    .delx-row { display:grid; grid-template-columns:minmax(0,1fr) 26px 32px; align-items:center; gap:6px; font-size:12px;
+                padding:3px 4px; border-radius:6px; cursor:pointer; }
+    .delx-row:hover { background:#f1f5f9; }
+    .delx-row .n { text-align:right; font-weight:600; color:var(--delx-ink); font-variant-numeric:tabular-nums; }
+    .delx-row .pct { text-align:right; color:var(--delx-muted); font-variant-numeric:tabular-nums; }
+    .delx-row .name { color:var(--delx-ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .delx-meter { display:grid; grid-template-columns:minmax(0,92px) minmax(28px,1fr) 22px; align-items:center; gap:8px; font-size:12px;
+                  padding:2px 4px; border-radius:6px; }
+    .delx-meter.click { cursor:pointer; } .delx-meter.click:hover { background:#f1f5f9; }
+    .delx-meter .name { color:var(--delx-ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .delx-meter .track { height:8px; background:var(--delx-track); border-radius:4px; overflow:hidden; }
+    .delx-meter .fill { height:100%; background:var(--delx-s1); border-radius:0 4px 4px 0; }
+    .delx-meter .n { text-align:right; font-weight:600; color:var(--delx-ink); font-variant-numeric:tabular-nums; }
+    .delx-tip { position:fixed; z-index:1100; pointer-events:none; background:#0f172a; color:#e2e8f0; border-radius:8px;
+                padding:8px 10px; font-size:12px; line-height:1.45; box-shadow:0 8px 24px rgba(0,0,0,.25); min-width:150px; }
+    .delx-tip .t { color:#f8fafc; font-weight:700; margin-bottom:3px; }
+    .delx-tip .r { display:flex; justify-content:space-between; gap:14px; }
+    .delx-pill { display:inline-flex; align-items:center; gap:6px; padding:2px 9px 2px 7px; border-radius:999px;
+                 font-size:12px; font-weight:600; color:#1e293b; white-space:nowrap; }
+    .delx-pill i { width:7px; height:7px; border-radius:50%; display:inline-block; }
+</style>
 </head>
 <body>
   <div id="app">
@@ -7070,6 +7122,259 @@
           </div>
         </div>
 
+        <!-- ============ DEL TICKETS (read-only Jira context) ============ -->
+        <div v-if="activePage === 'del-tickets'">
+          <div class="page-header-gradient" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 16px; padding: 28px 32px; margin-bottom: 24px; display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+            <div>
+              <h1 class="page-header-title" style="color: #fff; margin: 0 0 4px 0;">DEL Tickets</h1>
+              <p style="color: #bfdbfe; margin: 0; font-size: 14px;">Deliverability Services Jira project, read-only<span v-if="delSummary"> · updated {{ fmtDelTime(delSummary.generated_at) }}</span></p>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span v-if="delUser" style="font-size:12px; color:#bfdbfe; display:flex; align-items:center; gap:6px; margin-right:4px;">
+                <span style="width:7px; height:7px; border-radius:50%; background:#22c55e; display:inline-block;"></span>
+                Commenting as <b style="color:#fff;">{{ delUser.name }}</b>
+                <a href="#" @click.prevent="disconnectDelUser()" style="color:#93c5fd; margin-left:2px;">Disconnect</a>
+              </span>
+              <a v-if="delSummary && delSummary.site" :href="delSummary.site + '/jira/software/c/projects/' + delSummary.project + '/issues'" target="_blank" rel="noopener" class="btn btn-sm btn-secondary">Open in Jira</a>
+              <button class="btn btn-sm btn-primary" @click="loadDelSummary(true)" :disabled="delLoading">{{ delLoading ? 'Loading…' : 'Refresh' }}</button>
+            </div>
+          </div>
+
+          <div v-if="delError" style="background:#fee2e2; border:1px solid #fca5a5; border-radius:12px; padding:14px 18px; margin-bottom:20px; color:#991b1b; font-size:14px;">{{ delError }}</div>
+
+          <div v-if="delSummary" class="delx">
+            <!-- KPI strip -->
+            <div class="delx-kpis">
+              <div v-for="k in delKpis" :key="k.label" class="delx-kpi" @click="applyDelPreset(k.preset)" :title="'Show these tickets below'">
+                <div style="min-width:0;">
+                  <div class="delx-kpi-label">{{ k.label }}<span v-if="k.warn" class="delx-warn">⚠ {{ k.warn }}</span></div>
+                  <div class="delx-kpi-value">{{ k.value }}</div>
+                  <div class="delx-kpi-sub" v-html="k.sub"></div>
+                </div>
+                <svg v-if="k.spark" width="64" height="26" viewBox="0 0 64 26" style="flex:0 0 auto;" aria-hidden="true">
+                  <path v-for="(b, bi) in k.spark" :key="bi" :d="b.d" :fill="k.color" :opacity="bi === k.spark.length - 1 ? 0.55 : 1"></path>
+                </svg>
+              </div>
+            </div>
+
+            <div class="delx-grid">
+              <!-- Weekly flow -->
+              <div class="delx-panel wide">
+                <div class="delx-head">
+                  <span class="delx-title">Created vs resolved · weekly</span>
+                  <span class="delx-legend">
+                    <span><i class="delx-sw" style="background:var(--delx-s1)"></i>Created {{ delFlow.totals.created }}</span>
+                    <span><i class="delx-sw" style="background:var(--delx-s2)"></i>Resolved {{ delFlow.totals.resolved }}</span>
+                  </span>
+                </div>
+                <div ref="delFlowBox"><svg width="100%" height="150" style="display:block; overflow:visible;" role="img" aria-label="Tickets created and resolved per week">
+                  <g v-for="g in delFlow.grid" :key="g.v">
+                    <line :x1="delFlow.L" :x2="delFlow.W" :y1="g.y" :y2="g.y" stroke="#eef2f7" stroke-width="1"></line>
+                    <text :x="delFlow.L - 6" :y="g.y + 3" text-anchor="end" font-size="10" fill="#94a3b8">{{ g.v }}</text>
+                  </g>
+                  <line :x1="delFlow.L" :x2="delFlow.W" :y1="delFlow.base" :y2="delFlow.base" stroke="#cbd5e1" stroke-width="1"></line>
+                  <g v-for="w in delFlow.weeks" :key="w.start">
+                    <path :d="w.cd" fill="var(--delx-s1)" :opacity="w.partial ? 0.55 : 1"></path>
+                    <path :d="w.rd" fill="var(--delx-s2)" :opacity="w.partial ? 0.55 : 1"></path>
+                    <g v-if="w.clipped">
+                      <path :d="w.breakD" stroke="#ffffff" stroke-width="2" fill="none"></path>
+                      <text :x="w.rx + w.bw / 2" :y="delFlow.T - 3" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">{{ w.resolved }}</text>
+                    </g>
+                    <text v-if="w.showLabel" :x="w.cx" :y="delFlow.base + 13" text-anchor="middle" font-size="10" fill="#94a3b8">{{ w.label }}</text>
+                    <rect :x="w.hx" :y="0" :width="w.hw" :height="delFlow.base" fill="transparent" style="cursor:default"
+                          @mouseenter="showDelTip($event, 'Week of ' + w.label + (w.partial ? ' (so far)' : ''), [['Created', w.created], ['Resolved', w.resolved]])"
+                          @mousemove="moveDelTip($event)" @mouseleave="delTip = null"></rect>
+                  </g>
+                </svg></div>
+              </div>
+
+              <!-- Open by status -->
+              <div class="delx-panel">
+                <div class="delx-head"><span class="delx-title">Open by status</span><span class="delx-cap">{{ delSummary.open_total }} open</span></div>
+                <div class="delx-seg">
+                  <div v-for="r in delStatusRows" :key="r.name" :style="{ flex: r.n, background: r.color }"
+                       @click="applyDelPreset({ status: r.name })"
+                       @mouseenter="showDelTip($event, r.name, [['Open', r.n], ['Share', r.pct + '%']])" @mousemove="moveDelTip($event)" @mouseleave="delTip = null"></div>
+                </div>
+                <div v-for="r in delStatusRows" :key="r.name" class="delx-row" @click="applyDelPreset({ status: r.name })" :title="'Filter the table to ' + r.name">
+                  <span class="name"><i class="delx-sw" :style="{ background: r.color }"></i>{{ r.name }}</span>
+                  <span class="n">{{ r.n }}</span><span class="pct">{{ r.pct }}%</span>
+                </div>
+              </div>
+
+              <!-- Age of open tickets -->
+              <div class="delx-panel">
+                <div class="delx-head"><span class="delx-title">Age of open tickets</span><span class="delx-cap">since created</span></div>
+                <div ref="delAgeBox"><svg width="100%" height="132" style="display:block; overflow:visible;" role="img" aria-label="Open tickets by age">
+                  <g v-for="b in delAge.bars" :key="b.label">
+                    <path :d="b.d" :fill="b.color"></path>
+                    <text :x="b.cx" :y="b.y - 4" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">{{ b.count }}</text>
+                    <text :x="b.cx" :y="delAge.base + 13" text-anchor="middle" font-size="10" fill="#64748b">{{ b.label }}</text>
+                    <rect :x="b.hx" y="0" :width="b.hw" :height="delAge.base" fill="transparent"
+                          @mouseenter="showDelTip($event, 'Open ' + b.label + ' old', [['Tickets', b.count], ['Share', b.pct + '%']])" @mousemove="moveDelTip($event)" @mouseleave="delTip = null"></rect>
+                  </g>
+                  <line x1="0" :x2="delAge.W" :y1="delAge.base" :y2="delAge.base" stroke="#cbd5e1" stroke-width="1"></line>
+                </svg></div>
+              </div>
+
+              <!-- Open by type -->
+              <div class="delx-panel">
+                <div class="delx-head"><span class="delx-title">Open by type</span><span class="delx-cap">click to filter</span></div>
+                <div v-for="r in delTypeRows" :key="r.name" class="delx-meter" :class="{ click: !r.other }"
+                     @click="!r.other && applyDelPreset({ status: 'open', type: r.name })" :title="r.other ? r.title : 'Filter the table to ' + r.name">
+                  <span class="name">{{ r.name }}</span>
+                  <div class="track"><div class="fill" :style="{ width: r.w + '%' }"></div></div>
+                  <span class="n">{{ r.n }}</span>
+                </div>
+              </div>
+
+              <!-- Open by assignee -->
+              <div class="delx-panel">
+                <div class="delx-head"><span class="delx-title">Open by assignee</span><span class="delx-cap" v-if="delSummary.unassigned_open">{{ delSummary.unassigned_open }} unassigned</span></div>
+                <div v-for="r in delAssigneeRows" :key="r.name" class="delx-meter">
+                  <span class="name" :title="r.name">{{ r.name }}</span>
+                  <div class="track"><div class="fill" :style="{ width: r.w + '%', background: r.name === 'Unassigned' ? '#94a3b8' : '' }"></div></div>
+                  <span class="n">{{ r.n }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart tooltip -->
+          <div v-if="delTip" class="delx-tip" :style="{ left: delTip.x + 'px', top: delTip.y + 'px' }">
+            <div class="t">{{ delTip.title }}</div>
+            <div v-for="r in delTip.rows" :key="r[0]" class="r"><span>{{ r[0] }}</span><b>{{ r[1] }}</b></div>
+          </div>
+
+          <div class="card" style="padding:16px 18px;">
+            <!-- Filters -->
+            <form @submit.prevent="loadDelIssues()" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px;">
+              <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Status
+                <select class="date-input" v-model="delFilters.status" @change="loadDelIssues()" style="width:170px;">
+                  <option value="open">All open</option>
+                  <option v-for="st in (delMeta ? delMeta.statuses : [])" :key="st.name" :value="st.name">{{ st.name }}</option>
+                  <option value="all">All (incl. completed)</option>
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Type
+                <select class="date-input" v-model="delFilters.type" @change="loadDelIssues()" style="width:150px;">
+                  <option value="">All types</option>
+                  <option v-for="t in (delMeta ? delMeta.types : [])" :key="t" :value="t">{{ t }}</option>
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Sort by
+                <select class="date-input" v-model="delFilters.order" @change="loadDelIssues()" style="width:200px;">
+                  <option value="updated_desc">Last updated (newest)</option>
+                  <option value="updated_asc">Last updated (oldest)</option>
+                  <option value="created_desc">Created (newest)</option>
+                  <option value="created_asc">Created (oldest)</option>
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Domain / account / text
+                <input class="date-input" v-model="delFilters.q" placeholder="e.g. goldbely.com" style="width:220px;">
+              </label>
+              <label style="font-size:12px; color:#475569; display:flex; align-items:center; gap:4px; padding-bottom:8px;"><input type="checkbox" v-model="delFilters.stale" @change="loadDelIssues()"> Stale {{ delSummary ? delSummary.stale_days : 30 }}d+</label>
+              <label style="font-size:12px; color:#475569; display:flex; align-items:center; gap:4px; padding-bottom:8px;"><input type="checkbox" v-model="delFilters.recent" @change="loadDelIssues()"> Created last 30d</label>
+              <button class="btn btn-sm btn-primary" type="submit" :disabled="delIssuesLoading" style="margin-bottom:2px;">{{ delIssuesLoading ? 'Loading…' : 'Apply' }}</button>
+              <button class="btn btn-sm btn-secondary" type="button" @click="resetDelFilters()" style="margin-bottom:2px;">Reset</button>
+              <span v-if="delIssues" style="margin-left:auto; font-size:12px; color:#64748b; padding-bottom:8px;">{{ delIssues.count }}{{ delIssues.truncated ? '+' : '' }} ticket{{ delIssues.count === 1 ? '' : 's' }}</span>
+            </form>
+
+            <div v-if="delIssues && !delIssues.issues.length" style="color:#64748b; font-size:14px; padding:8px 0;">No tickets match these filters.</div>
+            <div v-if="delIssues && delIssues.issues.length" style="overflow-x:auto;">
+              <table class="data-table">
+                <thead><tr>
+                  <th>Key</th><th>Summary</th><th>Status</th><th>Type</th><th>Assignee</th>
+                  <th @click="toggleDelSort('created')" style="cursor:pointer; white-space:nowrap;">Created {{ delSortArrow('created') }}</th>
+                  <th @click="toggleDelSort('updated')" style="cursor:pointer; white-space:nowrap;">Updated {{ delSortArrow('updated') }}</th>
+                  <th title="Comments">💬</th>
+                </tr></thead>
+                <tbody>
+                  <tr v-for="t in delIssues.issues" :key="t.key" @click="openDelTicket(t.key)" style="cursor:pointer;">
+                    <td style="white-space:nowrap;" @mouseenter="showDelHover(t, $event)" @mousemove="moveDelHover($event)" @mouseleave="hideDelHover()"><a :href="t.url" target="_blank" rel="noopener" @click.stop>{{ t.key }}</a></td>
+                    <td @mouseenter="showDelHover(t, $event)" @mousemove="moveDelHover($event)" @mouseleave="hideDelHover()">{{ t.summary }}</td>
+                    <td style="white-space:nowrap;"><span class="delx-pill" :style="delStatusStyle(t)"><i :style="{ background: delStatusDot(t) }"></i>{{ t.status }}</span></td>
+                    <td style="white-space:nowrap;">{{ t.type }}</td>
+                    <td style="white-space:nowrap;">{{ t.assignee || 'Unassigned' }}</td>
+                    <td style="white-space:nowrap;">{{ (t.created || '').slice(0,10) }}</td>
+                    <td style="white-space:nowrap;">{{ (t.updated || '').slice(0,10) }}<span v-if="t.idle_days != null" style="color:#94a3b8;"> · {{ t.idle_days }}d</span></td>
+                    <td style="white-space:nowrap; color:#64748b;">{{ t.last_comment ? t.last_comment.total : 0 }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Last-comment hover card -->
+          <div v-if="delHover" :style="{position:'fixed', left: delHover.x + 'px', top: delHover.y + 'px', zIndex: 1100, width: '380px', maxWidth: 'calc(100vw - 32px)', background:'#0f172a', color:'#e2e8f0', borderRadius:'10px', padding:'12px 14px', boxShadow:'0 10px 30px rgba(0,0,0,0.25)', pointerEvents:'none', fontSize:'13px', lineHeight:1.5}">
+            <div style="font-size:11px; color:#93c5fd; font-weight:700; text-transform:uppercase; margin-bottom:6px;">{{ delHover.issue.key }} · last comment</div>
+            <template v-if="delHover.issue.last_comment">
+              <div style="font-size:12px; color:#94a3b8; margin-bottom:6px;"><b style="color:#f8fafc;">{{ delHover.issue.last_comment.author }}</b> · {{ (delHover.issue.last_comment.created || '').slice(0,10) }}<span v-if="delHover.issue.last_comment.total > 1"> · {{ delHover.issue.last_comment.total }} comments</span></div>
+              <div style="white-space:pre-wrap; display:-webkit-box; -webkit-line-clamp:10; -webkit-box-orient:vertical; overflow:hidden;">{{ delHover.issue.last_comment.body || '(empty comment)' }}</div>
+            </template>
+            <div v-else style="color:#94a3b8;">No comments yet.</div>
+          </div>
+
+          <!-- Ticket detail drawer -->
+          <div v-if="delDetail || delDetailLoading" @click.self="delDetail = null; delDetailLoading = false" style="position:fixed; inset:0; background:rgba(15,23,42,0.35); z-index:1000; display:flex; justify-content:flex-end;">
+            <div style="width:min(620px, 100%); height:100%; background:#fff; overflow-y:auto; padding:24px 26px; box-shadow:-8px 0 24px rgba(0,0,0,0.15);">
+              <div v-if="delDetailLoading" style="color:#64748b;">Loading ticket…</div>
+              <template v-else-if="delDetail">
+                <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+                  <div>
+                    <a :href="delDetail.url" target="_blank" rel="noopener" style="font-weight:700;">{{ delDetail.key }} ↗</a>
+                    <h2 style="margin:6px 0 10px; font-size:18px; color:#0f172a;">{{ delDetail.summary }}</h2>
+                  </div>
+                  <button class="btn btn-sm btn-secondary" @click="delDetail = null">Close</button>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; font-size:12px; margin-bottom:16px;">
+                  <span class="delx-pill" :style="delStatusStyle(delDetail)"><i :style="{ background: delStatusDot(delDetail) }"></i>{{ delDetail.status }}</span>
+                  <span style="background:#f1f5f9; padding:2px 8px; border-radius:10px;">{{ delDetail.type }}</span>
+                  <span style="background:#f1f5f9; padding:2px 8px; border-radius:10px;">{{ delDetail.priority }}</span>
+                  <span style="background:#f1f5f9; padding:2px 8px; border-radius:10px;">👤 {{ delDetail.assignee || 'Unassigned' }}</span>
+                  <span style="color:#64748b; padding:2px 0;">created {{ (delDetail.created||'').slice(0,10) }} · updated {{ (delDetail.updated||'').slice(0,10) }}</span>
+                </div>
+                <div style="white-space:pre-wrap; font-size:13px; color:#334155; line-height:1.55; background:#f8fafc; border-radius:8px; padding:12px 14px; margin-bottom:18px;">{{ delDetail.description || '(no description)' }}</div>
+                <div style="font-size:12px; font-weight:700; color:#334155; text-transform:uppercase; margin-bottom:8px;">Comments ({{ delDetail.comment_count }})</div>
+                <div v-for="(c, i) in delDetail.comments" :key="i" style="border-left:3px solid #bfdbfe; padding:4px 0 4px 12px; margin-bottom:12px;">
+                  <div style="font-size:12px; color:#64748b; margin-bottom:4px;"><b style="color:#1e293b;">{{ c.author }}</b> · {{ (c.created||'').slice(0,10) }}</div>
+                  <div style="white-space:pre-wrap; font-size:13px; color:#334155;">{{ c.body }}</div>
+                </div>
+
+                <!-- Add a comment (posted with the viewer's OWN Jira credentials) -->
+                <div style="border-top:1px solid #e2e8f0; margin-top:16px; padding-top:14px;">
+                  <template v-if="delUser">
+                    <textarea v-model="delCommentText" rows="4" placeholder="Add a comment…" :disabled="delCommentPosting"
+                              @keydown.meta.enter="postDelComment()" @keydown.ctrl.enter="postDelComment()"
+                              style="width:100%; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:8px; padding:10px 12px; font:inherit; font-size:13px; resize:vertical;"></textarea>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px;">
+                      <span style="font-size:12px; color:#64748b;">Posts to Jira as <b style="color:#1e293b;">{{ delUser.name }}</b>, tagged “comment left via Observatory” · ⌘/Ctrl+Enter</span>
+                      <button class="btn btn-sm btn-primary" @click="postDelComment()" :disabled="delCommentPosting || !delCommentText.trim()">{{ delCommentPosting ? 'Posting…' : 'Comment' }}</button>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div style="font-size:13px; font-weight:600; color:#1e293b; margin-bottom:4px;">Connect your Jira to comment</div>
+                    <div style="font-size:12px; color:#64748b; margin-bottom:10px; line-height:1.5;">
+                      Comments are posted under <b>your own</b> Jira name. Create an API token at
+                      <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener">id.atlassian.com → API tokens</a>.
+                      It's kept only in this browser and sent with your comments; Observatory doesn't store it.
+                    </div>
+                    <form @submit.prevent="connectDelUser()" style="display:flex; flex-direction:column; gap:8px;">
+                      <input class="date-input" type="email" v-model="delConnect.email" placeholder="Your Atlassian email" autocomplete="username" required>
+                      <input class="date-input" type="password" v-model="delConnect.token" placeholder="Your API token" autocomplete="off" required>
+                      <div style="display:flex; align-items:center; gap:10px;">
+                        <button class="btn btn-sm btn-primary" type="submit" :disabled="delConnecting">{{ delConnecting ? 'Checking…' : 'Connect' }}</button>
+                        <span v-if="delConnectError" style="font-size:12px; color:#991b1b;">{{ delConnectError }}</span>
+                      </div>
+                    </form>
+                  </template>
+                  <div v-if="delCommentError" style="margin-top:8px; font-size:12px; color:#991b1b;">{{ delCommentError }}</div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
         <div v-if="activePage === 'warmup'">
           <div class="page-header-gradient" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 16px; padding: 28px 32px; margin-bottom: 24px;">
             <h1 class="page-header-title" style="color: #fff; margin: 0 0 4px 0;">Deliverability Warm-up Planner</h1>
@@ -7647,7 +7952,7 @@
           </div>
         </div>
 
-        <div v-if="activePage !== 'home' && activePage !== 'pulsation' && activePage !== 'mbr' && activePage !== 'mappings' && activePage !== 'mappings_rails' && activePage !== 'deliverability-analysis' && activePage !== 'info' && activePage !== 'snds' && activePage !== 'gpt' && activePage !== 'bounces' && activePage !== 'updates' && activePage !== 'observatory-agent' && activePage !== 'warmup'" style="text-align: center; padding: 60px 20px;">
+        <div v-if="activePage !== 'home' && activePage !== 'pulsation' && activePage !== 'mbr' && activePage !== 'mappings' && activePage !== 'mappings_rails' && activePage !== 'deliverability-analysis' && activePage !== 'info' && activePage !== 'snds' && activePage !== 'gpt' && activePage !== 'bounces' && activePage !== 'updates' && activePage !== 'observatory-agent' && activePage !== 'warmup' && activePage !== 'del-tickets'" style="text-align: center; padding: 60px 20px;">
           <div style="font-size: 48px; margin-bottom: 16px;">🚧</div>
           <h3 style="font-size: 18px; color: #1e293b; margin-bottom: 8px;">Page Under Construction</h3>
           <p style="font-size: 14px; color: #64748b;">This page will be available soon with the premium design</p>
@@ -8243,9 +8548,32 @@
             { key: 'gpt', label: 'GPT', icon: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8l6 4 6-4"/>' },
             { key: 'deliverability-analysis', label: 'Deliverability Analysis', icon: '<path d="M12 2l9 4v6c0 5-3.8 9.7-9 10-5.2-.3-9-5-9-10V6l9-4z"/><path d="M8 12h8"/><path d="M8 16h5"/>' },
             { key: 'observatory-agent', label: 'Observatory Agent', icon: '<rect x="3" y="7" width="18" height="12" rx="3"/><circle cx="9" cy="13" r="1.4"/><circle cx="15" cy="13" r="1.4"/><path d="M12 3v4"/><path d="M8 19v2"/><path d="M16 19v2"/>' },
+            { key: 'del-tickets', label: 'DEL Tickets', icon: '<path d="M2 9a3 3 0 0 0 0 6v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a3 3 0 0 0 0-6V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/>' },
             { key: 'updates', label: 'Industry Updates', icon: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>' },
             { key: 'warmup', label: 'Warm-up Planner', icon: '<path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3"/>' }
           ],
+
+          // DEL Tickets (read-only Jira)
+          delSummary: null,
+          delLoading: false,
+          delError: '',
+          delMeta: null,
+          delFilters: { status: 'open', type: '', q: '', stale: false, recent: false, order: 'updated_desc' },
+          delIssues: null,
+          delIssuesLoading: false,
+          delHover: null,
+          delTip: null,
+          delUser: (() => { try { return JSON.parse(localStorage.getItem('obsJiraUser') || 'null'); } catch (e) { return null; } })(),
+          delConnect: { email: '', token: '' },
+          delConnecting: false,
+          delConnectError: '',
+          delCommentText: '',
+          delCommentPosting: false,
+          delCommentError: '',
+          delChartW: { flow: 520, age: 220 },
+          delHoverTimer: null,
+          delDetail: null,
+          delDetailLoading: false,
 
           // Pulsation State
           pulsationLoading: false,
@@ -8695,6 +9023,101 @@
         };
       },
       computed: {
+        delStatusColors() {
+          // Fixed per status (entity), never by rank: order comes from the project's status list.
+          const slots = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#6250d6'];
+          const names = this.delMeta ? this.delMeta.statuses.filter(x => x.category !== 'done').map(x => x.name)
+                                     : Object.keys((this.delSummary && this.delSummary.open_by_status) || {});
+          const map = {}; names.forEach((n, i) => { map[n] = slots[i % slots.length]; });
+          return map;
+        },
+        delKpis() {
+          const s = this.delSummary; if (!s) return [];
+          const w = s.weekly || { created: [], resolved: [] };
+          const delta = s.created_last_30d - s.created_prev_30d;
+          const pctOf = (a, b) => b ? Math.round(100 * a / b) : 0;
+          const peak = s.resolved_peak_day || {};
+          const resolvedSub = peak.count >= 10 && peak.count > s.resolved_last_30d / 2
+            ? `incl. <b>${peak.count}</b> on ${this.fmtDelDay(peak.date)} (bulk)` : 'last 30 days';
+          return [
+            { label: 'Open', value: s.open_total, preset: { status: 'open' },
+              sub: s.unassigned_open ? `<b>${s.unassigned_open}</b> unassigned` : 'all assigned' },
+            { label: 'In progress', value: s.in_progress, preset: { status: 'In Progress' },
+              sub: `<b>${pctOf(s.in_progress, s.open_total)}%</b> of open` },
+            { label: 'Created 30d', value: s.created_last_30d, preset: { status: 'all', recent: true, order: 'created_desc' },
+              sub: `${delta > 0 ? '▲' : delta < 0 ? '▼' : '='} <b>${Math.abs(delta)}</b> vs prior 30d`,
+              spark: this.delSpark(w.created), color: '#2a78d6' },
+            { label: 'Resolved 30d', value: s.resolved_last_30d, preset: { status: 'Completed' },
+              sub: resolvedSub, spark: this.delSpark(w.resolved), color: '#eb6834' },
+            { label: `Stale ${s.stale_days}d+`, value: s.stale_total, preset: { status: 'open', stale: true, order: 'updated_asc' },
+              warn: s.stale_total ? `${pctOf(s.stale_total, s.open_total)}%` : '',
+              sub: s.oldest_idle_days != null ? `oldest idle <b>${this.fmtDelAge(s.oldest_idle_days)}</b>` : '' },
+          ];
+        },
+        delFlow() {
+          const s = this.delSummary;
+          const W = this.delChartW.flow, H = 150, L = 26, T = 14, base = H - 18;
+          const empty = { W, H, L, T, base, grid: [], weeks: [], totals: { created: 0, resolved: 0 } };
+          if (!s || !s.weekly) return empty;
+          const { week_starts, created, resolved } = s.weekly;
+          const all = created.concat(resolved);
+          const sorted = [...all].sort((a, b) => b - a);
+          // Cap the scale when one week dwarfs the rest (e.g. a bulk close) so the others stay readable.
+          let max = sorted[0] || 1;
+          if (sorted[1] != null && sorted[0] > 3 * Math.max(sorted[1], 4)) max = Math.max(sorted[1], 4) * 1.6;
+          const nice = (v) => { const st = v <= 5 ? 1 : v <= 10 ? 2 : v <= 25 ? 5 : v <= 50 ? 10 : 20; return Math.ceil(v / st) * st; };
+          const top = nice(max), plotH = base - T;
+          const y = (v) => base - Math.min(v, top) / top * plotH;
+          const n = week_starts.length, slot = (W - L) / n, bw = Math.max(3, Math.min(16, (slot - 10) / 2));
+          const bar = (x, v) => { if (!v) return ''; const yy = y(v), r = Math.min(4, (base - yy), bw / 2);
+            return `M${x},${base}V${yy + r}Q${x},${yy} ${x + r},${yy}H${x + bw - r}Q${x + bw},${yy} ${x + bw},${yy + r}V${base}Z`; };
+          const step = slot >= 52 ? 1 : slot >= 34 ? 2 : 3;
+          const weeks = week_starts.map((ws, i) => {
+            const cx = L + slot * i + slot / 2, x1 = cx - bw - 1, x2 = cx + 1;
+            const clipped = resolved[i] > top || created[i] > top;
+            return { start: ws, label: this.fmtDelDay(ws), created: created[i], resolved: resolved[i], partial: i === n - 1,
+                     cx, bw, rx: x2, cd: bar(x1, created[i]), rd: bar(x2, resolved[i]), clipped,
+                     breakD: `M${x2 - 2},${T + 14}l${bw / 2 + 2},-5l${bw / 2 + 2},5`,
+                     showLabel: (n - 1 - i) % step === 0, hx: L + slot * i, hw: slot };
+          });
+          const gstep = top / 2;
+          return { W, H, L, T, base, weeks, grid: [gstep, top].map(v => ({ v: Math.round(v), y: y(v) })),
+                   totals: { created: created.reduce((a, b) => a + b, 0), resolved: resolved.reduce((a, b) => a + b, 0) } };
+        },
+        delStatusRows() {
+          const s = this.delSummary; if (!s) return [];
+          const colors = this.delStatusColors, order = Object.keys(colors);
+          return Object.entries(s.open_by_status)
+            .sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99))
+            .map(([name, n]) => ({ name, n, color: colors[name] || '#94a3b8', pct: Math.round(100 * n / (s.open_total || 1)) }));
+        },
+        delAge() {
+          const s = this.delSummary, W = this.delChartW.age, H = 132, base = H - 18, T = 16;
+          if (!s || !s.open_age_buckets) return { W, H, base, bars: [] };
+          const b = s.open_age_buckets, max = Math.max(1, ...b.map(x => x.count));
+          const ramp = ['#86b6ef', '#5598e7', '#2a78d6', '#1c5cab', '#104281'];  // ordinal: older = darker
+          const slot = W / b.length, bw = Math.min(34, slot - 12);
+          return { W, H, base, bars: b.map((x, i) => {
+            const h = x.count / max * (base - T), yy = base - h, cx = slot * i + slot / 2, x0 = cx - bw / 2, r = Math.min(4, h);
+            const d = h ? `M${x0},${base}V${yy + r}Q${x0},${yy} ${x0 + r},${yy}H${x0 + bw - r}Q${x0 + bw},${yy} ${x0 + bw},${yy + r}V${base}Z` : '';
+            return { ...x, d, y: yy, cx, color: ramp[i % ramp.length], hx: slot * i, hw: slot,
+                     pct: Math.round(100 * x.count / (s.open_total || 1)) };
+          }) };
+        },
+        delTypeRows() {
+          const s = this.delSummary; if (!s) return [];
+          const e = Object.entries(s.open_by_type), keep = e.length > 7 ? e.slice(0, 6) : e, rest = e.slice(keep.length);
+          const max = Math.max(1, ...e.map(x => x[1]));
+          const rows = keep.map(([name, n]) => ({ name, n, w: 100 * n / max }));
+          if (rest.length) { const n = rest.reduce((a, x) => a + x[1], 0);
+            rows.push({ name: 'Other', n, w: 100 * n / max, other: true, title: rest.map(x => `${x[0]} ${x[1]}`).join(', ') }); }
+          return rows;
+        },
+        delAssigneeRows() {
+          const s = this.delSummary; if (!s) return [];
+          const e = Object.entries(s.open_by_assignee), max = Math.max(1, ...e.map(x => x[1]));
+          return e.slice(0, 7).map(([name, n]) => ({ name, n, w: 100 * n / max }));
+        },
         bounceJiraPreview() {
           if (!this.bounceJiraOpen) return '';
           const t = this.buildBounceJiraTicket();
@@ -10502,6 +10925,181 @@
             this.emailDomainStatsLoading = false;
           }
         },
+        // ---- DEL Tickets (read-only Jira context) ---------------------------
+        async loadDelSummary(refresh = false) {
+          this.delLoading = true; this.delError = '';
+          try {
+            const r = await fetch(`${this.API_BASE}/api/jira/del/summary${refresh ? '?refresh=true' : ''}`);
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || r.statusText);
+            this.delSummary = d;
+            this.observeDelCharts();
+            if (refresh) this.loadDelIssues();
+          } catch (e) {
+            this.delError = 'Could not load DEL tickets: ' + e.message;
+          } finally { this.delLoading = false; }
+        },
+        async loadDelMeta() {
+          try {
+            const r = await fetch(`${this.API_BASE}/api/jira/del/meta`);
+            if (r.ok) this.delMeta = await r.json();
+          } catch (e) { /* dropdowns fall back to "All" */ }
+        },
+        async loadDelIssues() {
+          const f = this.delFilters;
+          const p = new URLSearchParams({ status: f.status, order: f.order, limit: '200' });
+          if (f.type) p.set('type', f.type);
+          if (f.q.trim()) p.set('q', f.q.trim());
+          if (f.stale) p.set('stale_days', String(this.delSummary ? this.delSummary.stale_days : 30));
+          if (f.recent) p.set('created_within_days', '30');
+          this.delIssuesLoading = true; this.delError = '';
+          try {
+            const r = await fetch(`${this.API_BASE}/api/jira/del/issues?${p}`);
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || r.statusText);
+            this.delIssues = d;
+          } catch (e) {
+            this.delError = 'Could not load tickets: ' + e.message;
+          } finally { this.delIssuesLoading = false; }
+        },
+        applyDelPreset(preset) {
+          if (!preset) return;
+          this.delFilters = { status: 'open', type: '', q: '', stale: false, recent: false, order: 'updated_desc', ...preset };
+          this.loadDelIssues();
+        },
+        resetDelFilters() { this.applyDelPreset({}); },
+        toggleDelSort(field) {
+          this.delFilters.order = this.delFilters.order === field + '_desc' ? field + '_asc' : field + '_desc';
+          this.loadDelIssues();
+        },
+        delSortArrow(field) {
+          const o = this.delFilters.order;
+          return o === field + '_desc' ? '▼' : o === field + '_asc' ? '▲' : '';
+        },
+        _delHoverPos(ev) {
+          const w = Math.min(380, window.innerWidth - 32), pad = 16;
+          let x = ev.clientX + 14, y = ev.clientY + 16;
+          if (x + w > window.innerWidth - pad) x = Math.max(pad, ev.clientX - w - 14);
+          if (y + 240 > window.innerHeight) y = Math.max(pad, ev.clientY - 250);
+          return { x, y };
+        },
+        showDelHover(issue, ev) {
+          clearTimeout(this.delHoverTimer);
+          const pos = this._delHoverPos(ev);
+          this.delHoverTimer = setTimeout(() => { this.delHover = { issue, ...pos }; }, 250);
+        },
+        moveDelHover(ev) {
+          if (this.delHover) Object.assign(this.delHover, this._delHoverPos(ev));
+        },
+        hideDelHover() { clearTimeout(this.delHoverTimer); this.delHover = null; },
+        async openDelTicket(key) {
+          this.delDetailLoading = true; this.delDetail = null; this.delCommentError = ''; this.delConnectError = '';
+          try {
+            const r = await fetch(`${this.API_BASE}/api/jira/issue/${encodeURIComponent(key)}`);
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || r.statusText);
+            if (this.delDetailLoading) this.delDetail = d;
+          } catch (e) {
+            this.delError = `Could not load ${key}: ` + e.message;
+          } finally { this.delDetailLoading = false; }
+        },
+        delStatusStyle(t) {
+          const done = t.status_category === 'done';
+          const c = done ? '#0ca30c' : (this.delStatusColors[t.status] || '#94a3b8');
+          return { background: c + '1f' };
+        },
+        delStatusDot(t) {
+          return t.status_category === 'done' ? '#0ca30c' : (this.delStatusColors[t.status] || '#94a3b8');
+        },
+        delSpark(vals) {
+          if (!vals || !vals.length) return null;
+          const v = vals.slice(-12), sorted = [...v].sort((a, b) => b - a);
+          let max = sorted[0] || 1;
+          if (sorted[1] != null && sorted[0] > 3 * Math.max(sorted[1], 3)) max = Math.max(sorted[1], 3) * 1.6;
+          const bw = 64 / v.length - 1.5;
+          return v.map((x, i) => { const h = x ? Math.max(2, Math.min(x, max) / max * 24) : 1, x0 = i * (bw + 1.5);
+            return { d: `M${x0},26V${26 - h}H${x0 + bw}V26Z` }; });
+        },
+        _delUserHeaders() {
+          return this.delUser ? { 'X-Jira-Email': this.delUser.email, 'X-Jira-Token': this.delUser.token } : {};
+        },
+        async connectDelUser() {
+          const email = this.delConnect.email.trim(), token = this.delConnect.token.trim();
+          if (!email || !token) return;
+          this.delConnecting = true; this.delConnectError = '';
+          try {
+            const r = await fetch(`${this.API_BASE}/api/jira/me`, { headers: { 'X-Jira-Email': email, 'X-Jira-Token': token } });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || r.statusText);
+            this.delUser = { email, token, name: d.name, accountId: d.account_id };
+            try { localStorage.setItem('obsJiraUser', JSON.stringify(this.delUser)); } catch (e) {}
+            this.delConnect = { email: '', token: '' };
+          } catch (e) {
+            this.delConnectError = e.message;
+          } finally { this.delConnecting = false; }
+        },
+        disconnectDelUser() {
+          this.delUser = null;
+          try { localStorage.removeItem('obsJiraUser'); } catch (e) {}
+        },
+        async postDelComment() {
+          const body = this.delCommentText.trim();
+          if (!body || !this.delUser || !this.delDetail || this.delCommentPosting) return;
+          const key = this.delDetail.key;
+          this.delCommentPosting = true; this.delCommentError = '';
+          try {
+            const r = await fetch(`${this.API_BASE}/api/jira/issue/${encodeURIComponent(key)}/comment`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json', ...this._delUserHeaders() },
+              body: JSON.stringify({ body }) });
+            const d = await r.json();
+            if (r.status === 401) { this.disconnectDelUser(); throw new Error(d.detail + ' Please reconnect.'); }
+            if (!r.ok) throw new Error(d.detail || r.statusText);
+            if (this.delDetail && this.delDetail.key === key) {
+              this.delDetail.comments.push(d);
+              this.delDetail.comment_count = (this.delDetail.comment_count || 0) + 1;
+              this.delDetail.updated = d.created;
+            }
+            const row = this.delIssues && this.delIssues.issues.find(i => i.key === key);
+            if (row) {
+              row.last_comment = { ...d, total: ((row.last_comment && row.last_comment.total) || 0) + 1 };
+              row.updated = d.created; row.idle_days = 0;
+            }
+            this.delCommentText = '';
+          } catch (e) {
+            this.delCommentError = 'Comment not posted: ' + e.message;
+          } finally { this.delCommentPosting = false; }
+        },
+        observeDelCharts() {
+          this.$nextTick(() => {
+            if (!window.ResizeObserver) return;
+            if (!this._delRO) this._delRO = new ResizeObserver(entries => {
+              for (const e of entries) {
+                const w = Math.max(120, Math.floor(e.contentRect.width));
+                if (e.target === this.$refs.delFlowBox && w !== this.delChartW.flow) this.delChartW.flow = w;
+                if (e.target === this.$refs.delAgeBox && w !== this.delChartW.age) this.delChartW.age = w;
+              }
+            });
+            this._delRO.disconnect();
+            if (this.$refs.delFlowBox) this._delRO.observe(this.$refs.delFlowBox);
+            if (this.$refs.delAgeBox) this._delRO.observe(this.$refs.delAgeBox);
+          });
+        },
+        showDelTip(ev, title, rows) { this.delTip = { title, rows, ...this._delHoverPos(ev) }; },
+        moveDelTip(ev) { if (this.delTip) Object.assign(this.delTip, this._delHoverPos(ev)); },
+        fmtDelDay(iso) {
+          if (!iso) return '';
+          const d = new Date(iso + (iso.length === 10 ? 'T00:00:00' : ''));
+          return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        },
+        fmtDelAge(days) {
+          if (days >= 365) return (days / 365).toFixed(1).replace(/\.0$/, '') + 'y';
+          if (days >= 60) return Math.round(days / 30) + 'mo';
+          return days + 'd';
+        },
+        fmtDelTime(iso) {
+          try { return new Date(iso).toLocaleString(); } catch (e) { return iso; }
+        },
+
         // ---- File a Jira ticket for one bounce reason ------------------------
         openBounceJira() {
           this.bounceJiraOpen = true;
@@ -14662,6 +15260,12 @@
 
           if (newPage === 'mappings_rails') {
             this.loadAccountMappingsRails();
+          }
+
+          if (newPage === 'del-tickets') {
+            if (!this.delSummary) this.loadDelSummary(); else this.observeDelCharts();
+            if (!this.delMeta) this.loadDelMeta();
+            if (!this.delIssues) this.loadDelIssues();
           }
 
           // Re-render charts for restored Observatory Agent history

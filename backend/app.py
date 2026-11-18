@@ -127,7 +127,7 @@ from athena_bounce_service import (
     get_bounce_reasons as get_athena_bounce_reasons,
     AthenaBounceError,
 )
-from jira_service import create_jira_ticket
+from jira_service import create_jira_ticket, get_del_summary, find_tickets, get_issue as get_jira_issue, browse_issues, get_del_meta, whoami as jira_whoami, add_comment_as_user
 from industry_updates_service import (
     init_database as init_industry_database,
     refresh_all_updates,
@@ -1238,6 +1238,83 @@ async def create_jira_ticket_endpoint(payload: JiraTicketRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error creating Jira ticket: {str(e)}')
+
+
+# Read-only DEL context (dashboard + per-account/domain lookups). All sync
+# endpoints so FastAPI runs the blocking Jira calls in its threadpool.
+@app.get('/api/jira/del/summary')
+def jira_del_summary(stale_days: int = 30, refresh: bool = False):
+    try:
+        return get_del_summary(stale_days=stale_days, force_refresh=refresh)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Jira: {e}')
+
+
+@app.get('/api/jira/del/search')
+def jira_del_search(q: str, include_closed: bool = True, limit: int = 25):
+    try:
+        return {'query': q, 'issues': find_tickets(q, include_closed=include_closed, max_results=min(limit, 100))}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Jira: {e}')
+
+
+@app.get('/api/jira/del/issues')
+def jira_del_issues(status: str = 'open', type: str = '', q: str = '', stale_days: int = 0,
+                    created_within_days: int = 0, order: str = 'updated_desc', limit: int = 100):
+    try:
+        return browse_issues(status=status, issue_type=type, q=q, stale_days=stale_days,
+                             created_within_days=created_within_days, order=order, limit=limit)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Jira: {e}')
+
+
+@app.get('/api/jira/del/meta')
+def jira_del_meta():
+    try:
+        return get_del_meta()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Jira: {e}')
+
+
+class JiraCommentRequest(BaseModel):
+    body: str
+
+
+def _jira_user_headers(request) -> tuple:
+    # The user's own credentials, sent per request by their browser. Never logged or stored.
+    return request.headers.get('x-jira-email', ''), request.headers.get('x-jira-token', '')
+
+
+@app.get('/api/jira/me')
+def jira_me(request: Request):
+    try:
+        return jira_whoami(*_jira_user_headers(request))
+    except PermissionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Jira: {e}')
+
+
+@app.post('/api/jira/issue/{key}/comment')
+def jira_add_comment(key: str, payload: JiraCommentRequest, request: Request):
+    try:
+        return add_comment_as_user(key, payload.body, *_jira_user_headers(request))
+    except PermissionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Jira: {e}')
+
+
+@app.get('/api/jira/issue/{key}')
+def jira_issue_detail(key: str):
+    try:
+        return get_jira_issue(key)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f'Jira: {e}')
 
 
 # -------------------------
