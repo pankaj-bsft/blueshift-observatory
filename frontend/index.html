@@ -1384,6 +1384,83 @@
     .delx-pill { display:inline-flex; align-items:center; gap:6px; padding:2px 9px 2px 7px; border-radius:999px;
                  font-size:12px; font-weight:600; color:#1e293b; white-space:nowrap; }
     .delx-pill i { width:7px; height:7px; border-radius:50%; display:inline-block; }
+
+    /* ===== Pulsation · Volume Drops ===== */
+    .vd-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:12px; }
+    .vd-field { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; }
+    .vd-seg { display:inline-flex; background:#f1f5f9; border-radius:8px; padding:2px; }
+    .vd-seg button { border:0; background:transparent; padding:6px 12px; font-size:12px; font-weight:600; color:#475569; border-radius:6px; cursor:pointer; }
+    .vd-seg button.on { background:#fff; color:#0f172a; box-shadow:0 1px 2px rgba(15,23,42,.12); }
+    .vd-caption { font-size:12px; color:#64748b; margin:0 0 12px; }
+    .vd-caption b { color:#0f172a; font-weight:600; }
+    .vd-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .vd-table th { text-align:left; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.03em; padding:8px 10px; border-bottom:1px solid #e2e8f0; white-space:nowrap; }
+    .vd-table td { padding:9px 10px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+    .vd-table tr.vd-row { cursor:pointer; } .vd-table tr.vd-row:hover td { background:#f8fafc; }
+    .vd-table tr.vd-open td { background:#f8fafc; }
+    .vd-num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .vd-sev { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:2px 8px; border-radius:999px; white-space:nowrap; color:#1e293b; }
+    .vd-sev i { font-style:normal; font-size:10px; }
+    .vd-sev.stopped { background:#d03b3b1f; } .vd-sev.stopped i { color:#d03b3b; }
+    .vd-sev.severe { background:#ec835a26; } .vd-sev.severe i { color:#c2410c; }
+    .vd-sev.moderate { background:#fab21926; } .vd-sev.moderate i { color:#a16207; }
+    .vd-sev.up.surge { background:#104c3a1a; } .vd-sev.up.surge i { color:#0b6b4f; letter-spacing:-2px; }
+    .vd-sev.up.strong { background:#1baf7a26; } .vd-sev.up.strong i { color:#12895f; letter-spacing:-2px; }
+    .vd-sev.up.moderate { background:#1baf7a14; } .vd-sev.up.moderate i { color:#1baf7a; }
+    .vd-sev.up i { margin-right:3px; }
+    .vd-dir button i { font-style:normal; font-size:9px; margin-right:3px; }
+    .vd-dir button.down.on i { color:#eb6834; } .vd-dir button.up.on i { color:#1baf7a; }
+    .vd-steps { white-space:nowrap; font-variant-numeric:tabular-nums; color:#334155; }
+    .vd-steps span { color:#94a3b8; margin:0 3px; }
+    .vd-sub { font-size:11px; color:#94a3b8; }
+    .vd-detail { padding:14px 16px 18px !important; background:#f8fafc; }
+    .vd-detail-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:16px; }
+    @media (max-width: 1100px) { .vd-detail-grid { grid-template-columns:1fr; } }
+    .vd-mini th, .vd-mini td { padding:5px 8px; font-size:12px; border-bottom:1px solid #eef2f7; }
+    .vd-mini th { font-size:10px; }
+
+    /* ===== Pulsation top section ===== */
+    .pz-bar { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:10px 12px; margin-bottom:12px; }
+    .pz-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .pz-filters { margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9; }
+    .pz-seg { display:inline-flex; background:#f1f5f9; border-radius:9px; padding:3px; }
+    .pz-seg button { border:0; background:transparent; padding:6px 11px; font-size:12px; font-weight:600; color:#475569; border-radius:7px; cursor:pointer; white-space:nowrap; }
+    .pz-seg button.on { background:#fff; color:#0f172a; box-shadow:0 1px 2px rgba(15,23,42,.14); }
+    .pz-seg button:disabled { cursor:default; opacity:.6; }
+    .pz-load { display:inline-flex; align-items:center; gap:6px; padding:7px 14px !important; font-size:13px !important; border-radius:9px !important; }
+    .pz-spin { animation:pzspin 1s linear infinite; } @keyframes pzspin { to { transform:rotate(360deg); } }
+    .pz-range { font-size:12px; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:999px; padding:4px 10px; white-space:nowrap; }
+    .pz-right { margin-left:auto; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .pz-ghost { display:inline-flex; align-items:center; gap:6px; border:1px solid #e2e8f0; background:#fff; color:#334155; font-size:12px; font-weight:600;
+                padding:6px 10px; border-radius:8px; cursor:pointer; white-space:nowrap; }
+    .pz-ghost:hover:not(:disabled) { background:#f8fafc; border-color:#cbd5e1; }
+    .pz-ghost.on { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+    .pz-ghost:disabled { opacity:.55; cursor:default; }
+    .pz-div { width:1px; height:20px; background:#e2e8f0; margin:0 4px; }
+    .pz-lbl { font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.04em; }
+    .pz-date { padding:5px 8px !important; font-size:12px !important; height:auto !important; border-radius:8px !important; }
+    .pz-search { flex:1 1 260px; display:flex; align-items:center; gap:8px; border:1px solid #e2e8f0; border-radius:9px; padding:0 10px; color:#94a3b8; background:#fff; }
+    .pz-search:focus-within { border-color:#93c5fd; box-shadow:0 0 0 3px rgba(59,130,246,.12); }
+    .pz-search input { flex:1; border:0; outline:0; padding:8px 0; font-size:13px; color:#0f172a; background:transparent; min-width:0; }
+    .pz-x { border:0; background:none; color:#94a3b8; font-size:16px; cursor:pointer; padding:0 2px; line-height:1; }
+    .pz-chip { border:1px solid #bfdbfe; background:#eff6ff; color:#1e40af; font-size:12px; font-weight:600; border-radius:999px; padding:5px 10px; cursor:pointer; white-space:nowrap; }
+    .pz-kpiwrap { margin-bottom:12px; }
+    .pz-kpis { grid-template-columns:repeat(6, minmax(0,1fr)); margin-bottom:0; border-bottom-left-radius:0; border-bottom-right-radius:0; }
+    @media (max-width: 1100px) { .pz-kpis { grid-template-columns:repeat(3, minmax(0,1fr)); } .pz-kpis .delx-kpi { border-top:1px solid #e2e8f0; } }
+    .pz-class { position:relative; }
+    .pz-class.active { background:#f8fafc; box-shadow:inset 0 -3px 0 #3b82f6; }
+    .pz-class.dim { opacity:.55; }
+    .pz-ico { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:50%; color:#fff;
+              font-size:9px; font-weight:800; margin-right:6px; vertical-align:-2px; }
+    .pz-dist { display:flex; gap:2px; box-sizing:content-box; height:6px; background:#fff; border:1px solid #e2e8f0; border-top:0; border-radius:0 0 14px 14px; padding:0 14px 10px; }
+    .pz-dist > div { height:6px; }
+    .pz-dist > div { border-radius:3px; min-width:2px; }
+    .pz-tabs { margin-top:0 !important; background:#fff !important; box-shadow:none !important; padding:4px !important; }
+    .pz-tabs .tabs { overflow-x:auto; scrollbar-width:none; }
+    .pz-tabs .tab { padding:7px 14px; font-size:13px; color:#64748b; white-space:nowrap; flex:0 0 auto; }
+    .pz-tabs + .tabs-spacer { height:12px; }
+    .pz-tabs .tab:hover:not(.active) { color:#0f172a; background:#f8fafc; }
+    .pz-tabs .tab.active { background:#eff6ff; color:#1e40af; box-shadow:none; }
 </style>
 </head>
 <body>
@@ -1571,73 +1648,56 @@
             </div>
           </div>
 
-          <!-- Control Panel -->
-          <div class="control-panel">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <label style="font-size: 13px; font-weight: 600; color: #64748b;">📅 Time Period:</label>
-              <select class="date-input" v-model="pulsationViewType" :disabled="pulsationLoading">
-                <option value="yesterday">Yesterday</option>
-                <option value="7day">Last 7 Days</option>
-                <option value="30day">Last 30 Days</option>
-                <option value="60day">Last 60 Days</option>
-                <option value="90day">Last 90 Days</option>
-                <option value="120day">Last 120 Days</option>
-              </select>
-            </div>
-
-            <button class="btn btn-primary" @click="fetchPulsationData" :disabled="pulsationLoading">
-              <span v-if="pulsationLoading">⏳</span>
-              <span v-else>🔄</span>
-              {{ pulsationLoading ? 'Loading...' : 'Load Data' }}
-            </button>
-
-            <button class="btn btn-secondary" @click="togglePulsationSummary" :disabled="pulsationLoading">
-              {{ pulsationSummaryOpen ? '✕ Hide Summary' : '📝 Delivery Summary' }}
-            </button>
-
-            <button class="btn btn-secondary" @click="collectYesterdayData" :disabled="pulsationLoading">
-              📥 Collect Yesterday
-            </button>
-
-            <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-              <input type="date" class="date-input" v-model="pulsationCustomCollectDate" :disabled="pulsationLoading" />
-              <button class="btn btn-secondary" @click="collectCustomDate" :disabled="pulsationLoading">
-                Collect Custom Date
+          <!-- Control bar -->
+          <div class="pz-bar">
+            <div class="pz-row">
+              <div class="pz-seg" role="group" aria-label="Time period">
+                <button v-for="o in pzPeriods" :key="o[0]" :class="{ on: pulsationViewType === o[0] }" :disabled="pulsationLoading"
+                        @click="pulsationViewType = o[0]">{{ o[1] }}</button>
+              </div>
+              <button class="btn btn-primary pz-load" @click="fetchPulsationData" :disabled="pulsationLoading">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" :class="{ 'pz-spin': pulsationLoading }"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
+                {{ pulsationLoading ? 'Loading…' : 'Load data' }}
               </button>
-            </div>
-          </div>
+              <span v-if="pulsationData && pulsationData.date_range" class="pz-range">
+                {{ fmtDelDay(pulsationData.date_range.start) }} → {{ fmtDelDay(pulsationData.date_range.end) }}
+              </span>
 
-          <div v-if="pulsationTab !== 'charts'" class="control-panel" style="margin-top: -12px;">
-            <div class="control-group" style="flex: 1; min-width: 260px;">
-              <span class="control-label">🔍 Domain</span>
-              <input
-                list="pulsation-domain-list"
-                class="date-input"
-                v-model="pulsationDomainFilter"
-                placeholder="All Domains"
-                :disabled="pulsationLoading"
-                style="flex: 1; min-width: 200px;"
-              />
+              <div class="pz-right">
+                <button class="pz-ghost" :class="{ on: pulsationSummaryOpen }" @click="togglePulsationSummary" :disabled="pulsationLoading">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+                  {{ pulsationSummaryOpen ? 'Hide summary' : 'Delivery summary' }}
+                </button>
+                <span class="pz-div"></span>
+                <span class="pz-lbl">Collect</span>
+                <button class="pz-ghost" @click="collectYesterdayData" :disabled="pulsationLoading" title="Pull yesterday's data from Druid">Yesterday</button>
+                <input type="date" class="date-input pz-date" v-model="pulsationCustomCollectDate" :disabled="pulsationLoading" aria-label="Date to collect" />
+                <button class="pz-ghost" @click="collectCustomDate" :disabled="pulsationLoading || !pulsationCustomCollectDate">Collect date</button>
+              </div>
+            </div>
+
+            <div v-if="pulsationTab !== 'charts' && pulsationTab !== 'volume_drops' && pulsationTab !== 'open_trends'" class="pz-row pz-filters">
+              <label class="pz-search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <input list="pulsation-domain-list" v-model="pulsationDomainFilter" placeholder="Filter by sending domain" :disabled="pulsationLoading" />
+                <button v-if="pulsationDomainFilter" type="button" class="pz-x" @click="pulsationDomainFilter = ''" aria-label="Clear domain filter">×</button>
+              </label>
               <datalist id="pulsation-domain-list">
                 <option value="">All Domains</option>
                 <option v-for="domain in pulsationDomainOptions" :key="domain" :value="domain">{{ domain }}</option>
               </datalist>
-            </div>
-
-            <div class="control-group" style="flex: 1; min-width: 260px;">
-              <span class="control-label">🏷️ Account</span>
-              <input
-                list="pulsation-account-list"
-                class="date-input"
-                v-model="pulsationAccountFilter"
-                placeholder="All Accounts"
-                :disabled="pulsationLoading"
-                style="flex: 1; min-width: 200px;"
-              />
+              <label class="pz-search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <input list="pulsation-account-list" v-model="pulsationAccountFilter" placeholder="Filter by account" :disabled="pulsationLoading" />
+                <button v-if="pulsationAccountFilter" type="button" class="pz-x" @click="pulsationAccountFilter = ''" aria-label="Clear account filter">×</button>
+              </label>
               <datalist id="pulsation-account-list">
                 <option value="">All Accounts</option>
                 <option v-for="name in pulsationAccountOptions" :key="name" :value="name">{{ name }}</option>
               </datalist>
+              <button v-if="activeClassificationFilter" class="pz-chip" @click="activeClassificationFilter = ''">
+                {{ activeClassificationFilter.replace(/ \(.*\)/, '') === activeClassificationFilter ? activeClassificationFilter : activeClassificationFilter.match(/\((.*)\)/)[1] }} only <b>×</b>
+              </button>
             </div>
           </div>
 
@@ -1826,59 +1886,35 @@
             </div>
           </div>
 
-          <!-- Stats Grid -->
-          <div v-if="pulsationData" class="stats-grid">
-            <div
-              class="stat-card stat-card-healthy"
-              :class="{ 'active-filter': activeClassificationFilter === 'Green (Healthy)' }"
-              v-if="pulsationData.classification_counts['Green (Healthy)']"
-              @click="toggleClassificationFilter('Green (Healthy)')"
-            >
-              <div class="stat-card-icon-badge">✓</div>
-              <p class="stat-card-label">HEALTHY DOMAINS</p>
-              <p class="stat-card-value">{{ formatAnimatedNumber(animatedCounts.healthy) }}</p>
-              <p class="stat-card-subtitle">Excellent Performance</p>
+          <!-- Headline strip -->
+          <div v-if="pulsationData" class="delx pz-kpiwrap">
+            <div class="delx-kpis pz-kpis">
+              <div class="delx-kpi" style="cursor:default;"><div style="min-width:0;">
+                <div class="delx-kpi-label">Domains tracked</div>
+                <div class="delx-kpi-value">{{ formatNumber(pzTotals.rows) }}</div>
+                <div class="delx-kpi-sub"><b>{{ formatNumber(pzTotals.accounts) }}</b> accounts</div>
+              </div></div>
+              <div class="delx-kpi" style="cursor:default;"><div style="min-width:0;">
+                <div class="delx-kpi-label">Volume sent</div>
+                <div class="delx-kpi-value">{{ fmtVd(pzTotals.sent) }}</div>
+                <div class="delx-kpi-sub">delivery <b>{{ pzTotals.deliveryRate }}%</b></div>
+              </div></div>
+              <div v-for="c in pzClasses" :key="c.key" class="delx-kpi pz-class" :class="{ active: activeClassificationFilter === c.key, dim: activeClassificationFilter && activeClassificationFilter !== c.key }"
+                   @click="toggleClassificationFilter(c.key)" :title="activeClassificationFilter === c.key ? 'Show all domains' : 'Show only ' + c.label.toLowerCase()">
+                <div style="min-width:0;">
+                  <div class="delx-kpi-label"><span class="pz-ico" :style="{ background: c.color }">{{ c.icon }}</span>{{ c.label }}</div>
+                  <div class="delx-kpi-value">{{ formatAnimatedNumber(animatedCounts[c.anim]) }}</div>
+                  <div class="delx-kpi-sub"><b>{{ c.pct }}%</b> · {{ c.sub }}</div>
+                </div>
+              </div>
             </div>
-
-            <div
-              class="stat-card stat-card-monitor"
-              :class="{ 'active-filter': activeClassificationFilter === 'Yellow (Monitor)' }"
-              v-if="pulsationData.classification_counts['Yellow (Monitor)']"
-              @click="toggleClassificationFilter('Yellow (Monitor)')"
-            >
-              <div class="stat-card-icon-badge">⚠</div>
-              <p class="stat-card-label">MONITOR REQUIRED</p>
-              <p class="stat-card-value">{{ formatAnimatedNumber(animatedCounts.monitor) }}</p>
-              <p class="stat-card-subtitle">Needs Attention</p>
-            </div>
-
-            <div
-              class="stat-card stat-card-low"
-              :class="{ 'active-filter': activeClassificationFilter === 'Orange (Low Delivery)' }"
-              v-if="pulsationData.classification_counts['Orange (Low Delivery)']"
-              @click="toggleClassificationFilter('Orange (Low Delivery)')"
-            >
-              <div class="stat-card-icon-badge">!</div>
-              <p class="stat-card-label">LOW DELIVERY</p>
-              <p class="stat-card-value">{{ formatAnimatedNumber(animatedCounts.low) }}</p>
-              <p class="stat-card-subtitle">Action Required</p>
-            </div>
-
-            <div
-              class="stat-card stat-card-critical"
-              :class="{ 'active-filter': activeClassificationFilter === 'Red (High Spam Complaints)' }"
-              v-if="pulsationData.classification_counts['Red (High Spam Complaints)']"
-              @click="toggleClassificationFilter('Red (High Spam Complaints)')"
-            >
-              <div class="stat-card-icon-badge">✕</div>
-              <p class="stat-card-label">HIGH SPAM RISK</p>
-              <p class="stat-card-value">{{ formatAnimatedNumber(animatedCounts.critical) }}</p>
-              <p class="stat-card-subtitle">Critical Issue</p>
+            <div class="pz-dist" aria-hidden="true">
+              <div v-for="c in pzClasses" :key="c.key" v-show="c.n" :style="{ flexGrow: c.n, flexShrink: 1, flexBasis: '0px', background: c.color }" :title="c.label + ': ' + c.n"></div>
             </div>
           </div>
 
           <!-- Tabs -->
-          <div v-if="pulsationData" class="tabs-sticky">
+          <div v-if="pulsationData" class="tabs-sticky pz-tabs">
             <div class="tabs">
               <button class="tab" :class="{ active: pulsationTab === 'overall' }" @click="pulsationTab = 'overall'">
                 Overall
@@ -1901,9 +1937,355 @@
               <button class="tab" :class="{ active: pulsationTab === 'charts' }" @click="pulsationTab = 'charts'">
                 Trend & Logs
               </button>
+              <button class="tab" :class="{ active: pulsationTab === 'volume_drops' }" @click="pulsationTab = 'volume_drops'; if (!vdData) loadVolumeDrops()">
+                Volume Trends
+              </button>
+              <button class="tab" :class="{ active: pulsationTab === 'open_trends' }" @click="pulsationTab = 'open_trends'; if (!otData) loadOpenTrends()">
+                Open Rate Trends
+              </button>
             </div>
           </div>
           <div class="tabs-spacer"></div>
+
+          <!-- Volume Drops Tab -->
+          <div v-if="pulsationTab === 'volume_drops'" class="card-section delx">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+              <h3 class="card-title">{{ vd.direction === 'spike' ? 'Volume Spikes' : 'Volume Drops' }}</h3>
+              <button class="btn btn-sm btn-secondary" @click="loadVolumeDrops()" :disabled="vdLoading">{{ vdLoading ? 'Loading…' : 'Refresh' }}</button>
+            </div>
+            <div style="padding:16px 24px 24px;">
+              <div class="vd-controls">
+                <div class="vd-field">Pattern
+                  <div class="vd-seg vd-dir">
+                    <button :class="{ on: vd.direction === 'drop', down: true }" @click="vd.direction = 'drop'; loadVolumeDrops()"><i>▼</i> Drops</button>
+                    <button :class="{ on: vd.direction === 'spike', up: true }" @click="vd.direction = 'spike'; loadVolumeDrops()"><i>▲</i> Spikes</button>
+                  </div>
+                </div>
+                <div class="vd-field">Period
+                  <div class="vd-seg">
+                    <button :class="{ on: vd.mode === 'weekly' }" @click="vd.mode = 'weekly'; loadVolumeDrops()">Weekly</button>
+                    <button :class="{ on: vd.mode === 'monthly' }" @click="vd.mode = 'monthly'; loadVolumeDrops()">Monthly</button>
+                  </div>
+                </div>
+                <div class="vd-field">View by
+                  <div class="vd-seg">
+                    <button :class="{ on: vd.level === 'account' }" @click="vd.level = 'account'; loadVolumeDrops()">Account</button>
+                    <button :class="{ on: vd.level === 'domain' }" @click="vd.level = 'domain'; loadVolumeDrops()">Sending domain</button>
+                  </div>
+                </div>
+                <label class="vd-field">{{ vd.direction === 'spike' ? 'Rises' : 'Drops' }} in a row
+                  <select class="date-input" v-model.number="vd.consecutive" @change="loadVolumeDrops()" style="width:110px;">
+                    <option :value="2">2</option><option :value="3">3</option><option :value="4">4</option>
+                  </select>
+                </label>
+                <label class="vd-field">Each {{ vd.direction === 'spike' ? 'rise' : 'drop' }} at least
+                  <select class="date-input" v-model.number="vd.minDrop" @change="loadVolumeDrops()" style="width:110px;">
+                    <option :value="5">5%</option><option :value="10">10%</option><option :value="20">20%</option><option :value="30">30%</option>
+                  </select>
+                </label>
+                <label class="vd-field">{{ vd.direction === 'spike' ? 'Min. latest volume' : 'Min. baseline volume' }}
+                  <select class="date-input" v-model.number="vd.minDaily" @change="loadVolumeDrops()" style="width:140px;">
+                    <option :value="1000">1k / day</option><option :value="5000">5k / day</option><option :value="20000">20k / day</option><option :value="100000">100k / day</option>
+                  </select>
+                </label>
+                <form class="vd-field" @submit.prevent="loadVolumeDrops()">Search
+                  <input class="date-input" v-model="vd.q" placeholder="Account or domain" style="width:200px;">
+                </form>
+              </div>
+
+              <div v-if="vdError" style="background:#fee2e2; border:1px solid #fca5a5; border-radius:10px; padding:12px 16px; color:#991b1b; font-size:13px; margin-bottom:12px;">{{ vdError }}</div>
+
+              <template v-if="vdData">
+                <p class="vd-caption">
+                  Average daily send compared across complete {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }}:
+                  <b>{{ (vdData.window || []).join(' → ') }}</b>.
+                  Flags {{ vdData.level === 'account' ? 'accounts' : 'sending domains' }} averaging ≥ {{ fmtVd(vdData.params.min_daily_avg) }}/day {{ vdData.direction === 'spike' ? 'at the end' : 'at the start' }} that {{ vdData.direction === 'spike' ? 'rose' : 'fell' }} ≥ {{ vdData.params.min_drop_pct }}% in each of {{ vdData.params.consecutive }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }} in a row.
+                  Data through {{ vdData.last_data_day }}.
+                  <span v-if="vdData.note"> {{ vdData.note }}</span>
+                </p>
+
+                <div class="delx-kpis" style="margin-bottom:14px;">
+                  <div class="delx-kpi" style="cursor:default;"><div>
+                    <div class="delx-kpi-label">Flagged</div>
+                    <div class="delx-kpi-value">{{ vdData.totals ? vdData.totals.flagged : 0 }}</div>
+                    <div class="delx-kpi-sub">of <b>{{ vdData.evaluated }}</b> {{ vdData.level === 'account' ? 'accounts' : 'domains' }} checked</div>
+                  </div></div>
+                  <div class="delx-kpi" style="cursor:default;" v-for="t in vdSevTiles" :key="t.key"><div>
+                    <div class="delx-kpi-label"><span class="vd-sev" :class="[t.key, { up: vdData.direction === 'spike' }]" style="padding:0; background:none;"><i>{{ t.icon }}</i></span> {{ t.label }}</div>
+                    <div class="delx-kpi-value">{{ vdData.totals ? (vdData.totals[t.key] || 0) : 0 }}</div>
+                    <div class="delx-kpi-sub">{{ t.sub }}</div>
+                  </div></div>
+                  <div class="delx-kpi" style="cursor:default;"><div>
+                    <div class="delx-kpi-label">{{ vdData.direction === 'spike' ? 'Volume added' : 'Volume lost' }}</div>
+                    <div class="delx-kpi-value">{{ vdData.direction === 'spike' ? '+' : '' }}{{ fmtVd(vdData.totals ? Math.abs(vdData.totals.change_per_day != null ? vdData.totals.change_per_day : vdData.totals.lost_per_day) : 0) }}</div>
+                    <div class="delx-kpi-sub">sends / day vs baseline</div>
+                  </div></div>
+                </div>
+
+                <div v-if="!vdData.flagged.length" style="padding:28px; text-align:center; color:#64748b; font-size:14px; background:#f8fafc; border-radius:10px;">
+                  {{ vdData.direction === 'spike' ? '' : '✅ ' }}No {{ vdData.level === 'account' ? 'account' : 'domain' }} {{ vdData.direction === 'spike' ? 'rose' : 'dropped' }} {{ vdData.params.consecutive }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }} in a row with these settings.
+                </div>
+
+                <div v-else style="overflow-x:auto;">
+                  <table class="vd-table">
+                    <thead><tr>
+                      <th>Severity</th>
+                      <th>{{ vdData.level === 'account' ? 'Account' : 'Sending domain' }}</th>
+                      <th>Avg daily send · last {{ vdData.periods.length }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }}</th>
+                      <th class="vd-num">Baseline / day</th>
+                      <th class="vd-num">Latest / day</th>
+                      <th>Each step</th>
+                      <th class="vd-num">Total</th>
+                      <th class="vd-num">Delivery %</th>
+                      <th>ESP</th>
+                    </tr></thead>
+                    <tbody>
+                      <template v-for="(f, idx) in vdData.flagged" :key="f.name">
+                        <tr class="vd-row" :class="{ 'vd-open': vdOpen === f.name }" @click="toggleVd(f, idx)">
+                          <td><span class="vd-sev" :class="[f.severity, { up: vdData.direction === 'spike' }]"><i>{{ vdSevIcon(f.severity) }}</i>{{ f.severity.charAt(0).toUpperCase() + f.severity.slice(1) }}</span></td>
+                          <td>
+                            <div style="font-weight:600; color:#0f172a;">{{ f.name }}</div>
+                            <div class="vd-sub" v-if="f.level === 'account'">{{ (f.domains || []).length }} domain{{ (f.domains || []).length === 1 ? '' : 's' }}<span v-if="f.streak > vdData.params.consecutive"> · {{ vdData.direction === 'spike' ? 'rising' : 'falling' }} {{ f.streak }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }}</span></div>
+                            <div class="vd-sub" v-else>{{ f.account && f.account !== 'Unmapped' ? f.account : 'unmapped' }}<span v-if="f.streak > vdData.params.consecutive"> · {{ vdData.direction === 'spike' ? 'rising' : 'falling' }} {{ f.streak }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }}</span></div>
+                          </td>
+                          <td>
+                            <svg width="150" height="30" viewBox="0 0 150 30" aria-hidden="true" style="display:block;">
+                              <path v-for="b in vdSpark(f)" :key="b.k" :d="b.d" :fill="b.fill" :opacity="b.op"></path>
+                            </svg>
+                          </td>
+                          <td class="vd-num">{{ fmtVd(f.baseline_avg_daily) }}</td>
+                          <td class="vd-num" style="font-weight:600; color:#0f172a;">{{ fmtVd(f.latest_avg_daily) }}</td>
+                          <td class="vd-steps"><template v-for="(st, si) in f.steps_pct" :key="si"><span v-if="si">→</span>{{ st > 0 ? '+' : '' }}{{ st }}%</template></td>
+                          <td class="vd-num" style="font-weight:700; color:#0f172a;">{{ f.total_drop_pct > 0 ? '+' : '' }}{{ f.total_drop_pct }}%</td>
+                          <td class="vd-num">{{ f.delivery_rate_baseline != null ? f.delivery_rate_baseline + '%' : '—' }} <span class="vd-sub">→</span> {{ f.delivery_rate_latest != null ? f.delivery_rate_latest + '%' : '—' }}</td>
+                          <td class="vd-sub" style="white-space:nowrap;">{{ f.esps.join(', ') }}</td>
+                        </tr>
+                        <tr v-if="vdOpen === f.name">
+                          <td colspan="9" class="vd-detail">
+                            <div class="vd-detail-grid">
+                              <div>
+                                <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                                  <span class="delx-title">Average daily send per {{ vdData.mode === 'weekly' ? 'week' : 'month' }}</span>
+                                  <span class="delx-legend">
+                                    <span><i class="delx-sw" style="background:#86b6ef"></i>Earlier</span>
+                                    <span><i class="delx-sw" :style="{ background: vdWinColor }"></i>{{ vdData.direction === 'spike' ? 'Rise' : 'Drop' }} window</span>
+                                    <span><i class="delx-sw" style="background:#cbd5e1"></i>In progress</span>
+                                  </span>
+                                </div>
+                                <div style="height:220px; position:relative;"><canvas :id="'vd-chart-' + idx"></canvas></div>
+                              </div>
+                              <div>
+                                <table class="vd-table vd-mini">
+                                  <thead><tr><th>{{ vdData.mode === 'weekly' ? 'Week of' : 'Month' }}</th><th class="vd-num">Sent</th><th class="vd-num">Avg / day</th><th class="vd-num">Delivery %</th><th class="vd-num">Bounce %</th></tr></thead>
+                                  <tbody>
+                                    <tr v-for="p in f.series.slice().reverse().slice(0, 8)" :key="p.start" :style="{ color: p.complete ? '' : '#94a3b8' }">
+                                      <td style="white-space:nowrap;">{{ p.label }}<span v-if="!p.complete" class="vd-sub"> (so far)</span><span v-else-if="!p.trusted" class="vd-sub" title="Few days collected"> ⚠</span></td>
+                                      <td class="vd-num">{{ fmtVd(p.sent) }}</td>
+                                      <td class="vd-num">{{ p.avg_daily != null ? fmtVd(p.avg_daily) : '—' }}</td>
+                                      <td class="vd-num">{{ p.delivery_rate != null ? p.delivery_rate + '%' : '—' }}</td>
+                                      <td class="vd-num">{{ p.bounce_rate != null ? p.bounce_rate + '%' : '—' }}</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                                <template v-if="f.level === 'account' && f.domains && f.domains.length">
+                                  <div class="delx-title" style="margin:14px 0 6px;">Domains · {{ vdData.window[0] }} vs {{ vdData.window[vdData.window.length - 1] }}</div>
+                                  <table class="vd-table vd-mini">
+                                    <thead><tr><th>Domain</th><th class="vd-num">Baseline / day</th><th class="vd-num">Latest / day</th><th class="vd-num">Change</th></tr></thead>
+                                    <tbody>
+                                      <tr v-for="d in f.domains.slice(0, 8)" :key="d.domain">
+                                        <td>{{ d.domain }}</td>
+                                        <td class="vd-num">{{ fmtVd(d.baseline_avg_daily) }}</td>
+                                        <td class="vd-num">{{ fmtVd(d.latest_avg_daily) }}</td>
+                                        <td class="vd-num" style="font-weight:600;">{{ d.change_pct != null ? (d.change_pct > 0 ? '+' : '') + d.change_pct + '%' : 'new' }}</td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </template>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+              <div v-else-if="vdLoading" style="padding:28px; text-align:center; color:#64748b;">Loading volume trends…</div>
+            </div>
+          </div>
+
+          <!-- Open Rate Trends Tab -->
+          <div v-if="pulsationTab === 'open_trends'" class="card-section delx">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+              <h3 class="card-title">{{ ot.direction === 'spike' ? 'Unique Open % Spikes' : 'Unique Open % Drops' }}</h3>
+              <button class="btn btn-sm btn-secondary" @click="loadOpenTrends()" :disabled="otLoading">{{ otLoading ? 'Loading…' : 'Refresh' }}</button>
+            </div>
+            <div style="padding:16px 24px 24px;">
+              <div class="vd-controls">
+                <div class="vd-field">Pattern
+                  <div class="vd-seg vd-dir">
+                    <button :class="{ on: ot.direction === 'drop', down: true }" @click="ot.direction = 'drop'; loadOpenTrends()"><i>▼</i> Drops</button>
+                    <button :class="{ on: ot.direction === 'spike', up: true }" @click="ot.direction = 'spike'; loadOpenTrends()"><i>▲</i> Spikes</button>
+                  </div>
+                </div>
+                <div class="vd-field">Period
+                  <div class="vd-seg">
+                    <button :class="{ on: ot.mode === 'weekly' }" @click="ot.mode = 'weekly'; loadOpenTrends()">Weekly</button>
+                    <button :class="{ on: ot.mode === 'monthly' }" @click="ot.mode = 'monthly'; loadOpenTrends()">Monthly</button>
+                  </div>
+                </div>
+                <div class="vd-field">View by
+                  <div class="vd-seg">
+                    <button :class="{ on: ot.level === 'account' }" @click="ot.level = 'account'; loadOpenTrends()">Account</button>
+                    <button :class="{ on: ot.level === 'domain' }" @click="ot.level = 'domain'; loadOpenTrends()">Sending domain</button>
+                  </div>
+                </div>
+                <label class="vd-field">{{ ot.direction === 'spike' ? 'Rises' : 'Drops' }} in a row
+                  <select class="date-input" v-model.number="ot.consecutive" @change="loadOpenTrends()" style="width:110px;">
+                    <option :value="2">2</option><option :value="3">3</option><option :value="4">4</option>
+                  </select>
+                </label>
+                <label class="vd-field">Each {{ ot.direction === 'spike' ? 'rise' : 'drop' }} at least
+                  <select class="date-input" v-model.number="ot.minPts" @change="loadOpenTrends()" style="width:110px;">
+                    <option :value="1">1 pt</option><option :value="2">2 pts</option><option :value="3">3 pts</option><option :value="5">5 pts</option>
+                  </select>
+                </label>
+                <label class="vd-field">Min. delivered volume
+                  <select class="date-input" v-model.number="ot.minDaily" @change="loadOpenTrends()" style="width:140px;">
+                    <option :value="1000">1k / day</option><option :value="5000">5k / day</option><option :value="20000">20k / day</option><option :value="100000">100k / day</option>
+                  </select>
+                </label>
+                <form class="vd-field" @submit.prevent="loadOpenTrends()">Search
+                  <input class="date-input" v-model="ot.q" placeholder="Account or domain" style="width:200px;">
+                </form>
+              </div>
+
+              <div v-if="otError" style="background:#fee2e2; border:1px solid #fca5a5; border-radius:10px; padding:12px 16px; color:#991b1b; font-size:13px; margin-bottom:12px;">{{ otError }}</div>
+
+              <template v-if="otData">
+                <p class="vd-caption">
+                  <template v-if="otData.window && otData.window.length">
+                    Unique open % (unique opens ÷ delivered) compared across complete {{ otData.mode === 'weekly' ? 'weeks' : 'months' }}:
+                    <b>{{ otData.window.join(' → ') }}</b>.
+                    Flags {{ otData.level === 'account' ? 'accounts' : 'sending domains' }} delivering ≥ {{ fmtVd(otData.params.min_daily_delivered) }}/day whose open rate {{ otData.direction === 'spike' ? 'rose' : 'fell' }} ≥ {{ otData.params.min_change_pts }} pts in each of {{ otData.params.consecutive }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }} in a row.
+                    Data through {{ otData.last_data_day }}.
+                  </template>
+                  <span v-if="otData.note"> {{ otData.note }}</span>
+                </p>
+
+                <div class="delx-kpis" style="margin-bottom:14px;">
+                  <div class="delx-kpi" style="cursor:default;"><div>
+                    <div class="delx-kpi-label">Flagged</div>
+                    <div class="delx-kpi-value">{{ otData.totals ? otData.totals.flagged : 0 }}</div>
+                    <div class="delx-kpi-sub">of <b>{{ otData.evaluated }}</b> {{ otData.level === 'account' ? 'accounts' : 'domains' }} checked</div>
+                  </div></div>
+                  <div class="delx-kpi" style="cursor:default;" v-for="t in otSevTiles" :key="t.key"><div>
+                    <div class="delx-kpi-label"><span class="vd-sev" :class="[otSevClass(t.key), { up: otData.direction === 'spike' }]" style="padding:0; background:none;"><i>{{ t.icon }}</i></span> {{ t.label }}</div>
+                    <div class="delx-kpi-value">{{ otData.totals ? (otData.totals[t.key] || 0) : 0 }}</div>
+                    <div class="delx-kpi-sub">{{ t.sub }}</div>
+                  </div></div>
+                  <div class="delx-kpi" style="cursor:default;"><div>
+                    <div class="delx-kpi-label">Avg. change</div>
+                    <div class="delx-kpi-value">{{ fmtPts(otData.totals ? otData.totals.avg_change_pts : 0) }}</div>
+                    <div class="delx-kpi-sub">open % points, flagged {{ otData.level === 'account' ? 'accounts' : 'domains' }}</div>
+                  </div></div>
+                </div>
+
+                <div v-if="!otData.flagged.length" style="padding:28px; text-align:center; color:#64748b; font-size:14px; background:#f8fafc; border-radius:10px;">
+                  <template v-if="otData.window && otData.window.length">{{ otData.direction === 'spike' ? '' : '✅ ' }}No {{ otData.level === 'account' ? 'account' : 'domain' }}'s open rate {{ otData.direction === 'spike' ? 'rose' : 'dropped' }} {{ otData.params.consecutive }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }} in a row with these settings.</template>
+                  <template v-else>Nothing to compare yet — this view fills in as open-rate history builds up.</template>
+                </div>
+
+                <div v-else style="overflow-x:auto;">
+                  <table class="vd-table">
+                    <thead><tr>
+                      <th>Severity</th>
+                      <th>{{ otData.level === 'account' ? 'Account' : 'Sending domain' }}</th>
+                      <th>Unique open % · last {{ otData.periods.length }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }}</th>
+                      <th class="vd-num">Baseline open %</th>
+                      <th class="vd-num">Latest open %</th>
+                      <th>Each step</th>
+                      <th class="vd-num">Total</th>
+                      <th class="vd-num">Click %</th>
+                      <th class="vd-num">Delivered / day</th>
+                      <th>ESP</th>
+                    </tr></thead>
+                    <tbody>
+                      <template v-for="(f, idx) in otData.flagged" :key="f.name">
+                        <tr class="vd-row" :class="{ 'vd-open': otOpen === f.name }" @click="toggleOt(f, idx)">
+                          <td><span class="vd-sev" :class="[otSevClass(f.severity), { up: otData.direction === 'spike' }]"><i>{{ otSevIcon(f.severity) }}</i>{{ f.severity.charAt(0).toUpperCase() + f.severity.slice(1) }}</span></td>
+                          <td>
+                            <div style="font-weight:600; color:#0f172a;">{{ f.name }}</div>
+                            <div class="vd-sub" v-if="f.level === 'account'">{{ (f.domains || []).length }} domain{{ (f.domains || []).length === 1 ? '' : 's' }}<span v-if="f.streak > otData.params.consecutive"> · {{ otData.direction === 'spike' ? 'rising' : 'falling' }} {{ f.streak }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }}</span></div>
+                            <div class="vd-sub" v-else>{{ f.account && f.account !== 'Unmapped' ? f.account : 'unmapped' }}<span v-if="f.streak > otData.params.consecutive"> · {{ otData.direction === 'spike' ? 'rising' : 'falling' }} {{ f.streak }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }}</span></div>
+                          </td>
+                          <td>
+                            <svg width="150" height="30" viewBox="0 0 150 30" aria-hidden="true" style="display:block;">
+                              <path v-for="b in otSpark(f)" :key="b.k" :d="b.d" :fill="b.fill"></path>
+                            </svg>
+                          </td>
+                          <td class="vd-num">{{ f.baseline_open_rate }}%</td>
+                          <td class="vd-num" style="font-weight:600; color:#0f172a;">{{ f.latest_open_rate }}%</td>
+                          <td class="vd-steps"><template v-for="(st, si) in f.steps_pts" :key="si"><span v-if="si">→</span>{{ fmtPts(st) }}</template></td>
+                          <td class="vd-num" style="font-weight:700; color:#0f172a;">{{ fmtPts(f.total_change_pts) }}<div class="vd-sub" v-if="f.relative_change_pct != null">{{ f.relative_change_pct > 0 ? '+' : '' }}{{ f.relative_change_pct }}% rel.</div></td>
+                          <td class="vd-num">{{ f.click_rate_baseline != null ? f.click_rate_baseline + '%' : '—' }} <span class="vd-sub">→</span> {{ f.click_rate_latest != null ? f.click_rate_latest + '%' : '—' }}</td>
+                          <td class="vd-num">{{ fmtVd(f.latest_avg_daily_delivered) }}</td>
+                          <td class="vd-sub" style="white-space:nowrap;">{{ f.esps.join(', ') }}</td>
+                        </tr>
+                        <tr v-if="otOpen === f.name">
+                          <td colspan="10" class="vd-detail">
+                            <div class="vd-detail-grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);">
+                              <div>
+                                <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                                  <span class="delx-title">Unique open % per {{ otData.mode === 'weekly' ? 'week' : 'month' }}</span>
+                                  <span class="delx-legend">
+                                    <span><i class="delx-sw" style="background:#86b6ef"></i>Earlier</span>
+                                    <span><i class="delx-sw" :style="{ background: otWinColor }"></i>{{ otData.direction === 'spike' ? 'Rise' : 'Drop' }} window</span>
+                                    <span><i class="delx-sw" style="background:#cbd5e1"></i>In progress / partial</span>
+                                  </span>
+                                </div>
+                                <div style="height:220px; position:relative;"><canvas :id="'ot-chart-' + idx"></canvas></div>
+                              </div>
+                              <div style="overflow-x:auto;">
+                                <table class="vd-table vd-mini">
+                                  <thead><tr><th>{{ otData.mode === 'weekly' ? 'Week of' : 'Month' }}</th><th class="vd-num">Delivered</th><th class="vd-num">Unique opens</th><th class="vd-num">Open %</th><th class="vd-num">Click %</th></tr></thead>
+                                  <tbody>
+                                    <tr v-for="p in f.series.slice().reverse().slice(0, 8)" :key="p.start" :style="{ color: p.trusted ? '' : '#94a3b8' }">
+                                      <td style="white-space:nowrap;">{{ p.label }}<span v-if="!p.complete" class="vd-sub"> (so far)</span><span v-else-if="!p.trusted" class="vd-sub" title="Few days with open data"> ⚠</span></td>
+                                      <td class="vd-num">{{ fmtVd(p.delivered) }}</td>
+                                      <td class="vd-num">{{ fmtVd(p.opens) }}</td>
+                                      <td class="vd-num">{{ p.open_rate != null ? p.open_rate + '%' : '—' }}</td>
+                                      <td class="vd-num">{{ p.click_rate != null ? p.click_rate + '%' : '—' }}</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                                <template v-if="f.level === 'account' && f.domains && f.domains.length">
+                                  <div class="delx-title" style="margin:14px 0 6px;">Domains · {{ otData.window[0] }} vs {{ otData.window[otData.window.length - 1] }}</div>
+                                  <table class="vd-table vd-mini">
+                                    <thead><tr><th>Domain</th><th class="vd-num">Baseline open %</th><th class="vd-num">Latest open %</th><th class="vd-num">Change</th><th class="vd-num">Delivered / day</th></tr></thead>
+                                    <tbody>
+                                      <tr v-for="d in f.domains.slice(0, 8)" :key="d.domain">
+                                        <td>{{ d.domain }}</td>
+                                        <td class="vd-num">{{ d.baseline_open_rate != null ? d.baseline_open_rate + '%' : '—' }}</td>
+                                        <td class="vd-num">{{ d.latest_open_rate != null ? d.latest_open_rate + '%' : '—' }}</td>
+                                        <td class="vd-num" style="font-weight:600;">{{ d.change_pts != null ? fmtPts(d.change_pts) : (d.baseline_open_rate == null ? 'new' : 'stopped') }}</td>
+                                        <td class="vd-num">{{ fmtVd(d.latest_avg_daily_delivered) }}</td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </template>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+              <div v-else-if="otLoading" style="padding:28px; text-align:center; color:#64748b;">Loading open rate trends…</div>
+            </div>
+          </div>
 
           <!-- Overall Tab -->
           <div v-if="pulsationData && pulsationTab === 'overall'" class="card-section">
@@ -8579,6 +8961,16 @@
           pulsationLoading: false,
           pulsationData: null,
           pulsationTab: 'overall',
+          vd: { direction: 'drop', mode: 'weekly', level: 'account', consecutive: 2, minDrop: 10, minDaily: 5000, q: '' },
+          vdData: null,
+          vdLoading: false,
+          vdError: '',
+          vdOpen: null,
+          ot: { direction: 'drop', mode: 'weekly', level: 'account', consecutive: 2, minPts: 2, minDaily: 5000, q: '' },
+          otData: null,
+          otLoading: false,
+          otError: '',
+          otOpen: null,
           pulsationTrendAggregation: 'daily',
           pulsationViewType: 'yesterday',
           pulsationCustomCollectDate: '',
@@ -9138,6 +9530,46 @@
         domainLiveBouncesProductionSourceCount() {
           // Sandbox/dev domains are selectable individually but excluded from the combined view.
           return this.domainLiveBouncesSourceCandidates.filter(candidate => !candidate.is_sandbox).length;
+        },
+        vdWinColor() { return this.vdData && this.vdData.direction === 'spike' ? '#1baf7a' : '#eb6834'; },
+        vdSevTiles() {
+          return this.vdData && this.vdData.direction === 'spike'
+            ? [{ key: 'surge', icon: '▲▲▲', label: 'Surge', sub: 'up 200% or more (3×+)' },
+               { key: 'strong', icon: '▲▲', label: 'Strong', sub: 'up 50% – 200%' },
+               { key: 'moderate', icon: '▲', label: 'Moderate', sub: 'up less than 50%' }]
+            : [{ key: 'stopped', icon: '■', label: 'Stopped', sub: 'now under 5% of baseline' },
+               { key: 'severe', icon: '▼▼', label: 'Severe', sub: 'down 50% or more' },
+               { key: 'moderate', icon: '▼', label: 'Moderate', sub: 'down less than 50%' }];
+        },
+        otWinColor() { return this.otData && this.otData.direction === 'spike' ? '#1baf7a' : '#eb6834'; },
+        otSevTiles() {
+          return this.otData && this.otData.direction === 'spike'
+            ? [{ key: 'surge', icon: '▲▲▲', label: 'Surge', sub: 'up 10+ pts' },
+               { key: 'strong', icon: '▲▲', label: 'Strong', sub: 'up 5 – 10 pts' },
+               { key: 'moderate', icon: '▲', label: 'Moderate', sub: 'up less than 5 pts' }]
+            : [{ key: 'severe', icon: '▼▼▼', label: 'Severe', sub: 'down 10+ pts' },
+               { key: 'high', icon: '▼▼', label: 'High', sub: 'down 5 – 10 pts' },
+               { key: 'moderate', icon: '▼', label: 'Moderate', sub: 'down less than 5 pts' }];
+        },
+        pzPeriods() {
+          return [['yesterday', 'Yesterday'], ['7day', '7D'], ['30day', '30D'], ['60day', '60D'], ['90day', '90D'], ['120day', '120D']];
+        },
+        pzTotals() {
+          const rows = (this.pulsationData && this.pulsationData.overall_data) || [];
+          let sent = 0, delivered = 0; const accts = new Set();
+          rows.forEach(r => { sent += r.Sent || 0; delivered += r.Delivered || 0; if (r.account_name && r.account_name !== 'Unmapped') accts.add(r.account_name); });
+          return { rows: rows.length, accounts: accts.size, sent, deliveryRate: sent ? (100 * delivered / sent).toFixed(2) : '—' };
+        },
+        pzClasses() {
+          const c = (this.pulsationData && this.pulsationData.classification_counts) || {};
+          const total = Object.values(c).reduce((a, b) => a + b, 0) || 1;
+          // Status colours (reserved for state) + icon + label, never colour alone.
+          return [
+            { key: 'Green (Healthy)', label: 'Healthy', icon: '✓', color: '#0ca30c', anim: 'healthy', sub: 'performing well' },
+            { key: 'Yellow (Monitor)', label: 'Monitor', icon: '!', color: '#e5a00d', anim: 'monitor', sub: 'needs attention' },
+            { key: 'Orange (Low Delivery)', label: 'Low delivery', icon: '↓', color: '#ec835a', anim: 'low', sub: 'action required' },
+            { key: 'Red (High Spam Complaints)', label: 'High spam risk', icon: '✕', color: '#d03b3b', anim: 'critical', sub: 'critical' },
+          ].map(x => ({ ...x, n: c[x.key] || 0, pct: Math.round(100 * (c[x.key] || 0) / total) }));
         },
         filteredOverallData() {
           return this.getFilteredAndSorted(this.pulsationData?.overall_data || []);
@@ -10925,6 +11357,144 @@
             this.emailDomainStatsLoading = false;
           }
         },
+        // ---- Pulsation · Volume Drops ----------------------------------------
+        async loadVolumeDrops() {
+          const v = this.vd;
+          const p = new URLSearchParams({ direction: v.direction, mode: v.mode, level: v.level, consecutive: v.consecutive,
+                                          min_drop_pct: v.minDrop, min_daily_avg: v.minDaily });
+          if (v.q.trim()) p.set('q', v.q.trim());
+          this.vdLoading = true; this.vdError = ''; this._destroyVdChart(); this.vdOpen = null;
+          try {
+            const r = await fetch(`${this.API_BASE}/api/pulsation/volume-drops?${p}`);
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || r.statusText);
+            this.vdData = d;
+          } catch (e) {
+            this.vdError = 'Could not load volume trends: ' + e.message;
+          } finally { this.vdLoading = false; }
+        },
+        fmtVd(n) {
+          if (n == null) return '—';
+          const a = Math.abs(n);
+          if (a >= 1e6) return (n / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+          if (a >= 1e3) return (n / 1e3).toFixed(a >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'k';
+          return String(Math.round(n));
+        },
+        _vdColors(f) {
+          const win = new Set(this.vdData.window || []);
+          const hot = this.vdWinColor;
+          return f.series.map(p => !p.complete ? '#cbd5e1' : win.has(p.label) ? hot : '#86b6ef');
+        },
+        vdSevIcon(sev) {
+          return { stopped: '■', severe: '▼▼', surge: '▲▲▲', strong: '▲▲' }[sev]
+            || (this.vdData && this.vdData.direction === 'spike' ? '▲' : '▼');
+        },
+        vdSpark(f) {
+          const vals = f.series.map(p => p.avg_daily || 0), max = Math.max(1, ...vals);
+          const n = vals.length, gap = 2, bw = (150 - gap * (n - 1)) / n, colors = this._vdColors(f);
+          return vals.map((v, i) => { const h = v ? Math.max(2, v / max * 28) : 1, x = i * (bw + gap);
+            return { k: i, d: `M${x},30V${30 - h}H${x + bw}V30Z`, fill: colors[i], op: 1 }; });
+        },
+        _destroyVdChart() { if (this._vdChart) { try { this._vdChart.destroy(); } catch (e) {} this._vdChart = null; } },
+        toggleVd(f, idx) {
+          this._destroyVdChart();
+          if (this.vdOpen === f.name) { this.vdOpen = null; return; }
+          this.vdOpen = f.name;
+          this.$nextTick(() => {
+            const el = document.getElementById('vd-chart-' + idx);
+            if (!el || !window.Chart) return;
+            const fmt = this.fmtVd;
+            this._vdChart = new Chart(el.getContext('2d'), {
+              type: 'bar',
+              data: { labels: f.series.map(p => p.label + (p.complete ? '' : ' *')),
+                      datasets: [{ label: 'Avg daily send', data: f.series.map(p => p.avg_daily || 0),
+                                   backgroundColor: this._vdColors(f), borderRadius: { topLeft: 4, topRight: 4 },
+                                   borderSkipped: 'bottom', maxBarThickness: 34 }] },
+              options: {
+                responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+                plugins: { legend: { display: false },
+                  tooltip: { callbacks: {
+                    title: (it) => { const p = f.series[it[0].dataIndex]; return (this.vdData.mode === 'weekly' ? 'Week of ' : '') + p.label + (p.complete ? '' : ' (so far)'); },
+                    label: (it) => { const p = f.series[it.dataIndex];
+                      return [`Avg/day: ${fmt(p.avg_daily)}`, `Sent: ${fmt(p.sent)} over ${p.collected_days} day(s)`,
+                              `Delivery: ${p.delivery_rate != null ? p.delivery_rate + '%' : '—'}`]; } } } },
+                scales: { x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 } } },
+                          y: { beginAtZero: true, grid: { color: '#eef2f7' }, border: { display: false },
+                               ticks: { color: '#94a3b8', font: { size: 10 }, callback: (v) => fmt(v), maxTicksLimit: 5 } } }
+              }
+            });
+          });
+        },
+
+        // ---- Pulsation · Open Rate Trends ------------------------------------
+        async loadOpenTrends() {
+          const v = this.ot;
+          const p = new URLSearchParams({ direction: v.direction, mode: v.mode, level: v.level, consecutive: v.consecutive,
+                                          min_change_pts: v.minPts, min_daily_delivered: v.minDaily });
+          if (v.q.trim()) p.set('q', v.q.trim());
+          this.otLoading = true; this.otError = ''; this._destroyOtChart(); this.otOpen = null;
+          try {
+            const r = await fetch(`${this.API_BASE}/api/pulsation/open-rate-trends?${p}`);
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || r.statusText);
+            this.otData = d;
+          } catch (e) {
+            this.otError = 'Could not load open rate trends: ' + e.message;
+          } finally { this.otLoading = false; }
+        },
+        fmtPts(n) {
+          if (n == null) return '—';
+          const r = Math.round(n * 10) / 10;
+          return (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r) + ' pts';
+        },
+        // Reuse the Volume Trends badge colours: severe→severe, high→moderate-strong look.
+        otSevClass(sev) { return { high: 'severe', severe: 'stopped' }[sev] || sev; },
+        otSevIcon(sev) {
+          return { severe: '▼▼▼', high: '▼▼', surge: '▲▲▲', strong: '▲▲' }[sev]
+            || (this.otData && this.otData.direction === 'spike' ? '▲' : '▼');
+        },
+        _otColors(f) {
+          const win = new Set(this.otData.window || []);
+          return f.series.map(p => !p.trusted ? '#cbd5e1' : win.has(p.label) ? this.otWinColor : '#86b6ef');
+        },
+        otSpark(f) {
+          const vals = f.series.map(p => p.open_rate || 0), max = Math.max(1, ...vals);
+          const n = vals.length, gap = 2, bw = (150 - gap * (n - 1)) / n, colors = this._otColors(f);
+          return vals.map((v, i) => { const h = v ? Math.max(2, v / max * 28) : 1, x = i * (bw + gap);
+            return { k: i, d: `M${x},30V${30 - h}H${x + bw}V30Z`, fill: colors[i] }; });
+        },
+        _destroyOtChart() { if (this._otChart) { try { this._otChart.destroy(); } catch (e) {} this._otChart = null; } },
+        toggleOt(f, idx) {
+          this._destroyOtChart();
+          if (this.otOpen === f.name) { this.otOpen = null; return; }
+          this.otOpen = f.name;
+          this.$nextTick(() => {
+            const el = document.getElementById('ot-chart-' + idx);
+            if (!el || !window.Chart) return;
+            const fmt = this.fmtVd;
+            this._otChart = new Chart(el.getContext('2d'), {
+              type: 'bar',
+              data: { labels: f.series.map(p => p.label + (p.complete ? '' : ' *')),
+                      datasets: [{ label: 'Unique open %', data: f.series.map(p => p.open_rate),
+                                   backgroundColor: this._otColors(f), borderRadius: { topLeft: 4, topRight: 4 },
+                                   borderSkipped: 'bottom', maxBarThickness: 34 }] },
+              options: {
+                responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+                plugins: { legend: { display: false },
+                  tooltip: { callbacks: {
+                    title: (it) => { const p = f.series[it[0].dataIndex]; return (this.otData.mode === 'weekly' ? 'Week of ' : '') + p.label + (p.complete ? (p.trusted ? '' : ' (partial)') : ' (so far)'); },
+                    label: (it) => { const p = f.series[it.dataIndex];
+                      return [`Unique open: ${p.open_rate != null ? p.open_rate + '%' : 'not tracked'}`,
+                              `Opens ${fmt(p.opens)} / delivered ${fmt(p.delivered)}`,
+                              `Click: ${p.click_rate != null ? p.click_rate + '%' : '—'}`]; } } } },
+                scales: { x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 } } },
+                          y: { beginAtZero: true, grid: { color: '#eef2f7' }, border: { display: false },
+                               ticks: { color: '#94a3b8', font: { size: 10 }, callback: (v) => v + '%', maxTicksLimit: 5 } } }
+              }
+            });
+          });
+        },
+
         // ---- DEL Tickets (read-only Jira context) ---------------------------
         async loadDelSummary(refresh = false) {
           this.delLoading = true; this.delError = '';
