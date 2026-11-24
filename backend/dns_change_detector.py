@@ -31,10 +31,31 @@ def init_change_events_table():
     c.execute('CREATE INDEX IF NOT EXISTS idx_ce_read ON dns_change_events(read)')
     conn.commit(); conn.close()
 
+def _canon(v):
+    """Order-insensitive form of a parsed value. DNS returns equal-priority MX hosts (and
+    multi-value PTR/TXT answers) in random order each lookup; without sorting, every
+    reshuffle was reported as an 'MX record value changed' event (~200 per daily alert)."""
+    if isinstance(v, dict):
+        return {k: _canon(x) for k, x in v.items()}
+    if isinstance(v, list):
+        items = [_canon(x) for x in v]
+        return sorted(items, key=lambda x: json.dumps(x, sort_keys=True))
+    if isinstance(v, str):
+        return ' '.join(v.split()).rstrip('.').lower() if v else v
+    return v
+
+
 def _norm(val) -> Optional[str]:
     if val is None: return None
-    if isinstance(val,(dict,list)): return json.dumps(val,sort_keys=True)
-    return str(val)
+    if isinstance(val, str):
+        s = val.strip()
+        if s[:1] in ('[', '{'):   # values are stored as JSON text (e.g. mx_value)
+            try: val = json.loads(s)
+            except ValueError: pass
+    if isinstance(val, (dict, list)):
+        return json.dumps(_canon(val), sort_keys=True)
+    s = ' '.join(str(val).split())
+    return s or None
 
 def _build_detail(field,old,new):
     if new=='fail' and old=='pass': return f"{field} broken — was passing, now failing."
