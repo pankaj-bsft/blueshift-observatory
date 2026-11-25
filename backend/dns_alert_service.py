@@ -23,6 +23,8 @@ def _value_items(field, raw):
     if raw in (None, ''):
         return []
     s = str(raw).strip()
+    if s.lower() in ('null', 'none', '[]', '{}'):
+        return []
     if s[:1] in ('[', '{'):
         try:
             v = json.loads(s)
@@ -61,16 +63,40 @@ def _render_value(field, raw, other_raw, side):
     return sep.join(out)
 
 
+def _fmt_date(d):
+    """'2026-11-24' -> 'Tue 24 Nov 2026' (falls back to the raw value)."""
+    try:
+        return date.fromisoformat(str(d)[:10]).strftime('%a %d %b %Y')
+    except (TypeError, ValueError):
+        return str(d) if d else ''
+
+
+def _when_html(e):
+    """When the change happened: between the previous check and the check that found it."""
+    found, prev = _fmt_date(e.get('check_date')), _fmt_date(e.get('prev_check_date'))
+    if not found:
+        return ''
+    if prev:
+        return (f'<div style="margin-top:4px;font-size:11px;color:#64748b;">📅 Detected <b>{found}</b>'
+                f'<br><span style="color:#94a3b8;">changed after the {prev} check</span></div>')
+    return f'<div style="margin-top:4px;font-size:11px;color:#64748b;">📅 Detected <b>{found}</b></div>'
+
+
+def _side_date(d):
+    d = _fmt_date(d)
+    return f'<br><span style="font-weight:500;text-transform:none;color:#94a3b8;">{d[4:]}</span>' if d else ''
+
+
 def _values_row(e):
     old_v, new_v = e.get('old_value'), e.get('new_value')
     if not old_v and not new_v:
         return ''
     cell = 'padding:4px 8px;font-family:Menlo,Consolas,monospace;font-size:11.5px;color:#334155;word-break:break-all;vertical-align:top;'
-    lab = 'width:72px;padding:4px 8px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;white-space:nowrap;vertical-align:top;'
+    lab = 'width:84px;padding:4px 8px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;white-space:nowrap;vertical-align:top;'
     return (f'<tr style="border-bottom:1px solid #f1f5f9;"><td></td><td colspan="4" style="padding:0 12px 12px;">'
             f'<table style="width:100%;border-collapse:collapse;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">'
-            f'<tr><td style="{lab}">Previous</td><td style="{cell}">{_render_value(e["field"], old_v, new_v, "old")}</td></tr>'
-            f'<tr><td style="{lab}border-top:1px solid #e2e8f0;">Current</td><td style="{cell}border-top:1px solid #e2e8f0;">{_render_value(e["field"], new_v, old_v, "new")}</td></tr>'
+            f'<tr><td style="{lab}">Previous{_side_date(e.get("prev_check_date"))}</td><td style="{cell}">{_render_value(e["field"], old_v, new_v, "old")}</td></tr>'
+            f'<tr><td style="{lab}border-top:1px solid #e2e8f0;">Current{_side_date(e.get("check_date"))}</td><td style="{cell}border-top:1px solid #e2e8f0;">{_render_value(e["field"], new_v, old_v, "new")}</td></tr>'
             f'</table></td></tr>')
 
 
@@ -92,7 +118,7 @@ def build_dns_alert(events, check_date):
         esp=devents[0].get('esp') or '—'
         for e in devents:
             sev=e['severity']; color=SEVERITY_COLOR.get(sev,'#334155'); bg=SEVERITY_BG.get(sev,'#f8fafc')
-            rows_html+=f'<tr style="border-top:1px solid #e2e8f0;"><td style="padding:10px 12px;font-size:13px;font-weight:600;color:#1e293b;vertical-align:top;">{escape(domain)}<br><span style="font-size:11px;font-weight:400;color:#94a3b8;">{escape(str(account))} · {escape(str(esp))}</span></td><td style="padding:10px 12px;font-size:13px;font-weight:700;">{e["field"]}</td><td style="padding:10px 12px;"><span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:{bg};color:{color};">{SEVERITY_EMOJI.get(sev,"")} {sev.upper()}</span></td><td style="padding:10px 12px;font-size:12px;color:#475569;">{escape(e.get("detail") or "")}</td><td style="padding:10px 12px;font-size:11px;color:#64748b;"><span style="color:#dc2626;">{e.get("old_status","?")}</span> → <span style="color:#16a34a;">{e.get("new_status","?")}</span></td></tr>'
+            rows_html+=f'<tr style="border-top:1px solid #e2e8f0;"><td style="padding:10px 12px;font-size:13px;font-weight:600;color:#1e293b;vertical-align:top;">{escape(domain)}<br><span style="font-size:11px;font-weight:400;color:#94a3b8;">{escape(str(account))} · {escape(str(esp))}</span></td><td style="padding:10px 12px;font-size:13px;font-weight:700;">{e["field"]}</td><td style="padding:10px 12px;"><span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:{bg};color:{color};">{SEVERITY_EMOJI.get(sev,"")} {sev.upper()}</span></td><td style="padding:10px 12px;font-size:12px;color:#475569;">{escape(e.get("detail") or "")}{_when_html(e)}</td><td style="padding:10px 12px;font-size:11px;color:#64748b;"><span style="color:#dc2626;">{e.get("old_status","?")}</span> → <span style="color:#16a34a;">{e.get("new_status","?")}</span></td></tr>'
             rows_html+=_values_row(e)
 
     html=f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;font-family:Inter,sans-serif;">
@@ -100,7 +126,7 @@ def build_dns_alert(events, check_date):
 <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:28px 32px;">
 <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Blueshift Observatory</div>
 <div style="font-size:22px;font-weight:800;color:#fff;">🔔 DNS Change Alert</div>
-<div style="font-size:13px;color:rgba(255,255,255,0.75);margin-top:4px;">{check_date} · {len(events)} change(s) across {len(by_domain)} domain(s)</div>
+<div style="font-size:13px;color:rgba(255,255,255,0.75);margin-top:4px;">Checked {_fmt_date(check_date) or check_date} · {len(events)} change(s) across {len(by_domain)} domain(s)</div>
 </div>
 <div style="padding:28px 32px;">
 <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">

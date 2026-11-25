@@ -25,6 +25,10 @@ def init_change_events_table():
         old_value TEXT, new_value TEXT, severity TEXT NOT NULL, detail TEXT,
         notified INTEGER DEFAULT 0, read INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    # Date of the previous check the change was compared against (added later; older rows have NULL).
+    cols = {r[1] for r in c.execute('PRAGMA table_info(dns_change_events)')}
+    if 'prev_check_date' not in cols:
+        c.execute('ALTER TABLE dns_change_events ADD COLUMN prev_check_date DATE')
     c.execute('CREATE INDEX IF NOT EXISTS idx_ce_domain ON dns_change_events(domain)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_ce_date ON dns_change_events(check_date)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_ce_notified ON dns_change_events(notified)')
@@ -104,7 +108,7 @@ def detect_changes(check_date=None):
                         sev='info'
                         detail=(f"DMARC record added: p={today.get('dmarc_policy')}" if not prev.get('dmarc_policy')
                                 else f"DMARC upgraded: p={prev.get('dmarc_policy')} → p={today.get('dmarc_policy')}")
-            events.append({'domain':domain,'account':today.get('account'),'esp':today.get('esp'),'check_date':check_date.isoformat(),'field':label,'old_status':os_,'new_status':ns_,'old_value':(ov or '')[:500],'new_value':(nv or '')[:500],'severity':sev,'detail':detail})
+            events.append({'domain':domain,'account':today.get('account'),'esp':today.get('esp'),'check_date':check_date.isoformat(),'prev_check_date':prev.get('check_date'),'field':label,'old_status':os_,'new_status':ns_,'old_value':(ov or '')[:500],'new_value':(nv or '')[:500],'severity':sev,'detail':detail})
     return events
 
 def save_change_events(events):
@@ -113,7 +117,7 @@ def save_change_events(events):
     for e in events:
         c.execute('SELECT id FROM dns_change_events WHERE domain=? AND check_date=? AND field=?',(e['domain'],e['check_date'],e['field']))
         if c.fetchone(): continue
-        c.execute('INSERT INTO dns_change_events (domain,account,esp,check_date,field,old_status,new_status,old_value,new_value,severity,detail) VALUES (?,?,?,?,?,?,?,?,?,?,?)',(e['domain'],e.get('account'),e.get('esp'),e['check_date'],e['field'],e.get('old_status'),e.get('new_status'),e.get('old_value'),e.get('new_value'),e['severity'],e.get('detail')))
+        c.execute('INSERT INTO dns_change_events (domain,account,esp,check_date,prev_check_date,field,old_status,new_status,old_value,new_value,severity,detail) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',(e['domain'],e.get('account'),e.get('esp'),e['check_date'],e.get('prev_check_date'),e['field'],e.get('old_status'),e.get('new_status'),e.get('old_value'),e.get('new_value'),e['severity'],e.get('detail')))
         saved+=1
     conn.commit(); conn.close(); return saved
 
