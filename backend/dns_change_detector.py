@@ -94,8 +94,16 @@ def detect_changes(check_date=None):
             if label=='DMARC':
                 ol=prev.get('dmarc_policy_level') or 0; nl=today.get('dmarc_policy_level') or 0
                 if ol!=nl:
-                    if nl<ol: sev='critical'; detail=f"DMARC downgraded: {prev.get('dmarc_policy','?')} → {today.get('dmarc_policy','?')}"
-                    else: sev='info'; detail=f"DMARC upgraded: {prev.get('dmarc_policy','?')} → {today.get('dmarc_policy','?')}"
+                    if nl<ol:
+                        sev='critical'
+                        if not today.get('dmarc_policy'):
+                            detail=f"DMARC record missing — was p={prev.get('dmarc_policy','?')}, now no policy found."
+                        else:
+                            detail=f"DMARC downgraded: p={prev.get('dmarc_policy','?')} → p={today.get('dmarc_policy')}"
+                    else:
+                        sev='info'
+                        detail=(f"DMARC record added: p={today.get('dmarc_policy')}" if not prev.get('dmarc_policy')
+                                else f"DMARC upgraded: p={prev.get('dmarc_policy')} → p={today.get('dmarc_policy')}")
             events.append({'domain':domain,'account':today.get('account'),'esp':today.get('esp'),'check_date':check_date.isoformat(),'field':label,'old_status':os_,'new_status':ns_,'old_value':(ov or '')[:500],'new_value':(nv or '')[:500],'severity':sev,'detail':detail})
     return events
 
