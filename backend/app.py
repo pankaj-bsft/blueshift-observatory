@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from datetime import datetime
 import os
@@ -350,11 +350,13 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(run_daily_bounce_cleanup, 'cron', hour=3, minute=45)
     scheduler.add_job(_run_dns_daily_check, 'cron', hour=4, minute=0)
     scheduler.add_job(run_esp_domain_sync, 'cron', day_of_week='mon', hour=2, minute=0)
+    scheduler.add_job(_run_anomaly_alert, 'cron', hour=12, minute=30, timezone='UTC')   # 18:00 IST
     scheduler.start()
     print('[Scheduler] Daily Spamhaus refresh scheduled at 3:15 AM')
     print('[Scheduler] Daily bounce cleanup scheduled at 3:45 AM')
     print('[Scheduler] Daily DNS check scheduled at 4:00 AM')
     print('[Scheduler] Weekly ESP domain sync scheduled Monday 2:00 AM')
+    print('[Scheduler] Daily deliverability anomaly alert scheduled at 12:30 UTC (18:00 IST)')
     yield
     scheduler.shutdown()
 
@@ -2947,6 +2949,46 @@ async def dns_trigger_check(background_tasks: BackgroundTasks):
         return {'status': 'started', 'message': 'DNS daily check started in background'}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error triggering DNS check: {str(e)}')
+
+
+def _anomaly_recipients() -> list:
+    """Same recipients as the DNS alert: MBR recipients synced in, only the enabled ones."""
+    from email_service import get_all_recipients
+    sync_alert_recipients([r['email'] for r in get_all_recipients(active_only=True)])
+    return get_enabled_alert_recipients()
+
+
+def _run_anomaly_alert():
+    """Scheduled 18:00 IST: deliverability anomaly email (delivery / open rate / volume)."""
+    try:
+        from anomaly_alert_service import send_anomaly_alert
+        recipients = _anomaly_recipients()
+        result = send_anomaly_alert(recipients)
+        print(f"[Anomaly Alert] {result.get('status')}: {result.get('subject', '')} -> {recipients} "
+              f"{result.get('reason', '')}")
+    except Exception as e:
+        print(f'[Anomaly Alert] Failed: {e}')
+
+
+@app.get('/api/alerts/anomaly/preview', response_class=HTMLResponse)
+def anomaly_alert_preview():
+    """The anomaly email as a web page (charts embedded), without sending anything."""
+    from anomaly_alert_service import build_anomaly_alert
+    try:
+        _subject, html, _images, _summary = build_anomaly_alert(inline=False)
+        return HTMLResponse(html)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error building anomaly alert: {e}')
+
+
+@app.post('/api/alerts/anomaly/send')
+def anomaly_alert_send():
+    """Send the anomaly email now to the enabled DNS-alert recipients."""
+    from anomaly_alert_service import send_anomaly_alert
+    recipients = _anomaly_recipients()
+    if not recipients:
+        raise HTTPException(status_code=400, detail='No enabled alert recipients')
+    return send_anomaly_alert(recipients)
 
 
 def _run_dns_daily_check():

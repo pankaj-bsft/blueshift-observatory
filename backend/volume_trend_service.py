@@ -22,20 +22,33 @@ import pandas as pd
 from pulsation_service import DB_PATH, _attach_account_name, pct
 
 # A period needs at least this many collected days to be trusted for detection.
-_MIN_COVERAGE = {'weekly': 4, 'monthly': 20}
-_HISTORY = {'weekly': 12, 'monthly': 12}
+_MIN_COVERAGE = {'daily': 1, 'weekly': 4, 'monthly': 20}
+_HISTORY = {'daily': 30, 'weekly': 12, 'monthly': 12}
 # The week / month in progress joins the comparison (when asked) once it has this many collected days.
-_MIN_PARTIAL = {'weekly': 2, 'monthly': 5}
+_MIN_PARTIAL = {'daily': 1, 'weekly': 2, 'monthly': 5}
 _MAX_MATCHES = 200
 
 
+def _parse_mode(mode) -> str:
+    m = str(mode).lower()
+    return 'daily' if m.startswith('d') else 'monthly' if m.startswith('m') else 'weekly'
+
+
+def _span_days(mode: str, history: int) -> int:
+    return {'daily': history + 7, 'weekly': history * 7 + 40, 'monthly': history * 31 + 40}[mode]
+
+
 def _period_start(d: date, mode: str) -> date:
+    if mode == 'daily':
+        return d
     if mode == 'weekly':
         return d - timedelta(days=d.weekday())          # Monday
     return d.replace(day=1)
 
 
 def _period_end(start: date, mode: str) -> date:
+    if mode == 'daily':
+        return start
     if mode == 'weekly':
         return start + timedelta(days=6)
     nxt = (start.replace(day=28) + timedelta(days=4)).replace(day=1)
@@ -43,7 +56,7 @@ def _period_end(start: date, mode: str) -> date:
 
 
 def _period_label(start: date, mode: str) -> str:
-    return start.strftime('%d %b') if mode == 'weekly' else start.strftime('%b %Y')
+    return start.strftime('%b %Y') if mode == 'monthly' else start.strftime('%d %b')
 
 
 def _load_daily(since: date) -> pd.DataFrame:
@@ -73,7 +86,7 @@ def detect_volume_drops(mode: str = 'weekly', level: str = 'account', min_drop_p
     q: with a search term, every matching account / domain is returned (non-flagged ones in `matches`)."""
     spike = str(direction).lower().startswith('s')
     direction = 'spike' if spike else 'drop'
-    mode = 'monthly' if str(mode).lower().startswith('m') else 'weekly'
+    mode = _parse_mode(mode)
     level = 'domain' if str(level).lower().startswith('d') else 'account'
     consecutive = max(1, min(int(consecutive), 6))
     threshold = max(0.0, float(min_drop_pct)) / 100.0
@@ -86,8 +99,7 @@ def detect_volume_drops(mode: str = 'weekly', level: str = 'account', min_drop_p
 
     # Load enough history for the chart plus the detection window.
     today = datetime.utcnow().date()
-    span_days = history * (7 if mode == 'weekly' else 31) + 40
-    df = _load_daily(today - timedelta(days=span_days))
+    df = _load_daily(today - timedelta(days=_span_days(mode, history)))
     if df.empty:
         return {**base_resp, 'note': 'No Pulsation data collected yet.'}
 
@@ -118,6 +130,8 @@ def detect_volume_drops(mode: str = 'weekly', level: str = 'account', min_drop_p
     # Don't show periods from before Pulsation started collecting.
     while periods and periods[0]['collected_days'] == 0:
         periods.pop(0)
+    if mode == 'daily':
+        periods = [p for p in periods if p['collected_days']]   # days never collected are gaps, not zero
 
     df['period'] = df['d'].map(lambda d: _period_start(d, mode).isoformat())
     df = df[df['period'].isin([p['start'] for p in periods])]

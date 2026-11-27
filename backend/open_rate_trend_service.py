@@ -21,8 +21,8 @@ from typing import Any, Dict, List
 import pandas as pd
 
 from pulsation_service import DB_PATH, _attach_account_name, pct
-from volume_trend_service import (_HISTORY, _MAX_MATCHES, _MIN_COVERAGE, _MIN_PARTIAL, _period_end,
-                                  _period_label, _period_start)
+from volume_trend_service import (_HISTORY, _MAX_MATCHES, _MIN_COVERAGE, _MIN_PARTIAL, _parse_mode, _period_end,
+                                  _period_label, _period_start, _span_days)
 
 
 def _load_daily(since) -> pd.DataFrame:
@@ -57,7 +57,7 @@ def detect_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_ch
     q: with a search term, every matching account / domain is returned (non-flagged ones in `matches`)."""
     spike = str(direction).lower().startswith('s')
     direction = 'spike' if spike else 'drop'
-    mode = 'monthly' if str(mode).lower().startswith('m') else 'weekly'
+    mode = _parse_mode(mode)
     level = 'domain' if str(level).lower().startswith('d') else 'account'
     consecutive = max(1, min(int(consecutive), 6))
     threshold = max(0.0, float(min_change_pts))
@@ -69,8 +69,7 @@ def detect_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_ch
                  'periods': [], 'window': [], 'flagged': [], 'matches': [], 'matches_total': 0, 'evaluated': 0}
 
     today = datetime.utcnow().date()
-    span_days = history * (7 if mode == 'weekly' else 31) + 40
-    df = _load_daily(today - timedelta(days=span_days))
+    df = _load_daily(today - timedelta(days=_span_days(mode, history)))
     if df.empty:
         return {**base_resp, 'note': 'No unique-open data collected yet.'}
 
@@ -101,6 +100,8 @@ def detect_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_ch
     while len(periods) > 1 and (periods[0]['collected_days'] == 0
                                 or (periods[0]['complete'] and not periods[0]['trusted'])):
         periods.pop(0)
+    if mode == 'daily':
+        periods = [p for p in periods if p['collected_days']]   # uncollected days are gaps
 
     df['period'] = df['d'].map(lambda d: _period_start(d, mode).isoformat())
     df = df[df['period'].isin([p['start'] for p in periods])]
@@ -132,11 +133,12 @@ def detect_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_ch
                       'last_data_day': last_data_day.isoformat(),
                       'tracked_since': first_data_day.isoformat()})
     # The window must be the most recent trusted periods back to back (no gap).
-    contiguous = len(window) == consecutive + 1 and all(
+    # Daily: uncollected days are skipped (the alert reports them separately), so no gap check.
+    contiguous = len(window) == consecutive + 1 and (mode == 'daily' or all(
         _period_start(datetime.fromisoformat(b['start']).date() - timedelta(days=1), mode).isoformat() == a['start']
-        for a, b in zip(window, window[1:]))
+        for a, b in zip(window, window[1:])))
     if not contiguous:
-        unit = 'weeks' if mode == 'weekly' else 'months'
+        unit = {'daily': 'days', 'weekly': 'weeks', 'monthly': 'months'}[mode]
         return {**base_resp, 'window': [], 'window_partial': False,
                 'note': f'Not enough open-rate history yet: needs {consecutive + 1} complete {unit} '
                         f'(unique opens tracked since {first_data_day.isoformat()}).'}
