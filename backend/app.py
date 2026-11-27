@@ -129,6 +129,7 @@ from athena_bounce_service import (
 )
 from volume_trend_service import detect_volume_drops
 from open_rate_trend_service import detect_open_rate_trends
+from delivery_rate_trend_service import detect_delivery_rate_trends
 from jira_service import create_jira_ticket, get_del_summary, find_tickets, get_issue as get_jira_issue, browse_issues, get_del_meta, whoami as jira_whoami, add_comment_as_user
 from industry_updates_service import (
     init_database as init_industry_database,
@@ -844,13 +845,13 @@ async def get_account_chart_data(account_name: str, days: int = 30, mode: str = 
 @app.get('/api/pulsation/volume-drops')
 def pulsation_volume_drops(mode: str = 'weekly', level: str = 'account', min_drop_pct: float = 10.0,
                            consecutive: int = 2, min_daily_avg: float = 5000.0, q: str = '',
-                           direction: str = 'drop'):
+                           direction: str = 'drop', include_current: bool = True):
     """Accounts/domains whose average daily send fell (direction=drop) or rose (direction=spike)
     for N consecutive complete weeks/months."""
     try:
         return detect_volume_drops(mode=mode, level=level, min_drop_pct=min_drop_pct,
                                    consecutive=consecutive, min_daily_avg=min_daily_avg, q=q,
-                                   direction=direction)
+                                   direction=direction, include_current=include_current)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error detecting volume drops: {e}')
 
@@ -858,15 +859,29 @@ def pulsation_volume_drops(mode: str = 'weekly', level: str = 'account', min_dro
 @app.get('/api/pulsation/open-rate-trends')
 def pulsation_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_change_pts: float = 2.0,
                                consecutive: int = 2, min_daily_delivered: float = 5000.0, q: str = '',
-                               direction: str = 'drop'):
+                               direction: str = 'drop', include_current: bool = True):
     """Accounts/domains whose unique open % fell (direction=drop) or rose (direction=spike) by at least
     `min_change_pts` percentage points in each of N consecutive complete weeks/months."""
     try:
         return detect_open_rate_trends(mode=mode, level=level, min_change_pts=min_change_pts,
                                        consecutive=consecutive, min_daily_delivered=min_daily_delivered,
-                                       q=q, direction=direction)
+                                       q=q, direction=direction, include_current=include_current)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Error detecting open rate trends: {e}')
+
+
+@app.get('/api/pulsation/delivery-rate-trends')
+def pulsation_delivery_rate_trends(mode: str = 'weekly', level: str = 'account', min_change_pts: float = 1.0,
+                                   consecutive: int = 2, min_daily_sent: float = 5000.0, q: str = '',
+                                   include_current: bool = True):
+    """Accounts/domains whose delivery % fell by at least `min_change_pts` points in each of N consecutive
+    days/weeks/months. Rows with delivered > sent are ignored. With `q`, all matching senders are returned."""
+    try:
+        return detect_delivery_rate_trends(mode=mode, level=level, min_change_pts=min_change_pts,
+                                           consecutive=consecutive, min_daily_sent=min_daily_sent, q=q,
+                                           include_current=include_current)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error detecting delivery rate trends: {e}')
 
 
 @app.get('/api/pulsation/available-dates')

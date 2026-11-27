@@ -21,7 +21,8 @@ from typing import Any, Dict, List
 import pandas as pd
 
 from pulsation_service import DB_PATH, _attach_account_name, pct
-from volume_trend_service import _HISTORY, _MIN_COVERAGE, _period_end, _period_label, _period_start
+from volume_trend_service import (_HISTORY, _MAX_MATCHES, _MIN_COVERAGE, _MIN_PARTIAL, _period_end,
+                                  _period_label, _period_start)
 
 
 def _load_daily(since) -> pd.DataFrame:
@@ -51,7 +52,9 @@ def _severity(total_pts: float, spike: bool) -> str:
 
 def detect_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_change_pts: float = 2.0,
                             consecutive: int = 2, min_daily_delivered: float = 5000.0,
-                            q: str = '', direction: str = 'drop') -> Dict[str, Any]:
+                            q: str = '', direction: str = 'drop', include_current: bool = True) -> Dict[str, Any]:
+    """include_current: compare the week / month in progress (open rate so far) as the latest point.
+    q: with a search term, every matching account / domain is returned (non-flagged ones in `matches`)."""
     spike = str(direction).lower().startswith('s')
     direction = 'spike' if spike else 'drop'
     mode = 'monthly' if str(mode).lower().startswith('m') else 'weekly'
@@ -59,9 +62,11 @@ def detect_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_ch
     consecutive = max(1, min(int(consecutive), 6))
     threshold = max(0.0, float(min_change_pts))
     history = max(_HISTORY[mode], consecutive + 1)
-    params = {'min_change_pts': threshold, 'consecutive': consecutive, 'min_daily_delivered': min_daily_delivered}
-    base_resp = {'mode': mode, 'level': level, 'direction': direction, 'params': params,
-                 'periods': [], 'window': [], 'flagged': [], 'evaluated': 0}
+    qn = (q or '').strip().lower()
+    params = {'min_change_pts': threshold, 'consecutive': consecutive, 'min_daily_delivered': min_daily_delivered,
+              'include_current': bool(include_current)}
+    base_resp = {'mode': mode, 'level': level, 'direction': direction, 'params': params, 'q': qn,
+                 'periods': [], 'window': [], 'flagged': [], 'matches': [], 'matches_total': 0, 'evaluated': 0}
 
     today = datetime.utcnow().date()
     span_days = history * (7 if mode == 'weekly' else 31) + 40
@@ -114,8 +119,16 @@ def detect_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_ch
 
     # Only trusted (complete, well-covered) periods are compared.
     trusted = [p for p in periods if p['trusted']]
+    cur_p = periods[-1] if periods and not periods[-1]['complete'] else None
+    if include_current and cur_p and cur_p['collected_days'] >= _MIN_PARTIAL[mode]:
+        trusted = trusted + [cur_p]   # open rate so far is a ratio, comparable to a full period's
+    else:
+        cur_p = None
     window = trusted[-(consecutive + 1):]
     base_resp.update({'periods': periods, 'window': [p['label'] for p in window],
+                      'window_partial': bool(cur_p) and bool(window) and window[-1] is cur_p,
+                      'current_period': ({'label': cur_p['label'], 'collected_days': cur_p['collected_days'],
+                                          'days': cur_p['days']} if cur_p else None),
                       'last_data_day': last_data_day.isoformat(),
                       'tracked_since': first_data_day.isoformat()})
     # The window must be the most recent trusted periods back to back (no gap).
@@ -124,7 +137,7 @@ def detect_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_ch
         for a, b in zip(window, window[1:]))
     if not contiguous:
         unit = 'weeks' if mode == 'weekly' else 'months'
-        return {**base_resp, 'window': [],
+        return {**base_resp, 'window': [], 'window_partial': False,
                 'note': f'Not enough open-rate history yet: needs {consecutive + 1} complete {unit} '
                         f'(unique opens tracked since {first_data_day.isoformat()}).'}
 
@@ -147,30 +160,59 @@ def detect_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_ch
             })
         return out
 
-    qn = (q or '').strip().lower()
+    def matches_q(name) -> bool:
+        if not qn or qn in str(name).lower():
+            return True
+        if level == 'account':
+            return any(qn in d.lower() for d, a in domain_account.items() if a == name)
+        return qn in str(domain_account.get(name) or '').lower()
+
     flagged: List[Dict[str, Any]] = []
+    others: List[Dict[str, Any]] = []
     evaluated = 0
     for name, g in by_entity.items():
-        if level == 'account' and str(name).lower() == 'unmapped':
+        if level == 'account' and str(name).lower() == 'unmapped' and not qn:
             continue
-        if qn and qn not in str(name).lower() and not (
-                level == 'account' and any(qn in d.lower() for d, a in domain_account.items() if a == name)):
+        if not matches_q(name):
             continue
         series = series_for(g)
         by_start = {s['start']: s for s in series}
         win = [by_start[p['start']] for p in window]
+        item = {
+            'name': name, 'level': level,
+            'account': domain_account.get(name) if level == 'domain' else name,
+            'esps': sorted(esps_by.get(name, [])), 'series': series,
+            'flagged': False, 'severity': None, 'status': 'ok',
+            'window': [w['label'] for w in win], 'window_partial': not win[-1]['complete'],
+        }
         if any(w['open_rate'] is None for w in win):
+            item['status'] = 'no_data'
+            if qn:
+                others.append(item)
             continue
-        # Rates on tiny volume are noise: require real volume at both ends of the window.
-        if min(win[0]['avg_daily_delivered'] or 0, win[-1]['avg_daily_delivered'] or 0) < min_daily_delivered:
+        steps = [round(b['open_rate'] - a['open_rate'], 2) for a, b in zip(win, win[1:])]
+        base, latest = win[0]['open_rate'], win[-1]['open_rate']
+        total_pts = round(latest - base, 2)
+        item.update({
+            'baseline_open_rate': base, 'latest_open_rate': latest,
+            'total_change_pts': total_pts,
+            'relative_change_pct': round(100.0 * (latest - base) / base, 1) if base else None,
+            'steps_pts': steps,
+            'baseline_avg_daily_delivered': win[0]['avg_daily_delivered'],
+            'latest_avg_daily_delivered': win[-1]['avg_daily_delivered'],
+            'click_rate_baseline': win[0]['click_rate'], 'click_rate_latest': win[-1]['click_rate'],
+        })
+        # Same rule as Volume Trends: drops need real volume at the start, spikes at the end.
+        if ((win[-1] if spike else win[0])['avg_daily_delivered'] or 0) < min_daily_delivered:
+            item['status'] = 'low_volume'
+            if qn:
+                others.append(item)
             continue
         evaluated += 1
 
-        steps = [round(b['open_rate'] - a['open_rate'], 2) for a, b in zip(win, win[1:])]
-        if spike:
-            if not all(st >= threshold for st in steps):
-                continue
-        elif not all(st <= -threshold for st in steps):
+        if (not all(st >= threshold for st in steps)) if spike else (not all(st <= -threshold for st in steps)):
+            if qn:
+                others.append(item)
             continue
 
         comp = [by_start[p['start']] for p in trusted if by_start[p['start']]['open_rate'] is not None]
@@ -182,34 +224,29 @@ def detect_open_rate_trends(mode: str = 'weekly', level: str = 'account', min_ch
                 streak += 1
             else:
                 break
-
-        base, latest = win[0]['open_rate'], win[-1]['open_rate']
-        total_pts = round(latest - base, 2)
-        item = {
-            'name': name, 'level': level,
-            'account': domain_account.get(name) if level == 'domain' else name,
-            'esps': sorted(esps_by.get(name, [])),
-            'baseline_open_rate': base, 'latest_open_rate': latest,
-            'total_change_pts': total_pts,
-            'relative_change_pct': round(100.0 * (latest - base) / base, 1) if base else None,
-            'steps_pts': steps, 'streak': max(streak, consecutive),
-            'severity': _severity(total_pts, spike),
-            'baseline_avg_daily_delivered': win[0]['avg_daily_delivered'],
-            'latest_avg_daily_delivered': win[-1]['avg_daily_delivered'],
-            'click_rate_baseline': win[0]['click_rate'], 'click_rate_latest': win[-1]['click_rate'],
-            'window': [w['label'] for w in win],
-            'series': series,
-        }
+        item.update({'flagged': True, 'status': 'flagged', 'severity': _severity(total_pts, spike),
+                     'streak': max(streak, consecutive)})
         if level == 'account':
             item['domains'] = _domain_breakdown(df, name, window, spike)
         flagged.append(item)
+
+    matches_total = len(others)
+    if qn:
+        others.sort(key=lambda x: (x.get('total_change_pts') is None,
+                                   -(x.get('total_change_pts') or 0) if spike else (x.get('total_change_pts') or 0)))
+        others = others[:_MAX_MATCHES]
+        if level == 'account':
+            for o in others:
+                if o.get('baseline_open_rate') is not None:
+                    o['domains'] = _domain_breakdown(df, o['name'], window, spike)
 
     order = {'severe': 0, 'surge': 0, 'high': 1, 'strong': 1, 'moderate': 2}
     flagged.sort(key=lambda x: (order[x['severity']], -abs(x['total_change_pts'])))
     sev_keys = ('surge', 'strong', 'moderate') if spike else ('severe', 'high', 'moderate')
     totals = {'flagged': len(flagged), **{k: sum(1 for f in flagged if f['severity'] == k) for k in sev_keys}}
     totals['avg_change_pts'] = round(sum(f['total_change_pts'] for f in flagged) / len(flagged), 2) if flagged else 0
-    return {**base_resp, 'evaluated': evaluated, 'flagged': flagged, 'totals': totals}
+    return {**base_resp, 'evaluated': evaluated, 'flagged': flagged, 'totals': totals,
+            'matches': others, 'matches_total': matches_total}
 
 
 def _domain_breakdown(df: pd.DataFrame, account: str, window: List[Dict[str, Any]],

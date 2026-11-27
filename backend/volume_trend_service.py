@@ -24,6 +24,9 @@ from pulsation_service import DB_PATH, _attach_account_name, pct
 # A period needs at least this many collected days to be trusted for detection.
 _MIN_COVERAGE = {'weekly': 4, 'monthly': 20}
 _HISTORY = {'weekly': 12, 'monthly': 12}
+# The week / month in progress joins the comparison (when asked) once it has this many collected days.
+_MIN_PARTIAL = {'weekly': 2, 'monthly': 5}
+_MAX_MATCHES = 200
 
 
 def _period_start(d: date, mode: str) -> date:
@@ -64,8 +67,10 @@ def _load_daily(since: date) -> pd.DataFrame:
 
 def detect_volume_drops(mode: str = 'weekly', level: str = 'account', min_drop_pct: float = 10.0,
                         consecutive: int = 2, min_daily_avg: float = 5000.0,
-                        q: str = '', direction: str = 'drop') -> Dict[str, Any]:
-    """direction='drop' flags falling volume; 'spike' flags rising volume with the same rules."""
+                        q: str = '', direction: str = 'drop', include_current: bool = True) -> Dict[str, Any]:
+    """direction='drop' flags falling volume; 'spike' flags rising volume with the same rules.
+    include_current: compare the week / month in progress (average daily send so far) as the latest point.
+    q: with a search term, every matching account / domain is returned (non-flagged ones in `matches`)."""
     spike = str(direction).lower().startswith('s')
     direction = 'spike' if spike else 'drop'
     mode = 'monthly' if str(mode).lower().startswith('m') else 'weekly'
@@ -73,14 +78,18 @@ def detect_volume_drops(mode: str = 'weekly', level: str = 'account', min_drop_p
     consecutive = max(1, min(int(consecutive), 6))
     threshold = max(0.0, float(min_drop_pct)) / 100.0
     history = max(_HISTORY[mode], consecutive + 1)
+    qn = (q or '').strip().lower()
+    params = {'min_drop_pct': min_drop_pct, 'consecutive': consecutive, 'min_daily_avg': min_daily_avg,
+              'include_current': bool(include_current)}
+    base_resp = {'mode': mode, 'level': level, 'direction': direction, 'params': params, 'q': qn,
+                 'periods': [], 'window': [], 'flagged': [], 'matches': [], 'matches_total': 0, 'evaluated': 0}
 
     # Load enough history for the chart plus the detection window.
     today = datetime.utcnow().date()
     span_days = history * (7 if mode == 'weekly' else 31) + 40
     df = _load_daily(today - timedelta(days=span_days))
     if df.empty:
-        return {'mode': mode, 'level': level, 'direction': direction, 'periods': [], 'flagged': [],
-                'evaluated': 0, 'note': 'No Pulsation data collected yet.'}
+        return {**base_resp, 'note': 'No Pulsation data collected yet.'}
 
     df['d'] = pd.to_datetime(df['report_date']).dt.date
     last_data_day = max(df['d'])
@@ -129,9 +138,19 @@ def detect_volume_drops(mode: str = 'weekly', level: str = 'account', min_drop_p
         esps_by[name] = {e for v in g['esps'].dropna() for e in str(v).split(',') if e}
 
     complete = [p for p in periods if p['complete']]
+    cur_p = periods[-1] if periods and not periods[-1]['complete'] else None
+    if include_current and cur_p and cur_p['collected_days'] >= _MIN_PARTIAL[mode]:
+        complete = complete + [cur_p]   # average daily send so far is comparable to a full period's
+    else:
+        cur_p = None
     window = complete[-(consecutive + 1):]   # baseline + `consecutive` periods
-    qn = (q or '').strip().lower()
+    base_resp.update({'periods': periods, 'window': [p['label'] for p in window],
+                      'window_partial': bool(cur_p) and bool(window) and window[-1] is cur_p,
+                      'current_period': ({'label': cur_p['label'], 'collected_days': cur_p['collected_days'],
+                                          'days': cur_p['days']} if cur_p else None),
+                      'last_data_day': last_data_day.isoformat()})
     flagged: List[Dict[str, Any]] = []
+    others: List[Dict[str, Any]] = []
     evaluated = 0
 
     def series_for(g):
@@ -155,36 +174,66 @@ def detect_volume_drops(mode: str = 'weekly', level: str = 'account', min_drop_p
         return out
 
     if len(window) < consecutive + 1:
-        return {'mode': mode, 'level': level, 'direction': direction, 'periods': periods, 'flagged': [],
-                'evaluated': 0, 'note': f'Not enough complete {mode} periods yet.'}
+        return {**base_resp, 'note': f'Not enough complete {mode} periods yet.'}
+
+    def matches_q(name) -> bool:
+        if not qn or qn in str(name).lower():
+            return True
+        if level == 'account':
+            return any(qn in d.lower() for d, a in domain_account.items() if a == name)
+        return qn in str(domain_account.get(name) or '').lower()
 
     for name, g in by_entity.items():
-        if level == 'account' and str(name).lower() == 'unmapped':
+        if level == 'account' and str(name).lower() == 'unmapped' and not qn:
             continue  # a bucket of unrelated domains, not an account; see the domain view
-        if qn and qn not in str(name).lower() and not (
-                level == 'account' and any(qn in d.lower() for d, a in domain_account.items() if a == name)):
+        if not matches_q(name):
             continue
         series = series_for(g)
         by_start = {s['start']: s for s in series}
         win = [by_start[p['start']] for p in window]
+        item = {
+            'name': name, 'level': level,
+            'account': domain_account.get(name) if level == 'domain' else name,
+            'esps': sorted(esps_by.get(name, [])), 'series': series,
+            'flagged': False, 'severity': None, 'status': 'ok',
+            'window': [w['label'] for w in win], 'window_partial': not win[-1]['complete'],
+        }
         if any(w['avg_daily'] is None for w in win):
+            item['status'] = 'no_data'
+            if qn:
+                others.append(item)
             continue
         base = win[0]['avg_daily']
-        # Drops: the entity must have been sizeable at the start. Spikes: it must be sizeable
-        # now (a sender ramping 2k -> 60k/day matters even though it started small).
-        if (win[-1]['avg_daily'] if spike else base) < min_daily_avg:
-            continue
-        if spike and not base:
-            continue  # growth from zero has no percentage; it shows up once it has a baseline
-        evaluated += 1
-
+        latest = win[-1]['avg_daily']
         steps = []
         for a, b in zip(win, win[1:]):
             steps.append(round(100.0 * (b['avg_daily'] - a['avg_daily']) / a['avg_daily'], 1) if a['avg_daily'] else 0.0)
-        if spike:
-            if not all(st >= 100.0 * threshold for st in steps):
-                continue
-        elif not all(st <= -100.0 * threshold for st in steps):
+        total_drop = round(100.0 * (latest - base) / base, 1) if base else None
+        item.update({
+            'baseline_avg_daily': base, 'latest_avg_daily': latest,
+            'lost_per_day': base - latest, 'change_per_day': latest - base,
+            'total_drop_pct': total_drop, 'total_change_pct': total_drop, 'steps_pct': steps,
+            'delivery_rate_baseline': win[0]['delivery_rate'], 'delivery_rate_latest': win[-1]['delivery_rate'],
+            'low_coverage': any(not p['trusted'] for p in window if p['complete']),
+        })
+        # Drops: the entity must have been sizeable at the start. Spikes: it must be sizeable
+        # now (a sender ramping 2k -> 60k/day matters even though it started small).
+        if (latest if spike else base) < min_daily_avg:
+            item['status'] = 'low_volume'
+            if qn:
+                others.append(item)
+            continue
+        if spike and not base:
+            item['status'] = 'no_data'   # growth from zero has no percentage
+            if qn:
+                others.append(item)
+            continue
+        evaluated += 1
+
+        if (not all(st >= 100.0 * threshold for st in steps)) if spike \
+                else (not all(st <= -100.0 * threshold for st in steps)):
+            if qn:
+                others.append(item)
             continue
 
         # How long the decline has really been running (may exceed `consecutive`).
@@ -198,38 +247,33 @@ def detect_volume_drops(mode: str = 'weekly', level: str = 'account', min_drop_p
             else:
                 break
 
-        latest = win[-1]['avg_daily']
-        total_drop = round(100.0 * (latest - base) / base, 1)
         if spike:
             severity = 'surge' if total_drop >= 200 else 'strong' if total_drop >= 50 else 'moderate'
         else:
             severity = 'stopped' if latest < 0.05 * base else 'severe' if total_drop <= -50 else 'moderate'
-        dr_base, dr_latest = win[0]['delivery_rate'], win[-1]['delivery_rate']
-
-        item = {
-            'name': name, 'level': level,
-            'account': domain_account.get(name) if level == 'domain' else name,
-            'esps': sorted(esps_by.get(name, [])),
-            'baseline_avg_daily': base, 'latest_avg_daily': latest,
-            'lost_per_day': base - latest, 'change_per_day': latest - base,
-            'total_drop_pct': total_drop, 'total_change_pct': total_drop,
-            'steps_pct': steps, 'streak': max(streak, consecutive), 'severity': severity,
-            'window': [w['label'] for w in win],
-            'delivery_rate_baseline': dr_base, 'delivery_rate_latest': dr_latest,
-            'low_coverage': any(not p['trusted'] for p in window),
-            'series': series,
-        }
+        item.update({'flagged': True, 'status': 'flagged', 'severity': severity,
+                     'streak': max(streak, consecutive)})
         if level == 'account':
             item['domains'] = _domain_breakdown(df, name, window, spike)
         flagged.append(item)
 
+    matches_total = 0
     order = {'stopped': 0, 'surge': 0, 'severe': 1, 'strong': 1, 'moderate': 2}
     flagged.sort(key=lambda x: (order[x['severity']], -abs(x['change_per_day'])))
+    if qn:
+        # Searched senders that did not trip the rule: biggest move in the chosen direction first.
+        others.sort(key=lambda x: (x.get('total_change_pct') is None,
+                                   -(x.get('total_change_pct') or 0) if spike else (x.get('total_change_pct') or 0)))
+        matches_total = len(others)
+        others = others[:_MAX_MATCHES]
+        if level == 'account':
+            for o in others:
+                if o.get('baseline_avg_daily') is not None:
+                    o['domains'] = _domain_breakdown(df, o['name'], window, spike)
     return {
-        'mode': mode, 'level': level, 'direction': direction, 'periods': periods, 'window': [p['label'] for p in window],
-        'last_data_day': last_data_day.isoformat(),
-        'params': {'min_drop_pct': min_drop_pct, 'consecutive': consecutive, 'min_daily_avg': min_daily_avg},
+        **base_resp,
         'evaluated': evaluated, 'flagged': flagged,
+        'matches': others, 'matches_total': matches_total,
         'totals': {
             'flagged': len(flagged),
             'stopped': sum(1 for f in flagged if f['severity'] == 'stopped'),

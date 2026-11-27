@@ -1385,6 +1385,65 @@
                  font-size:12px; font-weight:600; color:#1e293b; white-space:nowrap; }
     .delx-pill i { width:7px; height:7px; border-radius:50%; display:inline-block; }
 
+    /* ===== Pulsation · Trend & Logs ===== */
+    .tl-header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .tl-titlewrap { display:flex; align-items:center; gap:12px; flex-wrap:wrap; min-width:0; }
+    .tl-target { display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:#0f172a; background:#f8fafc;
+                 border:1px solid #e2e8f0; border-radius:999px; padding:4px 12px 4px 9px; max-width:100%; }
+    .tl-target i { width:8px; height:8px; border-radius:50%; background:#2a78d6; } .tl-target i.acct { background:#8b5cf6; }
+    .tl-target small { font-size:11px; font-weight:500; color:#94a3b8; }
+    .tl-subtabs button { display:inline-flex; align-items:center; gap:6px; }
+    .tl-subtabs button svg { opacity:.7; } .tl-subtabs button.on svg { opacity:1; color:#2563eb; }
+    .tl-body { padding:16px 24px 24px; }
+    .tl-pick { flex:1 1 280px; } .tl-pick select { width:100%; text-transform:none; font-weight:500; }
+    .vd-seg button:disabled { opacity:.45; cursor:default; }
+    .tl-kpis { border:1px solid #e2e8f0; border-radius:14px; margin-bottom:14px; overflow:hidden; }
+    .tl-kpis .delx-kpi { cursor:default; } .tl-kpis .delx-kpi:hover { background:transparent; }
+    .tl-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; vertical-align:1px; background:#cbd5e1; }
+    .tl-dot.good { background:#1baf7a; } .tl-dot.warn { background:#eda100; } .tl-dot.bad { background:#d03b3b; }
+    .tl-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
+    .tl-wide { grid-column:1 / -1; }
+    .tl-canvas { position:relative; height:200px; } .tl-canvas.tall { height:260px; }
+    .tl-strip { display:flex; gap:2px; height:34px; margin-top:16px; }
+    .tl-strip > div { flex:1 1 0; min-width:2px; border-radius:3px; background:#1baf7a; opacity:.75; }
+    .tl-strip > div.bad { background:#d03b3b; opacity:1; } .tl-strip > div:hover { opacity:1; outline:2px solid #0f172a22; }
+    .tl-strip-axis { display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; margin-top:6px; }
+    .tl-note { font-size:11px; color:#94a3b8; margin:10px 0 0; }
+    .tl-empty { text-align:center; padding:40px 20px; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:14px; }
+    .tl-empty-ico { width:52px; height:52px; margin:0 auto 12px; border-radius:14px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; }
+    .tl-empty-t { font-size:15px; font-weight:700; color:#0f172a; margin-bottom:4px; }
+    .tl-empty-s { font-size:13px; color:#64748b; max-width:560px; margin:0 auto; line-height:1.5; }
+    .tl-ctx { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+    .tl-tag { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:#334155; background:#f8fafc;
+              border:1px solid #e2e8f0; border-radius:999px; padding:3px 10px; white-space:nowrap; }
+    .tl-tag em { font-style:normal; font-weight:500; color:#94a3b8; }
+    .tl-tag.strong { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+    .tl-tag.good { background:#f0fdf4; border-color:#bbf7d0; color:#166534; }
+    .tl-tag.blue { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+    .tl-callout { border-radius:10px; padding:11px 14px; font-size:13px; margin-bottom:12px; line-height:1.5; }
+    .tl-callout.warn { background:#fffbeb; border:1px solid #fde68a; color:#92400e; }
+    .tl-callout.err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
+    .tl-callout.info { background:#f8fafc; border:1px solid #e2e8f0; border-left:3px solid #94a3b8; color:#475569; font-size:12px; }
+    .tl-drill { border:1px solid #bfdbfe; background:linear-gradient(180deg,#f5f9ff,#fff 120px); border-radius:14px; padding:14px 16px; margin-bottom:16px; }
+    .tl-drill-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+    .tl-drill-t { font-size:15px; font-weight:700; color:#0f172a; } .tl-drill-t span { color:#1d4ed8; }
+    .tl-jira { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+    .tl-pre { margin-top:12px; padding:10px 12px; background:#f8fafc; border-radius:8px; font-size:12px; color:#475569; white-space:pre-wrap;
+              font-family:ui-monospace,Menlo,monospace; max-height:220px; overflow:auto; }
+    .tl-type { display:inline-block; font-size:11px; font-weight:700; padding:1px 8px; border-radius:999px; background:#f1f5f9; color:#475569; }
+    .tl-type.hard { background:#d03b3b1a; color:#b91c1c; } .tl-type.soft { background:#eda10024; color:#a16207; }
+    .tl-share { display:flex; align-items:center; gap:8px; } .tl-share > div { height:7px; border-radius:4px; background:#2a78d6; min-width:2px; }
+    .tl-share > div.hard { background:#d03b3b; } .tl-share > div.soft { background:#eda100; }
+    .tl-share span { font-size:12px; color:#475569; font-variant-numeric:tabular-nums; }
+    .tl-total td { font-weight:700; background:#f8fafc; border-top:1px solid #e2e8f0; }
+    .tl-sortable th.sortable { cursor:pointer; user-select:none; } .tl-sortable th.sortable:hover { color:#0f172a; }
+    .tl-sortable th.sorted { color:#1d4ed8; } .tl-arrow { font-size:8px; margin-left:4px; }
+    .tl-other td { color:#64748b; background:#fcfcfd; }
+    .tl-link { color:#1d4ed8; font-weight:600; text-decoration:none; border-bottom:1px dashed #93c5fd; }
+    .tl-link:hover, .tl-link.on { color:#1e3a8a; border-bottom-style:solid; }
+    .tl-rate { font-weight:600; } .tl-rate.warn { color:#a16207; } .tl-rate.bad { color:#b91c1c; }
+    @media (max-width: 1100px) { .tl-grid { grid-template-columns:1fr; } .tl-kpis { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+
     /* ===== Pulsation · Volume Drops ===== */
     .vd-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:12px; }
     .vd-field { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; }
@@ -1408,6 +1467,10 @@
     .vd-sev.up.strong { background:#1baf7a26; } .vd-sev.up.strong i { color:#12895f; letter-spacing:-2px; }
     .vd-sev.up.moderate { background:#1baf7a14; } .vd-sev.up.moderate i { color:#1baf7a; }
     .vd-sev.up i { margin-right:3px; }
+    .vd-sev.dt-status { font-weight:500; color:#475569; background:#f1f5f9; }
+    .vd-sev.dt-status.ok { background:#1baf7a14; color:#166534; }
+    .vd-table tr.dt-dim td { color:#475569; }
+    .vd-table tr.dt-divider td { background:#f8fafc; color:#64748b; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; padding:8px 12px; cursor:default; }
     .vd-dir button i { font-style:normal; font-size:9px; margin-right:3px; }
     .vd-dir button.down.on i { color:#eb6834; } .vd-dir button.up.on i { color:#1baf7a; }
     .vd-steps { white-space:nowrap; font-variant-numeric:tabular-nums; color:#334155; }
@@ -1625,6 +1688,36 @@
                   <canvas ref="homeDailySummaryDeliveryRateChart"></canvas>
                 </div>
               </div>
+              <div v-if="!homeDailySummaryLoading && homeDailySummaryData && getHomeDailySummaryRows().length" class="table-wrapper" style="margin-top: 24px;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>{{ homeDailySummaryMode === 'weekly' ? 'Week' : homeDailySummaryMode === 'monthly' ? 'Month' : 'Date' }}</th>
+                      <th>Sent</th>
+                      <th>Delivered</th>
+                      <th>Bounces</th>
+                      <th>Spam</th>
+                      <th>Unsubs</th>
+                      <th>Delivery %</th>
+                      <th>Bounce %</th>
+                      <th>Spam %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in getHomeDailySummaryRows()" :key="row.period">
+                      <td>{{ row.period }}</td>
+                      <td class="text-mono">{{ formatNumber(row.total_sent) }}</td>
+                      <td class="text-mono">{{ formatNumber(row.total_delivered) }}</td>
+                      <td class="text-mono">{{ formatNumber(row.total_bounces) }}</td>
+                      <td class="text-mono">{{ formatNumber(row.total_spam) }}</td>
+                      <td class="text-mono">{{ formatNumber(row.total_unsub) }}</td>
+                      <td class="text-mono">{{ formatRate(row.delivery_rate) }}%</td>
+                      <td class="text-mono">{{ formatRate(row.bounce_rate) }}%</td>
+                      <td class="text-mono">{{ formatRate(row.spam_rate) }}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -1676,7 +1769,7 @@
               </div>
             </div>
 
-            <div v-if="pulsationTab !== 'charts' && pulsationTab !== 'volume_drops' && pulsationTab !== 'open_trends'" class="pz-row pz-filters">
+            <div v-if="pulsationTab !== 'charts' && pulsationTab !== 'volume_drops' && pulsationTab !== 'open_trends' && pulsationTab !== 'delivery_trends'" class="pz-row pz-filters">
               <label class="pz-search">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
                 <input list="pulsation-domain-list" v-model="pulsationDomainFilter" placeholder="Filter by sending domain" :disabled="pulsationLoading" />
@@ -1931,9 +2024,6 @@
               <button class="tab" :class="{ active: pulsationTab === 'risk' }" @click="pulsationTab = 'risk'">
                 Top 20 Risk
               </button>
-              <button class="tab" :class="{ active: pulsationTab === 'daily_summary' }" @click="pulsationTab = 'daily_summary'; loadDailySummary()">
-                Daily Summary
-              </button>
               <button class="tab" :class="{ active: pulsationTab === 'charts' }" @click="pulsationTab = 'charts'">
                 Trend & Logs
               </button>
@@ -1942,6 +2032,9 @@
               </button>
               <button class="tab" :class="{ active: pulsationTab === 'open_trends' }" @click="pulsationTab = 'open_trends'; if (!otData) loadOpenTrends()">
                 Open Rate Trends
+              </button>
+              <button class="tab" :class="{ active: pulsationTab === 'delivery_trends' }" @click="pulsationTab = 'delivery_trends'; if (!dtData) loadDeliveryTrends()">
+                Delivery Rate Trends
               </button>
             </div>
           </div>
@@ -1973,9 +2066,15 @@
                     <button :class="{ on: vd.level === 'domain' }" @click="vd.level = 'domain'; loadVolumeDrops()">Sending domain</button>
                   </div>
                 </div>
+                <div class="vd-field" :title="'Compare the ' + (vd.mode === 'weekly' ? 'week' : 'month') + ' in progress (so far) as the latest point'">Current {{ vd.mode === 'weekly' ? 'week' : 'month' }}
+                  <div class="vd-seg">
+                    <button :class="{ on: vd.includeCurrent }" @click="vd.includeCurrent = true; loadVolumeDrops()">Include so far</button>
+                    <button :class="{ on: !vd.includeCurrent }" @click="vd.includeCurrent = false; loadVolumeDrops()">Complete only</button>
+                  </div>
+                </div>
                 <label class="vd-field">{{ vd.direction === 'spike' ? 'Rises' : 'Drops' }} in a row
                   <select class="date-input" v-model.number="vd.consecutive" @change="loadVolumeDrops()" style="width:110px;">
-                    <option :value="2">2</option><option :value="3">3</option><option :value="4">4</option>
+                    <option :value="1">1</option><option :value="2">2</option><option :value="3">3</option><option :value="4">4</option>
                   </select>
                 </label>
                 <label class="vd-field">Each {{ vd.direction === 'spike' ? 'rise' : 'drop' }} at least
@@ -1988,8 +2087,12 @@
                     <option :value="1000">1k / day</option><option :value="5000">5k / day</option><option :value="20000">20k / day</option><option :value="100000">100k / day</option>
                   </select>
                 </label>
-                <form class="vd-field" @submit.prevent="loadVolumeDrops()">Search
-                  <input class="date-input" v-model="vd.q" placeholder="Account or domain" style="width:200px;">
+                <form class="vd-field" @submit.prevent="loadVolumeDrops()">Search any sender
+                  <span style="position:relative; display:inline-block;">
+                    <input class="date-input" v-model="vd.q" placeholder="Any account or domain ↵" style="width:220px; padding-right:26px;">
+                    <button v-if="vd.q" type="button" title="Clear search" @click="vd.q = ''; loadVolumeDrops()"
+                            style="position:absolute; right:6px; top:50%; transform:translateY(-50%); border:0; background:none; color:#94a3b8; cursor:pointer; font-size:14px; padding:0;">✕</button>
+                  </span>
                 </form>
               </div>
 
@@ -1997,9 +2100,11 @@
 
               <template v-if="vdData">
                 <p class="vd-caption">
-                  Average daily send compared across complete {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }}:
-                  <b>{{ (vdData.window || []).join(' → ') }}</b>.
-                  Flags {{ vdData.level === 'account' ? 'accounts' : 'sending domains' }} averaging ≥ {{ fmtVd(vdData.params.min_daily_avg) }}/day {{ vdData.direction === 'spike' ? 'at the end' : 'at the start' }} that {{ vdData.direction === 'spike' ? 'rose' : 'fell' }} ≥ {{ vdData.params.min_drop_pct }}% in each of {{ vdData.params.consecutive }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }} in a row.
+                  Average daily send compared across {{ vdData.window_partial ? '' : 'complete ' }}{{ vdData.mode === 'weekly' ? 'weeks' : 'months' }}:
+                  <b>{{ (vdData.window || []).join(' → ') }}<span v-if="vdData.window_partial"> (so far, {{ vdData.current_period.collected_days }} of {{ vdData.current_period.days }} days)</span></b>.
+                  Flags {{ vdData.level === 'account' ? 'accounts' : 'sending domains' }} averaging ≥ {{ fmtVd(vdData.params.min_daily_avg) }}/day {{ vdData.direction === 'spike' ? 'at the end' : 'at the start' }} that {{ vdData.direction === 'spike' ? 'rose' : 'fell' }} ≥ {{ vdData.params.min_drop_pct }}%
+                  <template v-if="vdData.params.consecutive === 1">from one {{ vdData.mode === 'weekly' ? 'week' : 'month' }} to the next.</template>
+                  <template v-else>in each of {{ vdData.params.consecutive }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }} in a row.</template>
                   Data through {{ vdData.last_data_day }}.
                   <span v-if="vdData.note"> {{ vdData.note }}</span>
                 </p>
@@ -2022,11 +2127,17 @@
                   </div></div>
                 </div>
 
-                <div v-if="!vdData.flagged.length" style="padding:28px; text-align:center; color:#64748b; font-size:14px; background:#f8fafc; border-radius:10px;">
-                  {{ vdData.direction === 'spike' ? '' : '✅ ' }}No {{ vdData.level === 'account' ? 'account' : 'domain' }} {{ vdData.direction === 'spike' ? 'rose' : 'dropped' }} {{ vdData.params.consecutive }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }} in a row with these settings.
+                <div v-if="vdData.q" class="vd-caption" style="margin-top:-4px;">
+                  Search “<b>{{ vdData.q }}</b>”: {{ vdData.flagged.length }} flagged, {{ vdData.matches_total || 0 }} other matching {{ vdData.level === 'account' ? 'account' : 'domain' }}{{ (vdData.matches_total || 0) === 1 ? '' : 's' }} shown below for reference<span v-if="(vdData.matches_total || 0) > (vdData.matches || []).length"> (first {{ vdData.matches.length }})</span>.
+                </div>
+                <div v-if="vdData.q && !vdRows.length" style="padding:28px; text-align:center; color:#64748b; font-size:14px; background:#f8fafc; border-radius:10px;">
+                  No {{ vdData.level === 'account' ? 'account' : 'sending domain' }} matches “{{ vdData.q }}” in this period.<span v-if="vdData.level === 'account'"> Try “Sending domain”.</span>
+                </div>
+                <div v-else-if="!vdRows.length" style="padding:28px; text-align:center; color:#64748b; font-size:14px; background:#f8fafc; border-radius:10px;">
+                  {{ vdData.direction === 'spike' ? '' : '✅ ' }}No {{ vdData.level === 'account' ? 'account' : 'domain' }} {{ vdData.direction === 'spike' ? 'rose' : 'dropped' }} {{ vdData.params.consecutive === 1 ? 'from one ' + (vdData.mode === 'weekly' ? 'week' : 'month') + ' to the next' : vdData.params.consecutive + ' ' + (vdData.mode === 'weekly' ? 'weeks' : 'months') + ' in a row' }} with these settings.
                 </div>
 
-                <div v-else style="overflow-x:auto;">
+                <div v-if="vdRows.length" style="overflow-x:auto;">
                   <table class="vd-table">
                     <thead><tr>
                       <th>Severity</th>
@@ -2040,12 +2151,18 @@
                       <th>ESP</th>
                     </tr></thead>
                     <tbody>
-                      <template v-for="(f, idx) in vdData.flagged" :key="f.name">
-                        <tr class="vd-row" :class="{ 'vd-open': vdOpen === f.name }" @click="toggleVd(f, idx)">
-                          <td><span class="vd-sev" :class="[f.severity, { up: vdData.direction === 'spike' }]"><i>{{ vdSevIcon(f.severity) }}</i>{{ f.severity.charAt(0).toUpperCase() + f.severity.slice(1) }}</span></td>
+                      <template v-for="(f, idx) in vdRows" :key="f.name">
+                        <tr v-if="!f.flagged && (idx === 0 || vdRows[idx - 1].flagged)" class="dt-divider">
+                          <td colspan="10">Other matches · not flagged</td>
+                        </tr>
+                        <tr class="vd-row" :class="{ 'vd-open': vdOpen === f.name, 'dt-dim': !f.flagged }" @click="toggleVd(f, idx)">
+                          <td>
+                            <span v-if="f.flagged" class="vd-sev" :class="[f.severity, { up: vdData.direction === 'spike' }]"><i>{{ vdSevIcon(f.severity) }}</i>{{ f.severity.charAt(0).toUpperCase() + f.severity.slice(1) }}</span>
+                            <span v-else class="vd-sev dt-status" :class="f.status" :title="trendStatusTip(f, vdData)">{{ trendStatusLabel(f, vdData) }}</span>
+                          </td>
                           <td>
                             <div style="font-weight:600; color:#0f172a;">{{ f.name }}</div>
-                            <div class="vd-sub" v-if="f.level === 'account'">{{ (f.domains || []).length }} domain{{ (f.domains || []).length === 1 ? '' : 's' }}<span v-if="f.streak > vdData.params.consecutive"> · {{ vdData.direction === 'spike' ? 'rising' : 'falling' }} {{ f.streak }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }}</span></div>
+                            <div class="vd-sub" v-if="f.level === 'account'"><template v-if="f.domains && f.domains.length">{{ f.domains.length }} domain{{ f.domains.length === 1 ? '' : 's' }}</template><span v-if="f.streak > vdData.params.consecutive"> · {{ vdData.direction === 'spike' ? 'rising' : 'falling' }} {{ f.streak }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }}</span></div>
                             <div class="vd-sub" v-else>{{ f.account && f.account !== 'Unmapped' ? f.account : 'unmapped' }}<span v-if="f.streak > vdData.params.consecutive"> · {{ vdData.direction === 'spike' ? 'rising' : 'falling' }} {{ f.streak }} {{ vdData.mode === 'weekly' ? 'weeks' : 'months' }}</span></div>
                           </td>
                           <td>
@@ -2053,10 +2170,10 @@
                               <path v-for="b in vdSpark(f)" :key="b.k" :d="b.d" :fill="b.fill" :opacity="b.op"></path>
                             </svg>
                           </td>
-                          <td class="vd-num">{{ fmtVd(f.baseline_avg_daily) }}</td>
-                          <td class="vd-num" style="font-weight:600; color:#0f172a;">{{ fmtVd(f.latest_avg_daily) }}</td>
-                          <td class="vd-steps"><template v-for="(st, si) in f.steps_pct" :key="si"><span v-if="si">→</span>{{ st > 0 ? '+' : '' }}{{ st }}%</template></td>
-                          <td class="vd-num" style="font-weight:700; color:#0f172a;">{{ f.total_drop_pct > 0 ? '+' : '' }}{{ f.total_drop_pct }}%</td>
+                          <td class="vd-num">{{ f.baseline_avg_daily != null ? fmtVd(f.baseline_avg_daily) : '—' }}</td>
+                          <td class="vd-num" style="font-weight:600; color:#0f172a;">{{ f.latest_avg_daily != null ? fmtVd(f.latest_avg_daily) : '—' }}</td>
+                          <td class="vd-steps"><template v-for="(st, si) in (f.steps_pct || [])" :key="si"><span v-if="si">→</span>{{ st > 0 ? '+' : '' }}{{ st }}%</template><span v-if="!f.steps_pct">—</span></td>
+                          <td class="vd-num" style="font-weight:700; color:#0f172a;">{{ f.total_drop_pct == null ? '—' : (f.total_drop_pct > 0 ? '+' : '') + f.total_drop_pct + '%' }}</td>
                           <td class="vd-num">{{ f.delivery_rate_baseline != null ? f.delivery_rate_baseline + '%' : '—' }} <span class="vd-sub">→</span> {{ f.delivery_rate_latest != null ? f.delivery_rate_latest + '%' : '—' }}</td>
                           <td class="vd-sub" style="white-space:nowrap;">{{ f.esps.join(', ') }}</td>
                         </tr>
@@ -2078,7 +2195,7 @@
                                 <table class="vd-table vd-mini">
                                   <thead><tr><th>{{ vdData.mode === 'weekly' ? 'Week of' : 'Month' }}</th><th class="vd-num">Sent</th><th class="vd-num">Avg / day</th><th class="vd-num">Delivery %</th><th class="vd-num">Bounce %</th></tr></thead>
                                   <tbody>
-                                    <tr v-for="p in f.series.slice().reverse().slice(0, 8)" :key="p.start" :style="{ color: p.complete ? '' : '#94a3b8' }">
+                                    <tr v-for="p in f.series.slice().reverse().slice(0, 8)" :key="p.start" :style="{ color: p.complete || (f.window || []).includes(p.label) ? '' : '#94a3b8' }">
                                       <td style="white-space:nowrap;">{{ p.label }}<span v-if="!p.complete" class="vd-sub"> (so far)</span><span v-else-if="!p.trusted" class="vd-sub" title="Few days collected"> ⚠</span></td>
                                       <td class="vd-num">{{ fmtVd(p.sent) }}</td>
                                       <td class="vd-num">{{ p.avg_daily != null ? fmtVd(p.avg_daily) : '—' }}</td>
@@ -2088,7 +2205,7 @@
                                   </tbody>
                                 </table>
                                 <template v-if="f.level === 'account' && f.domains && f.domains.length">
-                                  <div class="delx-title" style="margin:14px 0 6px;">Domains · {{ vdData.window[0] }} vs {{ vdData.window[vdData.window.length - 1] }}</div>
+                                  <div class="delx-title" style="margin:14px 0 6px;">Domains · {{ f.window[0] }} vs {{ f.window[f.window.length - 1] }}{{ f.window_partial ? ' (so far)' : '' }}</div>
                                   <table class="vd-table vd-mini">
                                     <thead><tr><th>Domain</th><th class="vd-num">Baseline / day</th><th class="vd-num">Latest / day</th><th class="vd-num">Change</th></tr></thead>
                                     <tbody>
@@ -2140,9 +2257,15 @@
                     <button :class="{ on: ot.level === 'domain' }" @click="ot.level = 'domain'; loadOpenTrends()">Sending domain</button>
                   </div>
                 </div>
+                <div class="vd-field" :title="'Compare the ' + (ot.mode === 'weekly' ? 'week' : 'month') + ' in progress (so far) as the latest point'">Current {{ ot.mode === 'weekly' ? 'week' : 'month' }}
+                  <div class="vd-seg">
+                    <button :class="{ on: ot.includeCurrent }" @click="ot.includeCurrent = true; loadOpenTrends()">Include so far</button>
+                    <button :class="{ on: !ot.includeCurrent }" @click="ot.includeCurrent = false; loadOpenTrends()">Complete only</button>
+                  </div>
+                </div>
                 <label class="vd-field">{{ ot.direction === 'spike' ? 'Rises' : 'Drops' }} in a row
                   <select class="date-input" v-model.number="ot.consecutive" @change="loadOpenTrends()" style="width:110px;">
-                    <option :value="2">2</option><option :value="3">3</option><option :value="4">4</option>
+                    <option :value="1">1</option><option :value="2">2</option><option :value="3">3</option><option :value="4">4</option>
                   </select>
                 </label>
                 <label class="vd-field">Each {{ ot.direction === 'spike' ? 'rise' : 'drop' }} at least
@@ -2155,8 +2278,12 @@
                     <option :value="1000">1k / day</option><option :value="5000">5k / day</option><option :value="20000">20k / day</option><option :value="100000">100k / day</option>
                   </select>
                 </label>
-                <form class="vd-field" @submit.prevent="loadOpenTrends()">Search
-                  <input class="date-input" v-model="ot.q" placeholder="Account or domain" style="width:200px;">
+                <form class="vd-field" @submit.prevent="loadOpenTrends()">Search any sender
+                  <span style="position:relative; display:inline-block;">
+                    <input class="date-input" v-model="ot.q" placeholder="Any account or domain ↵" style="width:220px; padding-right:26px;">
+                    <button v-if="ot.q" type="button" title="Clear search" @click="ot.q = ''; loadOpenTrends()"
+                            style="position:absolute; right:6px; top:50%; transform:translateY(-50%); border:0; background:none; color:#94a3b8; cursor:pointer; font-size:14px; padding:0;">✕</button>
+                  </span>
                 </form>
               </div>
 
@@ -2165,9 +2292,11 @@
               <template v-if="otData">
                 <p class="vd-caption">
                   <template v-if="otData.window && otData.window.length">
-                    Unique open % (unique opens ÷ delivered) compared across complete {{ otData.mode === 'weekly' ? 'weeks' : 'months' }}:
-                    <b>{{ otData.window.join(' → ') }}</b>.
-                    Flags {{ otData.level === 'account' ? 'accounts' : 'sending domains' }} delivering ≥ {{ fmtVd(otData.params.min_daily_delivered) }}/day whose open rate {{ otData.direction === 'spike' ? 'rose' : 'fell' }} ≥ {{ otData.params.min_change_pts }} pts in each of {{ otData.params.consecutive }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }} in a row.
+                    Unique open % (unique opens ÷ delivered) compared across {{ otData.window_partial ? '' : 'complete ' }}{{ otData.mode === 'weekly' ? 'weeks' : 'months' }}:
+                    <b>{{ otData.window.join(' → ') }}<span v-if="otData.window_partial"> (so far, {{ otData.current_period.collected_days }} of {{ otData.current_period.days }} days)</span></b>.
+                    Flags {{ otData.level === 'account' ? 'accounts' : 'sending domains' }} delivering ≥ {{ fmtVd(otData.params.min_daily_delivered) }}/day {{ otData.direction === 'spike' ? 'at the end' : 'at the start' }} whose open rate {{ otData.direction === 'spike' ? 'rose' : 'fell' }} ≥ {{ otData.params.min_change_pts }} {{ otData.params.min_change_pts === 1 ? 'pt' : 'pts' }}
+                    <template v-if="otData.params.consecutive === 1">from one {{ otData.mode === 'weekly' ? 'week' : 'month' }} to the next.</template>
+                    <template v-else>in each of {{ otData.params.consecutive }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }} in a row.</template>
                     Data through {{ otData.last_data_day }}.
                   </template>
                   <span v-if="otData.note"> {{ otData.note }}</span>
@@ -2191,12 +2320,18 @@
                   </div></div>
                 </div>
 
-                <div v-if="!otData.flagged.length" style="padding:28px; text-align:center; color:#64748b; font-size:14px; background:#f8fafc; border-radius:10px;">
-                  <template v-if="otData.window && otData.window.length">{{ otData.direction === 'spike' ? '' : '✅ ' }}No {{ otData.level === 'account' ? 'account' : 'domain' }}'s open rate {{ otData.direction === 'spike' ? 'rose' : 'dropped' }} {{ otData.params.consecutive }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }} in a row with these settings.</template>
+                <div v-if="otData.q" class="vd-caption" style="margin-top:-4px;">
+                  Search “<b>{{ otData.q }}</b>”: {{ otData.flagged.length }} flagged, {{ otData.matches_total || 0 }} other matching {{ otData.level === 'account' ? 'account' : 'domain' }}{{ (otData.matches_total || 0) === 1 ? '' : 's' }} shown below for reference<span v-if="(otData.matches_total || 0) > (otData.matches || []).length"> (first {{ otData.matches.length }})</span>.
+                </div>
+                <div v-if="otData.q && !otRows.length" style="padding:28px; text-align:center; color:#64748b; font-size:14px; background:#f8fafc; border-radius:10px;">
+                  No {{ otData.level === 'account' ? 'account' : 'sending domain' }} matches “{{ otData.q }}” in this period.<span v-if="otData.level === 'account'"> Try “Sending domain”.</span>
+                </div>
+                <div v-else-if="!otRows.length" style="padding:28px; text-align:center; color:#64748b; font-size:14px; background:#f8fafc; border-radius:10px;">
+                  <template v-if="otData.window && otData.window.length">{{ otData.direction === 'spike' ? '' : '✅ ' }}No {{ otData.level === 'account' ? 'account' : 'domain' }}'s open rate {{ otData.direction === 'spike' ? 'rose' : 'dropped' }} {{ otData.params.consecutive === 1 ? 'from one ' + (otData.mode === 'weekly' ? 'week' : 'month') + ' to the next' : otData.params.consecutive + ' ' + (otData.mode === 'weekly' ? 'weeks' : 'months') + ' in a row' }} with these settings.</template>
                   <template v-else>Nothing to compare yet — this view fills in as open-rate history builds up.</template>
                 </div>
 
-                <div v-else style="overflow-x:auto;">
+                <div v-if="otRows.length" style="overflow-x:auto;">
                   <table class="vd-table">
                     <thead><tr>
                       <th>Severity</th>
@@ -2211,12 +2346,18 @@
                       <th>ESP</th>
                     </tr></thead>
                     <tbody>
-                      <template v-for="(f, idx) in otData.flagged" :key="f.name">
-                        <tr class="vd-row" :class="{ 'vd-open': otOpen === f.name }" @click="toggleOt(f, idx)">
-                          <td><span class="vd-sev" :class="[otSevClass(f.severity), { up: otData.direction === 'spike' }]"><i>{{ otSevIcon(f.severity) }}</i>{{ f.severity.charAt(0).toUpperCase() + f.severity.slice(1) }}</span></td>
+                      <template v-for="(f, idx) in otRows" :key="f.name">
+                        <tr v-if="!f.flagged && (idx === 0 || otRows[idx - 1].flagged)" class="dt-divider">
+                          <td colspan="10">Other matches · not flagged</td>
+                        </tr>
+                        <tr class="vd-row" :class="{ 'vd-open': otOpen === f.name, 'dt-dim': !f.flagged }" @click="toggleOt(f, idx)">
+                          <td>
+                            <span v-if="f.flagged" class="vd-sev" :class="[otSevClass(f.severity), { up: otData.direction === 'spike' }]"><i>{{ otSevIcon(f.severity) }}</i>{{ f.severity.charAt(0).toUpperCase() + f.severity.slice(1) }}</span>
+                            <span v-else class="vd-sev dt-status" :class="f.status" :title="trendStatusTip(f, otData)">{{ trendStatusLabel(f, otData) }}</span>
+                          </td>
                           <td>
                             <div style="font-weight:600; color:#0f172a;">{{ f.name }}</div>
-                            <div class="vd-sub" v-if="f.level === 'account'">{{ (f.domains || []).length }} domain{{ (f.domains || []).length === 1 ? '' : 's' }}<span v-if="f.streak > otData.params.consecutive"> · {{ otData.direction === 'spike' ? 'rising' : 'falling' }} {{ f.streak }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }}</span></div>
+                            <div class="vd-sub" v-if="f.level === 'account'"><template v-if="f.domains && f.domains.length">{{ f.domains.length }} domain{{ f.domains.length === 1 ? '' : 's' }}</template><span v-if="f.streak > otData.params.consecutive"> · {{ otData.direction === 'spike' ? 'rising' : 'falling' }} {{ f.streak }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }}</span></div>
                             <div class="vd-sub" v-else>{{ f.account && f.account !== 'Unmapped' ? f.account : 'unmapped' }}<span v-if="f.streak > otData.params.consecutive"> · {{ otData.direction === 'spike' ? 'rising' : 'falling' }} {{ f.streak }} {{ otData.mode === 'weekly' ? 'weeks' : 'months' }}</span></div>
                           </td>
                           <td>
@@ -2224,12 +2365,12 @@
                               <path v-for="b in otSpark(f)" :key="b.k" :d="b.d" :fill="b.fill"></path>
                             </svg>
                           </td>
-                          <td class="vd-num">{{ f.baseline_open_rate }}%</td>
-                          <td class="vd-num" style="font-weight:600; color:#0f172a;">{{ f.latest_open_rate }}%</td>
-                          <td class="vd-steps"><template v-for="(st, si) in f.steps_pts" :key="si"><span v-if="si">→</span>{{ fmtPts(st) }}</template></td>
+                          <td class="vd-num">{{ f.baseline_open_rate != null ? f.baseline_open_rate + '%' : '—' }}</td>
+                          <td class="vd-num" style="font-weight:600; color:#0f172a;">{{ f.latest_open_rate != null ? f.latest_open_rate + '%' : '—' }}</td>
+                          <td class="vd-steps"><template v-for="(st, si) in (f.steps_pts || [])" :key="si"><span v-if="si">→</span>{{ fmtPts(st) }}</template><span v-if="!f.steps_pts">—</span></td>
                           <td class="vd-num" style="font-weight:700; color:#0f172a;">{{ fmtPts(f.total_change_pts) }}<div class="vd-sub" v-if="f.relative_change_pct != null">{{ f.relative_change_pct > 0 ? '+' : '' }}{{ f.relative_change_pct }}% rel.</div></td>
                           <td class="vd-num">{{ f.click_rate_baseline != null ? f.click_rate_baseline + '%' : '—' }} <span class="vd-sub">→</span> {{ f.click_rate_latest != null ? f.click_rate_latest + '%' : '—' }}</td>
-                          <td class="vd-num">{{ fmtVd(f.latest_avg_daily_delivered) }}</td>
+                          <td class="vd-num">{{ f.latest_avg_daily_delivered != null ? fmtVd(f.latest_avg_daily_delivered) : '—' }}</td>
                           <td class="vd-sub" style="white-space:nowrap;">{{ f.esps.join(', ') }}</td>
                         </tr>
                         <tr v-if="otOpen === f.name">
@@ -2250,7 +2391,7 @@
                                 <table class="vd-table vd-mini">
                                   <thead><tr><th>{{ otData.mode === 'weekly' ? 'Week of' : 'Month' }}</th><th class="vd-num">Delivered</th><th class="vd-num">Unique opens</th><th class="vd-num">Open %</th><th class="vd-num">Click %</th></tr></thead>
                                   <tbody>
-                                    <tr v-for="p in f.series.slice().reverse().slice(0, 8)" :key="p.start" :style="{ color: p.trusted ? '' : '#94a3b8' }">
+                                    <tr v-for="p in f.series.slice().reverse().slice(0, 8)" :key="p.start" :style="{ color: p.trusted || (f.window || []).includes(p.label) ? '' : '#94a3b8' }">
                                       <td style="white-space:nowrap;">{{ p.label }}<span v-if="!p.complete" class="vd-sub"> (so far)</span><span v-else-if="!p.trusted" class="vd-sub" title="Few days with open data"> ⚠</span></td>
                                       <td class="vd-num">{{ fmtVd(p.delivered) }}</td>
                                       <td class="vd-num">{{ fmtVd(p.opens) }}</td>
@@ -2260,7 +2401,7 @@
                                   </tbody>
                                 </table>
                                 <template v-if="f.level === 'account' && f.domains && f.domains.length">
-                                  <div class="delx-title" style="margin:14px 0 6px;">Domains · {{ otData.window[0] }} vs {{ otData.window[otData.window.length - 1] }}</div>
+                                  <div class="delx-title" style="margin:14px 0 6px;">Domains · {{ f.window[0] }} vs {{ f.window[f.window.length - 1] }}{{ f.window_partial ? ' (so far)' : '' }}</div>
                                   <table class="vd-table vd-mini">
                                     <thead><tr><th>Domain</th><th class="vd-num">Baseline open %</th><th class="vd-num">Latest open %</th><th class="vd-num">Change</th><th class="vd-num">Delivered / day</th></tr></thead>
                                     <tbody>
@@ -2286,6 +2427,199 @@
               <div v-else-if="otLoading" style="padding:28px; text-align:center; color:#64748b;">Loading open rate trends…</div>
             </div>
           </div>
+
+          <!-- Delivery Rate Trends Tab -->
+          <div v-if="pulsationTab === 'delivery_trends'" class="card-section delx">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+              <h3 class="card-title">Delivery Rate Drops</h3>
+              <button class="btn btn-sm btn-secondary" @click="loadDeliveryTrends()" :disabled="dtLoading">{{ dtLoading ? 'Loading…' : 'Refresh' }}</button>
+            </div>
+            <div style="padding:16px 24px 24px;">
+              <div class="vd-controls">
+                <div class="vd-field">Period
+                  <div class="vd-seg">
+                    <button :class="{ on: dt.mode === 'daily' }" @click="dt.mode = 'daily'; loadDeliveryTrends()">Daily</button>
+                    <button :class="{ on: dt.mode === 'weekly' }" @click="dt.mode = 'weekly'; loadDeliveryTrends()">Weekly</button>
+                    <button :class="{ on: dt.mode === 'monthly' }" @click="dt.mode = 'monthly'; loadDeliveryTrends()">Monthly</button>
+                  </div>
+                </div>
+                <div class="vd-field">View by
+                  <div class="vd-seg">
+                    <button :class="{ on: dt.level === 'account' }" @click="dt.level = 'account'; loadDeliveryTrends()">Account</button>
+                    <button :class="{ on: dt.level === 'domain' }" @click="dt.level = 'domain'; loadDeliveryTrends()">Sending domain</button>
+                  </div>
+                </div>
+                <div class="vd-field" v-if="dt.mode !== 'daily'" :title="'Compare the ' + dtUnit(1) + ' in progress (so far) as the latest point'">Current {{ dtUnit(1) }}
+                  <div class="vd-seg">
+                    <button :class="{ on: dt.includeCurrent }" @click="dt.includeCurrent = true; loadDeliveryTrends()">Include so far</button>
+                    <button :class="{ on: !dt.includeCurrent }" @click="dt.includeCurrent = false; loadDeliveryTrends()">Complete only</button>
+                  </div>
+                </div>
+                <label class="vd-field">Drops in a row
+                  <select class="date-input" v-model.number="dt.consecutive" @change="loadDeliveryTrends()" style="width:110px;">
+                    <option :value="1">1</option><option :value="2">2</option><option :value="3">3</option><option :value="4">4</option>
+                  </select>
+                </label>
+                <label class="vd-field">Each drop at least
+                  <select class="date-input" v-model.number="dt.minPts" @change="loadDeliveryTrends()" style="width:110px;">
+                    <option :value="0.5">0.5 pt</option><option :value="1">1 pt</option><option :value="2">2 pts</option><option :value="3">3 pts</option><option :value="5">5 pts</option>
+                  </select>
+                </label>
+                <label class="vd-field">Min. sent volume
+                  <select class="date-input" v-model.number="dt.minDaily" @change="loadDeliveryTrends()" style="width:140px;">
+                    <option :value="1000">1k / day</option><option :value="5000">5k / day</option><option :value="20000">20k / day</option><option :value="100000">100k / day</option>
+                  </select>
+                </label>
+                <form class="vd-field" @submit.prevent="loadDeliveryTrends()">Search any sender
+                  <span style="position:relative; display:inline-block;">
+                    <input class="date-input" v-model="dt.q" placeholder="Any account or domain ↵" style="width:220px; padding-right:26px;">
+                    <button v-if="dt.q" type="button" title="Clear search" @click="dt.q = ''; loadDeliveryTrends()"
+                            style="position:absolute; right:6px; top:50%; transform:translateY(-50%); border:0; background:none; color:#94a3b8; cursor:pointer; font-size:14px; padding:0;">✕</button>
+                  </span>
+                </form>
+              </div>
+
+              <div v-if="dtError" style="background:#fee2e2; border:1px solid #fca5a5; border-radius:10px; padding:12px 16px; color:#991b1b; font-size:13px; margin-bottom:12px;">{{ dtError }}</div>
+
+              <template v-if="dtData">
+                <p class="vd-caption">
+                  <template v-if="dtData.window && dtData.window.length">
+                    Delivery % (delivered ÷ sent) compared across {{ dtData.window_partial ? '' : 'complete ' }}{{ dtUnit(2) }}:
+                    <b>{{ dtData.window.join(' → ') }}<span v-if="dtData.window_partial"> (so far, {{ dtData.current_period.collected_days }} of {{ dtData.current_period.days }} days)</span></b>.
+                    Flags {{ dtData.level === 'account' ? 'accounts' : 'sending domains' }} sending ≥ {{ fmtVd(dtData.params.min_daily_sent) }}/day whose delivery rate fell ≥ {{ dtData.params.min_change_pts }} {{ dtData.params.min_change_pts === 1 ? 'pt' : 'pts' }}
+                    <template v-if="dtData.params.consecutive === 1">from one {{ dtUnit(1) }} to the next.</template>
+                    <template v-else>in each of {{ dtData.params.consecutive }} {{ dtUnit(2) }} in a row.</template>
+                    Rows where delivered exceeds sent (late delivery events, &gt;100%) are ignored.
+                    Data through {{ dtData.last_data_day }}.
+                  </template>
+                  <span v-if="dtData.note"> {{ dtData.note }}</span>
+                </p>
+
+                <div class="delx-kpis" style="margin-bottom:14px;">
+                  <div class="delx-kpi" style="cursor:default;"><div>
+                    <div class="delx-kpi-label">Flagged</div>
+                    <div class="delx-kpi-value">{{ dtData.totals ? dtData.totals.flagged : 0 }}</div>
+                    <div class="delx-kpi-sub">of <b>{{ dtData.evaluated }}</b> {{ dtData.level === 'account' ? 'accounts' : 'domains' }} checked</div>
+                  </div></div>
+                  <div class="delx-kpi" style="cursor:default;" v-for="t in dtSevTiles" :key="t.key"><div>
+                    <div class="delx-kpi-label"><span class="vd-sev" :class="otSevClass(t.key)" style="padding:0; background:none;"><i>{{ t.icon }}</i></span> {{ t.label }}</div>
+                    <div class="delx-kpi-value">{{ dtData.totals ? (dtData.totals[t.key] || 0) : 0 }}</div>
+                    <div class="delx-kpi-sub">{{ t.sub }}</div>
+                  </div></div>
+                  <div class="delx-kpi" style="cursor:default;"><div>
+                    <div class="delx-kpi-label">Avg. change</div>
+                    <div class="delx-kpi-value">{{ fmtPts(dtData.totals ? dtData.totals.avg_change_pts : 0) }}</div>
+                    <div class="delx-kpi-sub">delivery % points, flagged {{ dtData.level === 'account' ? 'accounts' : 'domains' }}</div>
+                  </div></div>
+                </div>
+
+                <div v-if="dtData.q" class="vd-caption" style="margin-top:-4px;">
+                  Search “<b>{{ dtData.q }}</b>”: {{ dtData.flagged.length }} flagged, {{ dtData.matches_total || 0 }} other matching {{ dtData.level === 'account' ? 'account' : 'domain' }}{{ (dtData.matches_total || 0) === 1 ? '' : 's' }} shown below for reference<span v-if="(dtData.matches_total || 0) > dtData.matches.length"> (first {{ dtData.matches.length }})</span>.
+                </div>
+
+                <div v-if="!dtRows.length" style="padding:28px; text-align:center; color:#64748b; font-size:14px; background:#f8fafc; border-radius:10px;">
+                  <template v-if="dtData.q">No {{ dtData.level === 'account' ? 'account' : 'sending domain' }} matches “{{ dtData.q }}” in this period.<span v-if="dtData.level === 'account'"> Try “Sending domain”.</span></template>
+                  <template v-else-if="dtData.window && dtData.window.length">✅ No {{ dtData.level === 'account' ? 'account' : 'domain' }}'s delivery rate dropped {{ dtData.params.consecutive === 1 ? 'from one ' + dtUnit(1) + ' to the next' : dtData.params.consecutive + ' ' + dtUnit(2) + ' in a row' }} with these settings.</template>
+                  <template v-else>Nothing to compare yet.</template>
+                </div>
+
+                <div v-else style="overflow-x:auto;">
+                  <table class="vd-table">
+                    <thead><tr>
+                      <th>Severity</th>
+                      <th>{{ dtData.level === 'account' ? 'Account' : 'Sending domain' }}</th>
+                      <th>Delivery % · last {{ dtData.periods.length }} {{ dtUnit(2) }}</th>
+                      <th class="vd-num">Baseline %</th>
+                      <th class="vd-num">Latest %</th>
+                      <th>Each step</th>
+                      <th class="vd-num">Total</th>
+                      <th class="vd-num">Bounce %</th>
+                      <th class="vd-num">Sent / day</th>
+                      <th>ESP</th>
+                    </tr></thead>
+                    <tbody>
+                      <template v-for="(f, idx) in dtRows" :key="f.name">
+                        <tr v-if="!f.flagged && (idx === 0 || dtRows[idx - 1].flagged)" class="dt-divider">
+                          <td colspan="10">Other matches · not flagged</td>
+                        </tr>
+                        <tr class="vd-row" :class="{ 'vd-open': dtOpen === f.name, 'dt-dim': !f.flagged }" @click="toggleDt(f, idx)">
+                          <td>
+                            <span v-if="f.flagged" class="vd-sev" :class="otSevClass(f.severity)"><i>{{ otSevIcon(f.severity) }}</i>{{ f.severity.charAt(0).toUpperCase() + f.severity.slice(1) }}</span>
+                            <span v-else class="vd-sev dt-status" :class="f.status" :title="dtStatusTip(f)">{{ dtStatusLabel(f) }}</span>
+                          </td>
+                          <td>
+                            <div style="font-weight:600; color:#0f172a;">{{ f.name }}</div>
+                            <div class="vd-sub" v-if="f.level === 'account'"><template v-if="f.domains && f.domains.length">{{ f.domains.length }} domain{{ f.domains.length === 1 ? '' : 's' }}</template><span v-if="f.streak > dtData.params.consecutive"> · falling {{ f.streak }} {{ dtUnit(2) }}</span></div>
+                            <div class="vd-sub" v-else>{{ f.account && f.account !== 'Unmapped' ? f.account : 'unmapped' }}<span v-if="f.streak > dtData.params.consecutive"> · falling {{ f.streak }} {{ dtUnit(2) }}</span></div>
+                          </td>
+                          <td>
+                            <svg width="150" height="30" viewBox="0 0 150 30" aria-hidden="true" style="display:block;">
+                              <path v-for="b in dtSpark(f)" :key="b.k" :d="b.d" :fill="b.fill"></path>
+                            </svg>
+                          </td>
+                          <td class="vd-num">{{ f.baseline_delivery_rate != null ? f.baseline_delivery_rate + '%' : '—' }}</td>
+                          <td class="vd-num" style="font-weight:600; color:#0f172a;">{{ f.latest_delivery_rate != null ? f.latest_delivery_rate + '%' : '—' }}</td>
+                          <td class="vd-steps"><template v-for="(st, si) in (f.steps_pts || [])" :key="si"><span v-if="si">→</span>{{ fmtPts(st) }}</template><span v-if="!f.steps_pts">—</span></td>
+                          <td class="vd-num" style="font-weight:700; color:#0f172a;">{{ f.total_change_pts != null ? fmtPts(f.total_change_pts) : '—' }}</td>
+                          <td class="vd-num">{{ f.bounce_rate_baseline != null ? f.bounce_rate_baseline + '%' : '—' }} <span class="vd-sub">→</span> {{ f.bounce_rate_latest != null ? f.bounce_rate_latest + '%' : '—' }}</td>
+                          <td class="vd-num">{{ f.latest_avg_daily_sent != null ? fmtVd(f.latest_avg_daily_sent) : '—' }}</td>
+                          <td class="vd-sub" style="white-space:nowrap;">{{ f.esps.join(', ') }}</td>
+                        </tr>
+                        <tr v-if="dtOpen === f.name">
+                          <td colspan="10" class="vd-detail">
+                            <div class="vd-detail-grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);">
+                              <div>
+                                <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                                  <span class="delx-title">Delivery % per {{ dtUnit(1) }}</span>
+                                  <span class="delx-legend">
+                                    <span><i class="delx-sw" style="background:#86b6ef"></i>Earlier</span>
+                                    <span><i class="delx-sw" :style="{ background: f.flagged ? '#eb6834' : '#2a78d6' }"></i>Compared window</span>
+                                    <span><i class="delx-sw" style="background:#cbd5e1"></i>In progress / partial</span>
+                                  </span>
+                                </div>
+                                <div style="height:220px; position:relative;"><canvas :id="'dt-chart-' + idx"></canvas></div>
+                              </div>
+                              <div style="overflow-x:auto;">
+                                <table class="vd-table vd-mini">
+                                  <thead><tr><th>{{ dtData.mode === 'weekly' ? 'Week of' : dtData.mode === 'daily' ? 'Day' : 'Month' }}</th><th class="vd-num">Sent</th><th class="vd-num">Delivered</th><th class="vd-num">Delivery %</th><th class="vd-num">Bounce %</th></tr></thead>
+                                  <tbody>
+                                    <tr v-for="p in f.series.slice().reverse().slice(0, 8)" :key="p.start" :style="{ color: p.trusted || (f.window || []).includes(p.label) ? '' : '#94a3b8' }">
+                                      <td style="white-space:nowrap;">{{ p.label }}<span v-if="!p.complete" class="vd-sub"> (so far)</span><span v-else-if="!p.trusted" class="vd-sub" title="Few collected days"> ⚠</span><span v-if="p.excluded_rows" class="vd-sub" :title="p.excluded_rows + ' row(s) with delivered > sent were ignored'"> · {{ p.excluded_rows }} &gt;100% ignored</span></td>
+                                      <td class="vd-num">{{ fmtVd(p.sent) }}</td>
+                                      <td class="vd-num">{{ fmtVd(p.delivered) }}</td>
+                                      <td class="vd-num">{{ p.delivery_rate != null ? p.delivery_rate + '%' : '—' }}</td>
+                                      <td class="vd-num">{{ p.bounce_rate != null ? p.bounce_rate + '%' : '—' }}</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                                <template v-if="f.level === 'account' && f.domains && f.domains.length">
+                                  <div class="delx-title" style="margin:14px 0 6px;">Domains · {{ f.window[0] }} vs {{ f.window[f.window.length - 1] }}{{ f.window_partial ? ' (so far)' : '' }}</div>
+                                  <table class="vd-table vd-mini">
+                                    <thead><tr><th>Domain</th><th class="vd-num">Baseline %</th><th class="vd-num">Latest %</th><th class="vd-num">Change</th><th class="vd-num">Sent / day</th></tr></thead>
+                                    <tbody>
+                                      <tr v-for="d in f.domains.slice(0, 8)" :key="d.domain">
+                                        <td>{{ d.domain }}</td>
+                                        <td class="vd-num">{{ d.baseline_delivery_rate != null ? d.baseline_delivery_rate + '%' : '—' }}</td>
+                                        <td class="vd-num">{{ d.latest_delivery_rate != null ? d.latest_delivery_rate + '%' : '—' }}</td>
+                                        <td class="vd-num" style="font-weight:600;">{{ d.change_pts != null ? fmtPts(d.change_pts) : (d.baseline_delivery_rate == null ? 'new' : 'stopped') }}</td>
+                                        <td class="vd-num">{{ fmtVd(d.latest_avg_daily_sent) }}</td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </template>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+              <div v-else-if="dtLoading" style="padding:28px; text-align:center; color:#64748b;">Loading delivery rate trends…</div>
+            </div>
+          </div>
+
 
           <!-- Overall Tab -->
           <div v-if="pulsationData && pulsationTab === 'overall'" class="card-section">
@@ -2599,119 +2933,163 @@
             </div>
           </div>
 
-          <!-- Daily Summary Tab -->
-          <div v-if="pulsationTab === 'daily_summary'" class="card-section">
-            <div class="card-header">
-              <h3 class="card-title">Daily Summary</h3>
-              <span class="card-meta" v-if="dailySummaryData?.range_start">
-                {{ dailySummaryData.range_start }} → {{ dailySummaryData.range_end }}
-              </span>
+          <!-- Charts Tab (Trend & Logs) -->
+          <div v-if="pulsationData && pulsationTab === 'charts'" class="card-section delx tl">
+            <div class="card-header tl-header">
+              <div class="tl-titlewrap">
+                <h3 class="card-title">Trend &amp; Logs</h3>
+                <span v-if="tlTarget" class="tl-target">
+                  <i :class="pulsationTrendMode === 'account' ? 'acct' : 'dom'"></i>{{ tlTarget }}
+                  <small>{{ pulsationTrendMode === 'account' ? 'account' : 'sending domain' }}</small>
+                </span>
+              </div>
+              <div class="vd-seg tl-subtabs">
+                <button :class="{ on: pulsationTrendSubTab === 'trend' }" @click="pulsationTrendSubTab = 'trend'; $nextTick(() => renderTrendCharts())">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 17l6-6 4 4 8-8"/></svg>Trend
+                </button>
+                <button :class="{ on: pulsationTrendSubTab === 'email_domain_stats' }" @click="openEmailDomainStatsTab()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Mailbox providers
+                </button>
+                <button :class="{ on: pulsationTrendSubTab === 'bounce_logs' }" @click="pulsationTrendSubTab = 'bounce_logs'">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg>Bounce logs
+                </button>
+              </div>
             </div>
 
-            <div style="padding: 16px 24px 0; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
-              <div>
-                <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Range:</label>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryRangeDays === 7 }" @click="setDailySummaryRange(7)">7d</button>
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryRangeDays === 30 }" @click="setDailySummaryRange(30)">30d</button>
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryRangeDays === 60 }" @click="setDailySummaryRange(60)">60d</button>
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryRangeDays === 90 }" @click="setDailySummaryRange(90)">90d</button>
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryRangeDays === 365 }" @click="setDailySummaryRange(365)">365d</button>
+            <!-- ============ Trend ============ -->
+            <div v-if="pulsationTrendSubTab === 'trend'" class="tl-body">
+              <div class="vd-controls">
+                <div class="vd-field">View by
+                  <div class="vd-seg">
+                    <button :class="{ on: pulsationTrendMode === 'domain' }" @click="pulsationTrendMode='domain'; selectedAccount=''; loadTrendCharts()">Sending domain</button>
+                    <button :class="{ on: pulsationTrendMode === 'account' }" @click="pulsationTrendMode='account'; selectedDomain=''; loadTrendCharts()">Account</button>
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Aggregation:</label>
-                <div style="display: flex; gap: 8px;">
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryMode === 'daily' }" @click="switchDailySummaryMode('daily')">Daily</button>
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryMode === 'weekly' }" @click="switchDailySummaryMode('weekly')">Weekly</button>
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': dailySummaryMode === 'monthly' }" @click="switchDailySummaryMode('monthly')">Monthly</button>
-                </div>
-              </div>
-
-              <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b;">
-                  <input type="checkbox" v-model="dailySummaryExcludeClassdojo" @change="toggleDailySummaryExclude" />
-                  Exclude classdojo.com from Delivery Rate
+                <label class="vd-field tl-pick">{{ pulsationTrendMode === 'domain' ? 'Sending domain' : 'Account' }}
+                  <select v-if="pulsationTrendMode === 'domain'" class="date-input" v-model="selectedDomain" @change="loadTrendCharts">
+                    <option value="">Select a sending domain…</option>
+                    <option v-for="domain in pulsationData.all_domains" :key="domain" :value="domain">{{ domain }}</option>
+                  </select>
+                  <select v-else class="date-input" v-model="selectedAccount" @change="loadTrendCharts">
+                    <option value="">Select an account…</option>
+                    <option v-for="name in pulsationAccountOptions" :key="name" :value="name">{{ name }}</option>
+                  </select>
                 </label>
-              </div>
-            </div>
-
-            <div style="padding: 16px 24px 0;">
-              <div v-if="dailySummaryLoading" class="summary-empty">Loading daily summary...</div>
-              <div v-else-if="!dailySummaryData || !getDailySummaryRows().length" class="summary-empty">No summary data for the selected range.</div>
-              <div v-else class="table-wrapper">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Sent</th>
-                      <th>Delivered</th>
-                      <th>Bounces</th>
-                      <th>Spam</th>
-                      <th>Unsubs</th>
-                      <th>Delivery %</th>
-                      <th>Bounce %</th>
-                      <th>Spam %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="row in getDailySummaryRows()" :key="row.period">
-                      <td>{{ row.period }}</td>
-                      <td class="text-mono">{{ formatNumber(row.total_sent) }}</td>
-                      <td class="text-mono">{{ formatNumber(row.total_delivered) }}</td>
-                      <td class="text-mono">{{ formatNumber(row.total_bounces) }}</td>
-                      <td class="text-mono">{{ formatNumber(row.total_spam) }}</td>
-                      <td class="text-mono">{{ formatNumber(row.total_unsub) }}</td>
-                      <td class="text-mono">{{ formatRate(row.delivery_rate) }}%</td>
-                      <td class="text-mono">{{ formatRate(row.bounce_rate) }}%</td>
-                      <td class="text-mono">{{ formatRate(row.spam_rate) }}%</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div style="padding: 24px;">
-              <div class="chart-grid">
-                <div class="chart-container">
-                  <h4>Sent Volume</h4>
-                  <canvas ref="dailySummarySentChart"></canvas>
+                <div class="vd-field">Aggregation
+                  <div class="vd-seg">
+                    <button :class="{ on: pulsationTrendAggregation === 'daily' }" @click="pulsationTrendAggregation='daily'; loadTrendCharts()">Daily</button>
+                    <button :class="{ on: pulsationTrendAggregation === 'weekly' }" @click="pulsationTrendAggregation='weekly'; loadTrendCharts()">Weekly</button>
+                    <button :class="{ on: pulsationTrendAggregation === 'monthly' }" @click="pulsationTrendAggregation='monthly'; loadTrendCharts()">Monthly</button>
+                  </div>
                 </div>
-                <div class="chart-container">
-                  <h4>Delivery Rate (%)</h4>
-                  <canvas ref="dailySummaryDeliveryRateChart"></canvas>
+                <div class="vd-field">Period
+                  <div class="vd-seg">
+                    <button v-for="d in [7, 30, 60, 90, 180, 365]" :key="d" :class="{ on: Number(chartDays) === d }"
+                            :disabled="!tlTarget" @click="chartDays = d; loadTrendCharts()">{{ d }}D</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <!-- Charts Tab -->
-          <div v-if="pulsationData && pulsationTab === 'charts'" class="card-section">
-            <div class="card-header">
-              <h3 class="card-title">Trend & Logs</h3>
-            </div>
-            <div style="padding: 16px 24px 0; display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendSubTab === 'trend' }" @click="pulsationTrendSubTab = 'trend'">
-                Trend
-              </button>
-              <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendSubTab === 'email_domain_stats' }" @click="openEmailDomainStatsTab()">
-                Email domain stats
-              </button>
-              <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendSubTab === 'bounce_logs' }" @click="pulsationTrendSubTab = 'bounce_logs'">
-                Bounce Logs
-              </button>
+              <div v-if="!tlTarget" class="tl-empty">
+                <div class="tl-empty-ico">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+                </div>
+                <div class="tl-empty-t">Pick a {{ pulsationTrendMode === 'domain' ? 'sending domain' : 'account' }} to see its trend</div>
+                <div class="tl-empty-s">Volume, delivery, bounce and spam rates over time, plus Spamhaus listing history. Tip: click any domain in the Pulsation tables to jump straight here.</div>
+              </div>
+
+              <template v-else-if="chartData">
+                <p class="vd-caption">
+                  <b>{{ tlTarget }}</b> · {{ pulsationTrendAggregation }} · {{ (chartData.dates || [])[0] }} → {{ (chartData.dates || []).slice(-1)[0] }}
+                  <span v-if="tlKpis">· {{ tlKpis.points }} {{ pulsationTrendAggregation === 'daily' ? 'days' : pulsationTrendAggregation === 'weekly' ? 'weeks' : 'months' }} with data</span>
+                </p>
+
+                <div v-if="tlKpis" class="delx-kpis tl-kpis">
+                  <div class="delx-kpi"><div>
+                    <div class="delx-kpi-label">Sent</div>
+                    <div class="delx-kpi-value">{{ fmtVd(tlKpis.sent) }}</div>
+                    <div class="delx-kpi-sub">avg <b>{{ fmtVd(tlKpis.avgSent) }}</b> / {{ pulsationTrendAggregation === 'daily' ? 'day' : pulsationTrendAggregation === 'weekly' ? 'week' : 'month' }}</div>
+                  </div></div>
+                  <div class="delx-kpi"><div>
+                    <div class="delx-kpi-label">Delivered</div>
+                    <div class="delx-kpi-value">{{ fmtVd(tlKpis.delivered) }}</div>
+                    <div class="delx-kpi-sub">peak <b>{{ fmtVd(tlKpis.peakSent) }}</b> sent on {{ tlKpis.peakDate }}</div>
+                  </div></div>
+                  <div class="delx-kpi"><div>
+                    <div class="delx-kpi-label"><i class="tl-dot" :class="tlRateClass('delivery', tlKpis.deliveryRate)"></i>Delivery rate</div>
+                    <div class="delx-kpi-value">{{ tlKpis.deliveryRate != null ? tlKpis.deliveryRate.toFixed(2) + '%' : '—' }}</div>
+                    <div class="delx-kpi-sub">low <b>{{ tlKpis.minDelivery != null ? tlKpis.minDelivery.toFixed(2) + '%' : '—' }}</b> on {{ tlKpis.minDeliveryDate || '—' }}</div>
+                  </div></div>
+                  <div class="delx-kpi"><div>
+                    <div class="delx-kpi-label"><i class="tl-dot" :class="tlRateClass('bounce', tlKpis.bounceRate)"></i>Bounce rate</div>
+                    <div class="delx-kpi-value">{{ tlKpis.bounceRate != null ? tlKpis.bounceRate.toFixed(2) + '%' : '—' }}</div>
+                    <div class="delx-kpi-sub">volume-weighted over the period</div>
+                  </div></div>
+                  <div class="delx-kpi"><div>
+                    <div class="delx-kpi-label"><i class="tl-dot" :class="tlRateClass('spam', tlKpis.spamRate)"></i>Spam rate</div>
+                    <div class="delx-kpi-value">{{ tlKpis.spamRate != null ? tlKpis.spamRate.toFixed(3) + '%' : '—' }}</div>
+                    <div class="delx-kpi-sub">Gmail/Yahoo limit <b>0.3%</b>, aim &lt; 0.1%</div>
+                  </div></div>
+                </div>
+
+                <div class="tl-grid">
+                  <div class="delx-panel tl-wide">
+                    <div class="delx-head">
+                      <span class="delx-title">Volume</span>
+                      <span class="delx-legend">
+                        <span><i class="delx-sw" style="background:#2a78d6"></i>Sent</span>
+                        <span><i class="delx-sw" style="background:#1baf7a"></i>Delivered</span>
+                      </span>
+                    </div>
+                    <div class="tl-canvas tall"><canvas ref="chartSent"></canvas></div>
+                  </div>
+                  <div class="delx-panel">
+                    <div class="delx-head"><span class="delx-title">Delivery rate</span><span class="delx-cap">% of sent</span></div>
+                    <div class="tl-canvas"><canvas ref="chartDeliveryRate"></canvas></div>
+                  </div>
+                  <div class="delx-panel">
+                    <div class="delx-head"><span class="delx-title">Bounce rate</span><span class="delx-cap">% of sent</span></div>
+                    <div class="tl-canvas"><canvas ref="chartBounceRate"></canvas></div>
+                  </div>
+                  <div class="delx-panel">
+                    <div class="delx-head"><span class="delx-title">Spam complaint rate</span><span class="delx-cap">dashed line = 0.1% target</span></div>
+                    <div class="tl-canvas"><canvas ref="chartSpamRate"></canvas></div>
+                  </div>
+                  <div class="delx-panel">
+                    <div class="delx-head">
+                      <span class="delx-title">Spamhaus DBL</span>
+                      <span v-if="trendSpamhaus" class="delx-pill" :style="{ background: tlSpamhausListedDays ? '#d03b3b1f' : '#1baf7a1f' }">
+                        <i :style="{ background: tlSpamhausListedDays ? '#d03b3b' : '#1baf7a' }"></i>
+                        {{ tlSpamhausListedDays ? 'Listed ' + tlSpamhausListedDays + ' of ' + trendSpamhaus.dates.length + ' checks' : 'Clean every check' }}
+                      </span>
+                    </div>
+                    <template v-if="trendSpamhaus && trendSpamhaus.dates.length">
+                      <div class="tl-strip">
+                        <div v-for="(d, i) in trendSpamhaus.dates" :key="d"
+                             :class="trendSpamhaus.values[i] > 0 ? 'bad' : 'ok'"
+                             :title="d + ': ' + (trendSpamhaus.mode === 'account' ? (trendSpamhaus.values[i] + ' domain(s) listed') : (trendSpamhaus.values[i] > 0 ? 'listed' : 'clean'))"></div>
+                      </div>
+                      <div class="tl-strip-axis"><span>{{ trendSpamhaus.dates[0] }}</span><span>{{ trendSpamhaus.dates.slice(-1)[0] }}</span></div>
+                      <p class="tl-note">
+                        One cell per daily check{{ trendSpamhaus.mode === 'account' ? '; red when any of the account’s domains was listed' : '' }}.
+                        Days without a check are skipped.
+                      </p>
+                    </template>
+                    <div v-else class="tl-note" style="padding:18px 0;">No Spamhaus checks recorded in this period.</div>
+                  </div>
+                </div>
+              </template>
+              <div v-else class="tl-empty"><div class="tl-empty-s">Loading trend…</div></div>
             </div>
 
-            <!-- Email domain stats: ISP-level breakdown for the selected sending domain -->
-            <div v-if="pulsationTrendSubTab === 'email_domain_stats'" style="padding: 24px;">
-              <div v-if="!selectedDomain" style="padding: 16px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; color: #92400e; font-size: 13px;">
-                Select a sending domain on the Trend tab first.
+            <!-- ============ Mailbox providers (email domain stats) ============ -->
+            <div v-if="pulsationTrendSubTab === 'email_domain_stats'" class="tl-body">
+              <div v-if="!selectedDomain" class="tl-callout warn">
+                Mailbox-provider stats are per sending domain. Switch the Trend view to <b>Sending domain</b> and pick one first.
               </div>
               <template v-else>
-                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 20px;">
-                  <div>
-                    <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Date range:</label>
+                <div class="vd-controls">
+                  <label class="vd-field">Date range
                     <select class="date-input" v-model="emailDomainStatsRange" @change="onEmailDomainStatsRangeChange" style="width: 190px;">
                       <option value="yesterday">Yesterday</option>
                       <option value="past_24h">Past 24 hours</option>
@@ -2719,101 +3097,94 @@
                       <option value="past_30_days">Past 30 days</option>
                       <option value="custom">Custom range</option>
                     </select>
-                  </div>
+                  </label>
                   <template v-if="emailDomainStatsRange === 'custom'">
-                    <div>
-                      <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">From:</label>
+                    <label class="vd-field">From
                       <input type="date" class="date-input" v-model="emailDomainStatsFromDate" :max="emailDomainStatsToDate" style="width: 160px;">
-                    </div>
-                    <div>
-                      <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">To:</label>
+                    </label>
+                    <label class="vd-field">To
                       <input type="date" class="date-input" v-model="emailDomainStatsToDate" :min="emailDomainStatsFromDate" style="width: 160px;">
-                    </div>
+                    </label>
                   </template>
                   <!-- Nothing queries until this is clicked, so opening the tab or changing
                        the range costs nothing. -->
-                  <button class="btn btn-sm btn-primary" @click="loadEmailDomainStats()" :disabled="emailDomainStatsLoading || (emailDomainStatsRange === 'custom' && !(emailDomainStatsFromDate && emailDomainStatsToDate))">
-                    {{ emailDomainStatsLoading ? 'Loading...' : 'Get stats' }}
+                  <button class="btn btn-primary pz-load" @click="loadEmailDomainStats()" :disabled="emailDomainStatsLoading || (emailDomainStatsRange === 'custom' && !(emailDomainStatsFromDate && emailDomainStatsToDate))">
+                    {{ emailDomainStatsLoading ? 'Loading…' : 'Get stats' }}
                   </button>
-                  <button class="btn btn-sm btn-secondary" v-if="emailDomainStatsData" @click="loadEmailDomainStats(true)" :disabled="emailDomainStatsLoading">
-                    Refresh from Druid
-                  </button>
-                  <button class="btn btn-sm btn-secondary" @click="exportEmailDomainStatsCSV" :disabled="emailDomainStatsLoading || !(emailDomainStatsData?.rows?.length)">
-                    Export CSV
-                  </button>
+                  <div class="pz-right">
+                    <button class="pz-ghost" v-if="emailDomainStatsData" @click="loadEmailDomainStats(true)" :disabled="emailDomainStatsLoading">Refresh from Druid</button>
+                    <button class="pz-ghost" @click="exportEmailDomainStatsCSV" :disabled="emailDomainStatsLoading || !(emailDomainStatsData?.rows?.length)">Export CSV</button>
+                  </div>
                 </div>
 
-                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
-                  <span class="badge" style="background: #eff6ff; color: #1d4ed8;">Domain: {{ selectedDomain }}</span>
-                  <span class="badge" style="background: #f8fafc; color: #334155;">Range: {{ emailDomainStatsData?.window?.label || '—' }}</span>
-                  <span class="badge" style="background: #f8fafc; color: #334155;">ESP: {{ emailDomainStatsData?.esps?.join(', ') || '—' }}</span>
-                  <span class="badge" style="background: #f8fafc; color: #334155;">Region: {{ emailDomainStatsData?.regions?.join(', ') || '—' }}</span>
-                  <span class="badge" v-if="emailDomainStatsData?.cache" style="background: #f0fdf4; color: #166534;">
-                    {{ emailDomainStatsData.cache.days_from_cache }} day(s) cached / {{ emailDomainStatsData.cache.days_from_druid }} from Druid
+                <div class="tl-ctx">
+                  <span class="tl-tag strong">{{ selectedDomain }}</span>
+                  <span class="tl-tag"><em>Range</em>{{ emailDomainStatsData?.window?.label || '—' }}</span>
+                  <span class="tl-tag"><em>ESP</em>{{ emailDomainStatsData?.esps?.join(', ') || '—' }}</span>
+                  <span class="tl-tag"><em>Region</em>{{ emailDomainStatsData?.regions?.join(', ') || '—' }}</span>
+                  <span class="tl-tag good" v-if="emailDomainStatsData?.cache">
+                    {{ emailDomainStatsData.cache.days_from_cache }} day(s) cached · {{ emailDomainStatsData.cache.days_from_druid }} from Druid
                   </span>
                 </div>
 
-                <div v-if="emailDomainStatsError" style="margin-bottom: 16px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #991b1b; font-size: 13px;">
-                  {{ emailDomainStatsError }}
-                </div>
-                <div v-else-if="emailDomainStatsData?.errors?.length" style="margin-bottom: 16px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #991b1b; font-size: 13px;">
-                  {{ emailDomainStatsData.errors.join('; ') }}
-                </div>
+                <div v-if="emailDomainStatsError" class="tl-callout err">{{ emailDomainStatsError }}</div>
+                <div v-else-if="emailDomainStatsData?.errors?.length" class="tl-callout err">{{ emailDomainStatsData.errors.join('; ') }}</div>
 
                 <!-- Summing daily HLL uniques overstates them; say so rather than implying exactness. -->
-                <div v-if="emailDomainStatsData?.uniques_are_summed" style="margin-bottom: 16px; padding: 10px 14px; background: #f8fafc; border-left: 3px solid #94a3b8; color: #475569; font-size: 12px;">
-                  Unique open and unique soft bounce columns are summed from daily figures, so a recipient
+                <div v-if="emailDomainStatsData?.uniques_are_summed" class="tl-callout info">
+                  Columns marked * (unique opens, unique soft bounces, pre-fetch, proxy) are summed from daily figures, so a recipient
                   active on more than one day is counted more than once (a few percent high). Sent, delivered,
                   clicks, bounces, spam reports and unsubscribes are exact. Use “Past 24 hours” for exact uniques.
                 </div>
 
-<!-- Athena bounce-reason drill-down for a clicked mailbox provider -->
-                <div v-if="bounceReasonsFor" ref="bounceReasonsPanel" id="bounceReasonsPanel" style="margin: 4px 0 20px; border: 1px solid #bfdbfe; background: #f8fbff; border-radius: 8px; padding: 16px;">
-                  <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px;">
-                    <h4 style="margin: 0; font-size: 15px;">
-                      Bounce reasons — {{ selectedDomain }} → <span style="color:#1d4ed8;">{{ bounceReasonsFor }}</span>
-                    </h4>
-                    <span class="badge" style="background:#f8fafc;color:#334155;">Source: Athena</span>
-                    <span class="badge" v-if="bounceReasonsData" style="background:#f8fafc;color:#334155;">
-                      {{ bounceReasonsData.from_date }}<template v-if="bounceReasonsData.to_date !== bounceReasonsData.from_date"> → {{ bounceReasonsData.to_date }}</template>
-                    </span>
-                    <span class="badge" v-if="bounceReasonsData" :style="bounceReasonsData.source === 'cache' ? 'background:#f0fdf4;color:#166534;' : 'background:#eff6ff;color:#1d4ed8;'">
-                      {{ bounceReasonsData.source === 'cache' ? 'from cache (no scan)' : bounceReasonsData.scanned_mb + ' MB scanned' }}
-                    </span>
-                    <button class="btn btn-sm btn-secondary" @click="loadBounceReasons(true)" :disabled="bounceReasonsLoading">Re-run live</button>
-                    <button class="btn btn-sm btn-secondary" @click="exportBounceReasonsCSV()" :disabled="bounceReasonsLoading || !(bounceReasonsData?.rows?.length)">Export CSV</button>
-                    <button class="btn btn-sm btn-secondary" @click="closeBounceReasons()">Close</button>
-                    <button class="btn btn-sm btn-primary" @click="openBounceJira()" :disabled="bounceReasonsLoading || !(bounceReasonsData?.rows?.length)">File JIRA</button>
+                <!-- Athena bounce-reason drill-down for a clicked mailbox provider -->
+                <div v-if="bounceReasonsFor" ref="bounceReasonsPanel" id="bounceReasonsPanel" class="tl-drill">
+                  <div class="tl-drill-head">
+                    <div>
+                      <div class="tl-drill-t">Bounce reasons · <span>{{ bounceReasonsFor }}</span></div>
+                      <div class="tl-ctx" style="margin:6px 0 0;">
+                        <span class="tl-tag"><em>From</em>{{ selectedDomain }}</span>
+                        <span class="tl-tag"><em>Source</em>Athena</span>
+                        <span class="tl-tag" v-if="bounceReasonsData">
+                          {{ bounceReasonsData.from_date }}<template v-if="bounceReasonsData.to_date !== bounceReasonsData.from_date"> → {{ bounceReasonsData.to_date }}</template>
+                        </span>
+                        <span class="tl-tag" :class="bounceReasonsData.source === 'cache' ? 'good' : 'blue'" v-if="bounceReasonsData">
+                          {{ bounceReasonsData.source === 'cache' ? 'from cache (no scan)' : bounceReasonsData.scanned_mb + ' MB scanned' }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="pz-right">
+                      <button class="pz-ghost" @click="loadBounceReasons(true)" :disabled="bounceReasonsLoading">Re-run live</button>
+                      <button class="pz-ghost" @click="exportBounceReasonsCSV()" :disabled="bounceReasonsLoading || !(bounceReasonsData?.rows?.length)">Export CSV</button>
+                      <button class="btn btn-sm btn-primary" @click="openBounceJira()" :disabled="bounceReasonsLoading || !(bounceReasonsData?.rows?.length)">File JIRA</button>
+                      <button class="pz-x" title="Close" @click="closeBounceReasons()">×</button>
+                    </div>
                   </div>
 
                   <!-- File JIRA: pick one bounce reason; all metadata is attached automatically -->
-                  <div v-if="bounceJiraOpen" style="margin-bottom:16px; padding:14px 16px; background:#fff; border:1px solid #bfdbfe; border-radius:6px;">
-                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
-                      <div style="flex:1 1 460px;">
-                        <label style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:6px;">Bounce reason to file</label>
+                  <div v-if="bounceJiraOpen" class="tl-jira">
+                    <div class="vd-controls" style="margin-bottom:0;">
+                      <label class="vd-field" style="flex:1 1 460px;">Bounce reason to file
                         <select class="date-input" v-model="bounceJiraReasonIndex" style="width:100%;">
                           <option v-for="(r, i) in bounceReasonsData.rows" :key="i" :value="i">
                             [{{ r.bounce_type === 'bounce' ? 'hard' : 'soft' }}] {{ formatNumber(r.bounces) }} ({{ r.share_pct }}%) — {{ r.bounce_reason.slice(0, 90) }}
                           </option>
                         </select>
-                      </div>
-                      <div>
-                        <label style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:6px;">Issue type</label>
+                      </label>
+                      <label class="vd-field">Issue type
                         <select class="date-input" v-model="bounceJiraIssueType" style="width:170px;">
                           <option value="Remediation">Remediation</option>
                           <option value="Compliance">Compliance</option>
                           <option value="Monitoring">Monitoring</option>
                         </select>
-                      </div>
+                      </label>
                       <button class="btn btn-sm btn-primary" @click="fileBounceJira()" :disabled="bounceJiraCreating">
                         {{ bounceJiraCreating ? 'Filing…' : 'Create ticket' }}
                       </button>
-                      <button class="btn btn-sm btn-secondary" @click="bounceJiraOpen = false" :disabled="bounceJiraCreating">Cancel</button>
+                      <button class="pz-ghost" @click="bounceJiraOpen = false" :disabled="bounceJiraCreating">Cancel</button>
                     </div>
-
                     <!-- Show exactly what will be filed, so nothing is a surprise -->
-                    <div v-if="bounceJiraPreview" style="margin-top:12px; padding:10px 12px; background:#f8fafc; border-radius:6px; font-size:12px; color:#475569; white-space:pre-wrap; font-family:ui-monospace,Menlo,monospace; max-height:220px; overflow:auto;">{{ bounceJiraPreview }}</div>
-
+                    <div v-if="bounceJiraPreview" class="tl-pre">{{ bounceJiraPreview }}</div>
                     <div v-if="bounceJiraResult" style="margin-top:10px; font-size:13px; color:#166534;">
                       ✅ Created <b>{{ bounceJiraResult.key }}</b>
                       <a v-if="bounceJiraResult.url" :href="bounceJiraResult.url" target="_blank" rel="noopener" style="margin-left:8px;">open in Jira</a>
@@ -2821,56 +3192,45 @@
                     <div v-if="bounceJiraError" style="margin-top:10px; font-size:13px; color:#991b1b;">{{ bounceJiraError }}</div>
                   </div>
 
-                  <div v-if="bounceReasonsLoading" style="padding: 22px; text-align:center; color:#64748b;">
+                  <div v-if="bounceReasonsLoading" class="tl-empty-s" style="padding: 22px; text-align:center;">
                     Querying Athena<template v-if="bounceReasonsElapsed"> · {{ bounceReasonsElapsed }}s</template> —
                     scanning raw event data, this usually takes 15-30 seconds per day.
-                    <button class="btn btn-sm btn-secondary" style="margin-left:12px;" @click="cancelBounceReasons()">Cancel</button>
+                    <button class="pz-ghost" style="margin-left:12px;" @click="cancelBounceReasons()">Cancel</button>
                   </div>
 
                   <!-- Cost confirmation: >7 days is a big scan, so ask before running. -->
-                  <div v-else-if="bounceReasonsConfirm" style="padding: 14px 16px; background:#fffbeb; border:1px solid #fcd34d; border-radius:6px; color:#92400e; font-size:13px;">
+                  <div v-else-if="bounceReasonsConfirm" class="tl-callout warn" style="margin:0;">
                     {{ bounceReasonsConfirm }}
                     <div style="margin-top:10px;">
                       <button class="btn btn-sm btn-primary" @click="loadBounceReasons(false, true)">Run it anyway</button>
-                      <button class="btn btn-sm btn-secondary" style="margin-left:8px;" @click="closeBounceReasons()">Cancel</button>
+                      <button class="pz-ghost" style="margin-left:8px;" @click="closeBounceReasons()">Cancel</button>
                     </div>
                   </div>
 
-                  <div v-else-if="bounceReasonsError" style="padding: 12px 16px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; color:#991b1b; font-size:13px;">
-                    {{ bounceReasonsError }}
-                  </div>
+                  <div v-else-if="bounceReasonsError" class="tl-callout err" style="margin:0;">{{ bounceReasonsError }}</div>
 
-                  <div v-else-if="!bounceReasonsData?.rows?.length" style="padding: 18px; color:#64748b; font-size:13px; background:#f8fafc; border-radius:6px;">
+                  <div v-else-if="!bounceReasonsData?.rows?.length" class="tl-callout info" style="margin:0;">
                     {{ bounceReasonsData?.note || ('No bounces recorded for ' + bounceReasonsFor + ' in this date range.') }}
                   </div>
 
                   <div v-else style="overflow-x:auto;">
-                    <table class="data-table">
-                      <thead>
-                        <tr>
-                          <th>Bounce reason</th>
-                          <th>Type</th>
-                          <th>Bounces</th>
-                          <th>Share</th>
-                        </tr>
-                      </thead>
+                    <table class="vd-table">
+                      <thead><tr><th>Bounce reason</th><th>Type</th><th class="vd-num">Bounces</th><th style="width:180px;">Share</th></tr></thead>
                       <tbody>
                         <tr v-for="(r, i) in bounceReasonsData.rows" :key="i">
-                          <td :title="r.sample_reason">{{ r.bounce_reason }}</td>
+                          <td :title="r.sample_reason" style="white-space:normal;">{{ r.bounce_reason }}</td>
+                          <td><span class="tl-type" :class="r.bounce_type === 'bounce' ? 'hard' : 'soft'">{{ r.bounce_type === 'bounce' ? 'hard' : 'soft' }}</span></td>
+                          <td class="vd-num">{{ formatNumber(r.bounces) }}</td>
                           <td>
-                            <span :style="r.bounce_type === 'bounce' ? 'color:#dc2626;font-weight:600;' : 'color:#d97706;'">
-                              {{ r.bounce_type === 'bounce' ? 'hard' : 'soft' }}
-                            </span>
+                            <div class="tl-share"><div :style="{ width: Math.min(100, r.share_pct) + '%' }" :class="r.bounce_type === 'bounce' ? 'hard' : 'soft'"></div><span>{{ r.share_pct }}%</span></div>
                           </td>
-                          <td class="text-mono">{{ formatNumber(r.bounces) }}</td>
-                          <td class="text-mono">{{ r.share_pct }}%</td>
                         </tr>
                       </tbody>
                       <tfoot>
-                        <tr style="font-weight:700; background:#f8fafc;">
+                        <tr class="tl-total">
                           <td>Total</td>
                           <td>{{ bounceReasonsData.hard_bounces }} hard / {{ bounceReasonsData.soft_bounces }} soft</td>
-                          <td class="text-mono">{{ formatNumber(bounceReasonsData.total_bounces) }}</td>
+                          <td class="vd-num">{{ formatNumber(bounceReasonsData.total_bounces) }}</td>
                           <td></td>
                         </tr>
                       </tfoot>
@@ -2878,294 +3238,176 @@
                   </div>
                 </div>
 
-                <div v-if="emailDomainStatsLoading" style="padding: 32px; text-align: center; color: #64748b;">Querying…</div>
+                <div v-if="emailDomainStatsLoading" class="tl-empty"><div class="tl-empty-s">Querying…</div></div>
                 <!-- Not-yet-run and ran-but-empty are different states and must not look alike. -->
-                <div v-else-if="!emailDomainStatsData" style="padding: 32px; text-align: center; color: #64748b;">
-                  Pick a date range and press <b>Get stats</b> to query for {{ selectedDomain }}.
+                <div v-else-if="!emailDomainStatsData" class="tl-empty">
+                  <div class="tl-empty-ico">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+                  </div>
+                  <div class="tl-empty-t">Mailbox-provider breakdown for {{ selectedDomain }}</div>
+                  <div class="tl-empty-s">Pick a date range and press <b>Get stats</b>. Then click a provider (gmail.com, yahoo.com…) to see its bounce reasons from Athena.</div>
                 </div>
-                <div v-else-if="!emailDomainStatsData.rows.length" style="padding: 32px; text-align: center; color: #64748b;">
-                  No sending activity to these mailbox providers for {{ selectedDomain }} in this range.
+                <div v-else-if="!emailDomainStatsData.rows.length" class="tl-empty">
+                  <div class="tl-empty-s">No sending activity to these mailbox providers for {{ selectedDomain }} in this range.</div>
                 </div>
                 <div v-else style="overflow-x: auto;">
-                  <table class="data-table">
+                  <table class="vd-table tl-sortable">
                     <thead>
                       <tr>
-                        <th @click="sortEmailDomainStats('email_domain')" style="cursor: pointer;">Email Domain</th>
-                        <th @click="sortEmailDomainStats('sent_count')" style="cursor: pointer;">Sent</th>
-                        <th @click="sortEmailDomainStats('delivered_count')" style="cursor: pointer;">Delivered</th>
-                        <th @click="sortEmailDomainStats('delivery_rate')" style="cursor: pointer;">Delivery %</th>
-                        <th @click="sortEmailDomainStats('bounce_count')" style="cursor: pointer;">Bounces</th>
-                        <th @click="sortEmailDomainStats('unique_soft_bounce_count')" style="cursor: pointer;">Soft Bounces*</th>
-                        <th @click="sortEmailDomainStats('unique_open_count_user')" style="cursor: pointer;">Unique Opens*</th>
-                        <th>Pre-fetch*</th>
-                        <th>Proxy*</th>
-                        <th @click="sortEmailDomainStats('click_count')" style="cursor: pointer;">Clicks</th>
-                        <th @click="sortEmailDomainStats('spam_report_count')" style="cursor: pointer;">Spam</th>
-                        <th @click="sortEmailDomainStats('unsubscribe_count')" style="cursor: pointer;">Unsub</th>
+                        <th v-for="c in tlEdsColumns" :key="c.label" :class="{ 'vd-num': c.num, sortable: !!c.key, sorted: c.key && emailDomainStatsSortKey === c.key }"
+                            @click="c.key && sortEmailDomainStats(c.key)">
+                          {{ c.label }}<span v-if="c.key && emailDomainStatsSortKey === c.key" class="tl-arrow">{{ emailDomainStatsSortDir === 'asc' ? '▲' : '▼' }}</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="row in sortedEmailDomainStatsRows" :key="row.email_domain"
-                          :style="row.email_domain === 'Other' ? 'background: #fafafa; color: #475569;' : ''">
+                      <tr v-for="row in sortedEmailDomainStatsRows" :key="row.email_domain" :class="{ 'tl-other': row.email_domain === 'Other' }">
                         <td>
                           <!-- 'Other' aggregates many providers, so it is not a real
                                email_domain and cannot be queried; only real ones click. -->
-                          <a v-if="row.email_domain !== 'Other'" href="#"
+                          <a v-if="row.email_domain !== 'Other'" href="#" class="tl-link"
                              @click.prevent="openBounceReasons(row.email_domain)"
-                             :style="bounceReasonsFor === row.email_domain ? 'font-weight:700;color:#1d4ed8;' : 'color:#1d4ed8;'"
-                             title="Query Athena for this provider's bounce reasons">
-                            <b>{{ row.email_domain }}</b>
-                          </a>
+                             :class="{ on: bounceReasonsFor === row.email_domain }"
+                             title="Query Athena for this provider's bounce reasons">{{ row.email_domain }}</a>
                           <b v-else>{{ row.email_domain }}</b>
-                          <span v-if="row.email_domain === 'Other'" style="font-weight: 400; color: #94a3b8;" title="All recipient domains outside the tracked mailbox-provider list, combined">
-                            — all other providers
-                          </span>
+                          <span v-if="row.email_domain === 'Other'" class="vd-sub" title="All recipient domains outside the tracked mailbox-provider list, combined"> all other providers</span>
                         </td>
-                        <td class="text-mono">{{ formatNumber(row.sent_count) }}</td>
-                        <td class="text-mono">{{ formatNumber(row.delivered_count) }}</td>
-                        <td class="text-mono">{{ formatPercent(row.delivery_rate) }}</td>
-                        <td class="text-mono">{{ formatNumber(row.bounce_count) }}</td>
-                        <td class="text-mono">{{ formatNumber(row.unique_soft_bounce_count) }}</td>
-                        <td class="text-mono">{{ formatNumber(row.unique_open_count_user) }}</td>
-                        <td class="text-mono">{{ formatNumber(row.unique_open_count_pre_fetch) }}</td>
-                        <td class="text-mono">{{ formatNumber(row.unique_open_count_proxy) }}</td>
-                        <td class="text-mono">{{ formatNumber(row.click_count) }}</td>
-                        <td class="text-mono">{{ formatNumber(row.spam_report_count) }}</td>
-                        <td class="text-mono">{{ formatNumber(row.unsubscribe_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(row.sent_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(row.delivered_count) }}</td>
+                        <td class="vd-num"><span class="tl-rate" :class="tlRateClass('delivery', row.delivery_rate)">{{ formatPercent(row.delivery_rate) }}</span></td>
+                        <td class="vd-num">{{ formatNumber(row.bounce_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(row.unique_soft_bounce_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(row.unique_open_count_user) }}</td>
+                        <td class="vd-num">{{ formatNumber(row.unique_open_count_pre_fetch) }}</td>
+                        <td class="vd-num">{{ formatNumber(row.unique_open_count_proxy) }}</td>
+                        <td class="vd-num">{{ formatNumber(row.click_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(row.spam_report_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(row.unsubscribe_count) }}</td>
                       </tr>
                     </tbody>
                     <tfoot v-if="emailDomainStatsData?.totals">
-                      <tr style="font-weight: 700; background: #f8fafc;">
+                      <tr class="tl-total">
                         <td>Total</td>
-                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.sent_count) }}</td>
-                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.delivered_count) }}</td>
-                        <td class="text-mono">{{ formatPercent(emailDomainStatsData.totals.delivery_rate) }}</td>
-                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.bounce_count) }}</td>
-                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.unique_soft_bounce_count) }}</td>
-                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.unique_open_count_user) }}</td>
-                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.unique_open_count_pre_fetch) }}</td>
-                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.unique_open_count_proxy) }}</td>
-                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.click_count) }}</td>
-                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.spam_report_count) }}</td>
-                        <td class="text-mono">{{ formatNumber(emailDomainStatsData.totals.unsubscribe_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(emailDomainStatsData.totals.sent_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(emailDomainStatsData.totals.delivered_count) }}</td>
+                        <td class="vd-num">{{ formatPercent(emailDomainStatsData.totals.delivery_rate) }}</td>
+                        <td class="vd-num">{{ formatNumber(emailDomainStatsData.totals.bounce_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(emailDomainStatsData.totals.unique_soft_bounce_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(emailDomainStatsData.totals.unique_open_count_user) }}</td>
+                        <td class="vd-num">{{ formatNumber(emailDomainStatsData.totals.unique_open_count_pre_fetch) }}</td>
+                        <td class="vd-num">{{ formatNumber(emailDomainStatsData.totals.unique_open_count_proxy) }}</td>
+                        <td class="vd-num">{{ formatNumber(emailDomainStatsData.totals.click_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(emailDomainStatsData.totals.spam_report_count) }}</td>
+                        <td class="vd-num">{{ formatNumber(emailDomainStatsData.totals.unsubscribe_count) }}</td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
-
-                
               </template>
             </div>
-            <div v-if="pulsationTrendSubTab === 'trend'" style="padding: 24px;">
-              <div style="display: grid; grid-template-columns: 1fr 200px; gap: 16px; margin-bottom: 24px;">
-                <div>
-                  <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Trend View:</label>
-                  <div style="display: flex; gap: 8px;">
-                    <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendMode === 'domain' }" @click="pulsationTrendMode='domain'; selectedAccount=''; loadTrendCharts()">Domain</button>
-                    <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendMode === 'account' }" @click="pulsationTrendMode='account'; selectedDomain=''; loadTrendCharts()">Account</button>
+
+            <!-- ============ Bounce logs ============ -->
+            <div v-if="pulsationTrendSubTab === 'bounce_logs'" class="tl-body">
+              <div v-if="!selectedDomain" class="tl-callout warn">
+                Bounce logs are per sending domain. Switch the Trend view to <b>Sending domain</b> and pick one first.
+              </div>
+              <template v-else>
+                <div class="tl-ctx">
+                  <span class="tl-tag strong">{{ selectedDomain }}</span>
+                  <span class="tl-tag"><em>Account</em>{{ domainLiveBouncesSummary?.accounts?.join(', ') || 'Unmapped' }}</span>
+                  <span class="tl-tag"><em>ESP</em>{{ domainLiveBouncesResolvedESP || domainLiveBouncesSummary?.esps?.join(', ') || 'Undetermined' }}</span>
+                  <span class="tl-tag"><em>Region</em>{{ domainLiveBouncesSummary?.regions?.join(', ') || 'N/A' }}</span>
+                  <span class="tl-tag"><em>View</em>{{ domainLiveBouncesWindow?.label || (domainLiveBouncesWindowType === 'daily' ? domainLiveBouncesDailyDate : 'Past 24 Hours') }}</span>
+                  <span class="tl-tag good" v-if="domainLiveBouncesCache?.last_fetched_at">Updated {{ formatTimeAgo(domainLiveBouncesCache.last_fetched_at) }}</span>
+                </div>
+
+                <div class="vd-controls">
+                  <div class="vd-field">Window
+                    <div class="vd-seg">
+                      <button :class="{ on: domainLiveBouncesWindowType === 'last_24h' }" @click="setDomainLiveBouncesWindow('last_24h')">Past 24h</button>
+                      <button :class="{ on: domainLiveBouncesWindowType === 'daily' }" @click="setDomainLiveBouncesWindow('daily')">Daily snapshot</button>
+                    </div>
                   </div>
-                  <div style="margin-top: 10px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Select {{ pulsationTrendMode === 'domain' ? 'Domain' : 'Account' }}:</label>
-                    <select v-if="pulsationTrendMode === 'domain'" class="date-input" v-model="selectedDomain" @change="loadTrendCharts" style="width: 100%;">
-                      <option value="">-- Select a domain --</option>
-                      <option v-for="domain in pulsationData.all_domains" :key="domain" :value="domain">
-                        {{ domain }}
-                      </option>
-                    </select>
-                    <select v-else class="date-input" v-model="selectedAccount" @change="loadTrendCharts" style="width: 100%;">
-                      <option value="">-- Select an account --</option>
-                      <option v-for="name in pulsationAccountOptions" :key="name" :value="name">
-                        {{ name }}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Aggregation:</label>
-                  <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                    <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendAggregation === 'daily' }" @click="pulsationTrendAggregation='daily'; loadTrendCharts()">Daily</button>
-                    <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendAggregation === 'weekly' }" @click="pulsationTrendAggregation='weekly'; loadTrendCharts()">Weekly</button>
-                    <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': pulsationTrendAggregation === 'monthly' }" @click="pulsationTrendAggregation='monthly'; loadTrendCharts()">Monthly</button>
-                  </div>
-                  <label style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px;">Time Period:</label>
-                  <select class="date-input" v-model="chartDays" @change="loadTrendCharts" :disabled="pulsationTrendMode === 'domain' ? !selectedDomain : !selectedAccount" style="width: 100%;">
-                    <option :value="7">Last 7 Days</option>
-                    <option :value="30">Last 30 Days</option>
-                    <option :value="60">Last 60 Days</option>
-                    <option :value="90">Last 90 Days</option>
-                    <option :value="180">Last 180 Days</option>
-                    <option :value="365">Last 365 Days</option>
-                  </select>
-                </div>
-              </div>
-
-              <div v-if="pulsationTrendMode === 'domain' ? !selectedDomain : !selectedAccount" class="empty-state">
-                <div class="empty-state-icon">📈</div>
-                <div class="empty-state-text">Please select a {{ pulsationTrendMode === 'domain' ? 'domain' : 'account' }} to view trends</div>
-              </div>
-
-              <div v-if="(pulsationTrendMode === 'domain' ? selectedDomain : selectedAccount) && chartData" class="chart-grid">
-                <div class="chart-container">
-                  <h4>Sent Volume</h4>
-                  <canvas ref="chartSent"></canvas>
-                </div>
-                <div class="chart-container">
-                  <h4>Delivered Volume</h4>
-                  <canvas ref="chartDelivered"></canvas>
-                </div>
-                <div class="chart-container">
-                  <h4>Delivery Rate (%)</h4>
-                  <canvas ref="chartDeliveryRate"></canvas>
-                </div>
-                <div class="chart-container">
-                  <h4>Spam Rate (%)</h4>
-                  <canvas ref="chartSpamRate"></canvas>
-                </div>
-                <div class="chart-container">
-                  <h4>Spamhaus Listing Trend</h4>
-                  <canvas ref="chartSpamhaus"></canvas>
-                </div>
-              </div>
-
-            </div>
-
-            <div v-if="pulsationTrendSubTab === 'bounce_logs'" style="padding: 24px;">
-              <div v-if="!selectedDomain" class="empty-state">
-                <div class="empty-state-icon">📮</div>
-                <div class="empty-state-text">Select a domain from Pulsation to view live bounces</div>
-              </div>
-              <div v-else class="card-section">
-                <div class="card-header">
-                  <h3 class="card-title">Live Bounces</h3>
-                  <span class="card-meta" v-if="domainLiveBouncesCache?.last_fetched_at">
-                    Updated {{ formatTimeAgo(domainLiveBouncesCache.last_fetched_at) }}
-                  </span>
-                  <span class="card-meta" v-if="domainLiveBouncesPagination?.total_count">
-                    Showing {{ domainLiveBouncesPagination.start_row }}-{{ domainLiveBouncesPagination.end_row }} of {{ formatNumber(domainLiveBouncesPagination.total_count) }}
-                  </span>
-                </div>
-
-              <div style="padding: 0 24px 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesWindowType === 'last_24h' }" @click="setDomainLiveBouncesWindow('last_24h')">
-                  Past 24h
-                </button>
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesWindowType === 'daily' }" @click="setDomainLiveBouncesWindow('daily')">
-                    Daily Snapshot
-                  </button>
-                  <input
-                    v-if="domainLiveBouncesWindowType === 'daily'"
-                    type="date"
-                    class="date-input"
-                    v-model="domainLiveBouncesDailyDate"
-                    @change="loadDomainLiveBounces"
-                    style="width: 180px;"
-                  >
-                  <span class="badge" style="background: #eff6ff; color: #1d4ed8;">Domain: {{ selectedDomain }}</span>
-                  <span class="badge" style="background: #f8fafc; color: #334155;">Account: {{ domainLiveBouncesSummary?.accounts?.join(', ') || 'Unmapped' }}</span>
-                  <span class="badge" style="background: #f8fafc; color: #334155;">ESP: {{ domainLiveBouncesResolvedESP || domainLiveBouncesSummary?.esps?.join(', ') || 'Undetermined' }}</span>
-                  <span class="badge" style="background: #f8fafc; color: #334155;">Region: {{ domainLiveBouncesSummary?.regions?.join(', ') || 'N/A' }}</span>
-                  <span class="badge" style="background: #f8fafc; color: #334155;">Issue Type:</span>
-                  <select class="date-input" v-model="jiraIssueType" style="width: 180px;">
-                    <option value="Remediation">Remediation</option>
-                    <option value="Compliance">Compliance</option>
-                    <option value="Monitoring">Monitoring</option>
-                  </select>
-
-                  <span class="badge" style="background: #f8fafc; color: #334155;">View: {{ domainLiveBouncesWindow?.label || (domainLiveBouncesWindowType === 'daily' ? domainLiveBouncesDailyDate : 'Past 24 Hours') }}</span>
-
+                  <label v-if="domainLiveBouncesWindowType === 'daily'" class="vd-field">Day
+                    <input type="date" class="date-input" v-model="domainLiveBouncesDailyDate" @change="loadDomainLiveBounces" style="width: 170px;">
+                  </label>
                   <!-- Mailgun registers sending domains as subdomains, so the Pulsation domain
                        may map to several. Pick which one the bounce logs come from. -->
-                  <template v-if="domainLiveBouncesSourceCandidates.length > 0">
-                    <span class="badge" style="background: #f8fafc; color: #334155;">Bounce source:</span>
-                    <select
-                      class="date-input"
-                      v-model="domainLiveBouncesSource"
-                      @change="onDomainLiveBouncesSourceChange"
-                      :style="domainLiveBouncesSourceNeedsSelection && !domainLiveBouncesSource ? 'width: 260px; border-color: #f59e0b;' : 'width: 260px;'"
-                    >
+                  <label v-if="domainLiveBouncesSourceCandidates.length > 0" class="vd-field">Bounce source
+                    <select class="date-input" v-model="domainLiveBouncesSource" @change="onDomainLiveBouncesSourceChange"
+                            :style="domainLiveBouncesSourceNeedsSelection && !domainLiveBouncesSource ? 'width: 260px; border-color: #f59e0b;' : 'width: 260px;'">
                       <option v-if="domainLiveBouncesSourceNeedsSelection" :value="null">Select a domain…</option>
                       <option v-if="domainLiveBouncesSourceCandidates.length > 1" value="__all__">
                         All {{ domainLiveBouncesProductionSourceCount }} production domains combined
                       </option>
-                      <option
-                        v-for="candidate in domainLiveBouncesSourceCandidates"
-                        :key="candidate.domain"
-                        :value="candidate.domain"
-                      >
+                      <option v-for="candidate in domainLiveBouncesSourceCandidates" :key="candidate.domain" :value="candidate.domain">
                         {{ candidate.domain }} ({{ candidate.region }}){{ candidate.is_sandbox ? ' — sandbox' : '' }}
                       </option>
                     </select>
-                  </template>
-
-                  <button class="btn btn-sm btn-primary" @click="refreshDomainLiveBounces('last_24h')" :disabled="domainLiveBouncesRefreshing">
-                    {{ domainLiveBouncesRefreshing && domainLiveBouncesWindowType === 'last_24h' ? 'Fetching...' : 'Fetch Live Bounces (Past 24h)' }}
-                  </button>
-                  <button class="btn btn-sm btn-primary" @click="refreshDomainLiveBounces('daily', yesterdayDateString)" :disabled="domainLiveBouncesRefreshing">
-                    {{ domainLiveBouncesRefreshing && domainLiveBouncesWindowType === 'daily' && domainLiveBouncesDailyDate === yesterdayDateString ? "Fetching..." : "Fetch Yesterday's Bounces" }}
-                  </button>
-                  <button class="btn btn-sm btn-secondary" @click="exportDomainLiveBouncesCSV" :disabled="!(domainLiveBouncesPagination?.total_count > 0)">
-                    Export CSV
-                  </button>
+                  </label>
+                  <label class="vd-field">Jira issue type
+                    <select class="date-input" v-model="jiraIssueType" style="width: 160px;">
+                      <option value="Remediation">Remediation</option>
+                      <option value="Compliance">Compliance</option>
+                      <option value="Monitoring">Monitoring</option>
+                    </select>
+                  </label>
+                  <div class="pz-right">
+                    <button class="btn btn-primary pz-load" @click="refreshDomainLiveBounces('last_24h')" :disabled="domainLiveBouncesRefreshing">
+                      {{ domainLiveBouncesRefreshing && domainLiveBouncesWindowType === 'last_24h' ? 'Fetching…' : 'Fetch past 24h' }}
+                    </button>
+                    <button class="pz-ghost" @click="refreshDomainLiveBounces('daily', yesterdayDateString)" :disabled="domainLiveBouncesRefreshing">
+                      {{ domainLiveBouncesRefreshing && domainLiveBouncesWindowType === 'daily' && domainLiveBouncesDailyDate === yesterdayDateString ? 'Fetching…' : 'Fetch yesterday' }}
+                    </button>
+                    <button class="pz-ghost" @click="exportDomainLiveBouncesCSV" :disabled="!(domainLiveBouncesPagination?.total_count > 0)">Export CSV</button>
+                  </div>
                 </div>
 
-              <!-- Explain an empty panel instead of leaving it silently blank. -->
-              <div v-if="domainLiveBouncesSourceNeedsSelection && !domainLiveBouncesSource" style="margin: 0 24px 16px; padding: 12px 16px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; color: #92400e; font-size: 13px;">
-                <b>{{ selectedDomain }}</b> maps to {{ domainLiveBouncesSourceCandidates.length }} registered Mailgun domains.
-                Choose one in <b>Bounce source</b> above (or “All production domains combined”), then fetch.
-              </div>
-              <div v-else-if="domainLiveBouncesSourceError" style="margin: 0 24px 16px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #991b1b; font-size: 13px;">
-                {{ domainLiveBouncesSourceError }}
-              </div>
-              <div v-else-if="domainLiveBouncesCache?.status === 'error' && domainLiveBouncesCache?.error_message" style="margin: 0 24px 16px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #991b1b; font-size: 13px;">
-                Last fetch failed: {{ domainLiveBouncesCache.error_message }}
-              </div>
-
-              <div style="padding: 0 24px 12px;">
-                <input
-                  type="search"
-                  class="date-input"
-                  v-model="domainLiveBouncesSearch"
-                  placeholder="Search bounce reason, ESP, domain, recipient, code..."
-                  :disabled="domainLiveBouncesLoading || domainLiveBouncesRefreshing"
-                  @input="onDomainLiveBouncesSearchInput"
-                  style="width: 100%; max-width: 540px;"
-                />
-              </div>
-
-              <div style="padding: 0 24px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesView === 'summary' }" @click="setDomainLiveBouncesView('summary')">
-                  Summary
-                  </button>
-                  <button class="btn btn-sm btn-secondary" :class="{ 'btn-primary': domainLiveBouncesView === 'detail' }" @click="setDomainLiveBouncesView('detail')">
-                    Details
-                  </button>
+                <!-- Explain an empty panel instead of leaving it silently blank. -->
+                <div v-if="domainLiveBouncesSourceNeedsSelection && !domainLiveBouncesSource" class="tl-callout warn">
+                  <b>{{ selectedDomain }}</b> maps to {{ domainLiveBouncesSourceCandidates.length }} registered Mailgun domains.
+                  Choose one in <b>Bounce source</b> above (or “All production domains combined”), then fetch.
+                </div>
+                <div v-else-if="domainLiveBouncesSourceError" class="tl-callout err">{{ domainLiveBouncesSourceError }}</div>
+                <div v-else-if="domainLiveBouncesCache?.status === 'error' && domainLiveBouncesCache?.error_message" class="tl-callout err">
+                  Last fetch failed: {{ domainLiveBouncesCache.error_message }}
                 </div>
 
-                <div v-if="domainLiveBouncesLoading" class="summary-empty" style="padding: 0 24px 24px;">Loading cached bounce data...</div>
-                <div v-else-if="domainLiveBouncesESPError" class="summary-empty" style="padding: 0 24px 24px; color: #b45309;">{{ domainLiveBouncesESPError }}</div>
-                <div v-else-if="domainLiveBouncesError" class="summary-empty" style="padding: 0 24px 24px; color: #dc2626;">{{ domainLiveBouncesError }}</div>
-                <div v-else-if="!domainLiveBouncesRows.length && domainLiveBouncesPagination?.total_count > 0" class="summary-empty" style="padding: 0 24px 24px;">
-                  No rows found for the current page.
+                <div class="pz-row" style="margin-bottom:12px;">
+                  <div class="pz-search" style="max-width:540px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    <input type="search" v-model="domainLiveBouncesSearch" placeholder="Search bounce reason, ESP, domain, recipient, code…"
+                           :disabled="domainLiveBouncesLoading || domainLiveBouncesRefreshing" @input="onDomainLiveBouncesSearchInput" />
+                  </div>
+                  <div class="vd-seg">
+                    <button :class="{ on: domainLiveBouncesView === 'summary' }" @click="setDomainLiveBouncesView('summary')">Summary</button>
+                    <button :class="{ on: domainLiveBouncesView === 'detail' }" @click="setDomainLiveBouncesView('detail')">Details</button>
+                  </div>
+                  <span class="pz-range" v-if="domainLiveBouncesPagination?.total_count" style="margin-left:auto;">
+                    {{ domainLiveBouncesPagination.start_row }}–{{ domainLiveBouncesPagination.end_row }} of {{ formatNumber(domainLiveBouncesPagination.total_count) }}
+                  </span>
                 </div>
-                <div v-else-if="!domainLiveBouncesPagination?.total_count && domainLiveBouncesSearch" class="summary-empty" style="padding: 0 24px 24px;">
-                  No matching bounce records found for the current search.
+
+                <div v-if="domainLiveBouncesLoading" class="tl-empty"><div class="tl-empty-s">Loading cached bounce data…</div></div>
+                <div v-else-if="domainLiveBouncesESPError" class="tl-callout warn">{{ domainLiveBouncesESPError }}</div>
+                <div v-else-if="domainLiveBouncesError" class="tl-callout err">{{ domainLiveBouncesError }}</div>
+                <div v-else-if="!domainLiveBouncesRows.length && domainLiveBouncesPagination?.total_count > 0" class="tl-empty">
+                  <div class="tl-empty-s">No rows found for the current page.</div>
                 </div>
-                <div v-else-if="!domainLiveBouncesPagination?.total_count" class="summary-empty" style="padding: 0 24px 24px;">
-                  No cached bounce reasons found for this view. Use one of the fetch buttons to load data from the ESPs.
+                <div v-else-if="!domainLiveBouncesPagination?.total_count && domainLiveBouncesSearch" class="tl-empty">
+                  <div class="tl-empty-s">No matching bounce records found for the current search.</div>
                 </div>
-                <div v-else style="padding: 0 24px 24px;">
-                  <div class="table-wrapper">
-                    <table v-if="domainLiveBouncesView === 'summary'" class="data-table">
-                      <thead>
-                        <tr>
-                          <th>ESP</th>
-                          <th>Region</th>
-                          <th>Account</th>
-                          <th>Email Domain</th>
-                          <th>Bounce Reason</th>
-                          <th>Count</th>
-                        </tr>
-                      </thead>
+                <div v-else-if="!domainLiveBouncesPagination?.total_count" class="tl-empty">
+                  <div class="tl-empty-ico">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg>
+                  </div>
+                  <div class="tl-empty-t">No bounce logs loaded for this view yet</div>
+                  <div class="tl-empty-s">Use <b>Fetch past 24h</b> or <b>Fetch yesterday</b> to pull bounce events straight from the ESP.</div>
+                </div>
+                <template v-else>
+                  <div style="overflow-x:auto;">
+                    <table v-if="domainLiveBouncesView === 'summary'" class="vd-table">
+                      <thead><tr><th>ESP</th><th>Region</th><th>Account</th><th>Email domain</th><th>Bounce reason</th><th class="vd-num">Count</th></tr></thead>
                       <tbody>
                         <tr v-for="(row, idx) in domainLiveBouncesRows" :key="`${row.esp}-${row.region}-${idx}`">
                           <td>{{ row.esp }}</td>
@@ -3173,25 +3415,13 @@
                           <td>{{ row.account_name }}</td>
                           <td>{{ row.sending_domain }}</td>
                           <td style="white-space: normal; max-width: 640px;">{{ row.bounce_reason }}</td>
-                          <td class="text-mono">{{ formatNumber(row.count) }}</td>
+                          <td class="vd-num" style="font-weight:600;">{{ formatNumber(row.count) }}</td>
                         </tr>
                       </tbody>
                     </table>
-                    <table v-else class="data-table">
+                    <table v-else class="vd-table">
                       <thead>
-                        <tr>
-                          <th>ESP</th>
-                          <th>Region</th>
-                          <th>Account</th>
-                          <th>Sending Domain</th>
-                          <th>Recipient Email</th>
-                          <th>Recipient Domain</th>
-                          <th>Bounce Type</th>
-                          <th>Bounce Reason</th>
-                          <th>Bounce Code</th>
-                          <th>Event Time</th>
-                          <th>Jira</th>
-                        </tr>
+                        <tr><th>ESP</th><th>Region</th><th>Account</th><th>Sending domain</th><th>Recipient</th><th>Recipient domain</th><th>Type</th><th>Bounce reason</th><th>Code</th><th>Event time</th><th></th></tr>
                       </thead>
                       <tbody>
                         <tr v-for="(row, idx) in domainLiveBouncesRows" :key="`${row.esp}-${row.region}-${row.event_timestamp}-${idx}`">
@@ -3201,34 +3431,28 @@
                           <td>{{ row.sending_domain }}</td>
                           <td style="white-space: normal; max-width: 320px;">{{ row.recipient || 'N/A' }}</td>
                           <td>{{ row.recipient_domain || 'N/A' }}</td>
-                          <td>{{ row.bounce_type }}</td>
+                          <td><span class="tl-type">{{ row.bounce_type }}</span></td>
                           <td style="white-space: normal; max-width: 520px;">{{ row.bounce_reason || 'N/A' }}</td>
-                          <td>{{ row.bounce_code || 'N/A' }}</td>
-                          <td>{{ row.event_timestamp }}</td>
+                          <td class="vd-sub" style="color:#334155;">{{ row.bounce_code || 'N/A' }}</td>
+                          <td class="vd-sub" style="white-space:nowrap;">{{ row.event_timestamp }}</td>
                           <td>
-                            <button class="btn btn-sm btn-secondary" @click="createJiraTicketFromBounce(row)" :disabled="jiraCreating">
-                              {{ jiraCreating ? 'Creating...' : 'Create' }}
+                            <button class="pz-ghost" @click="createJiraTicketFromBounce(row)" :disabled="jiraCreating">
+                              {{ jiraCreating ? 'Creating…' : 'Jira' }}
                             </button>
                           </td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
-                  <div v-if="domainLiveBouncesPagination?.total_pages > 1" style="margin-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-                    <div style="font-size: 13px; color: #64748b;">
-                      Page {{ domainLiveBouncesPagination.page }} of {{ domainLiveBouncesPagination.total_pages }}
-                    </div>
-                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                      <button class="btn btn-sm btn-secondary" :disabled="!domainLiveBouncesPagination.has_prev" @click="goToDomainLiveBouncesPage(domainLiveBouncesPagination.page - 1)">
-                        Previous
-                      </button>
-                      <button class="btn btn-sm btn-secondary" :disabled="!domainLiveBouncesPagination.has_next" @click="goToDomainLiveBouncesPage(domainLiveBouncesPagination.page + 1)">
-                        Next
-                      </button>
+                  <div v-if="domainLiveBouncesPagination?.total_pages > 1" class="pz-row" style="margin-top: 14px; justify-content: space-between;">
+                    <span class="vd-sub" style="font-size:12px;">Page {{ domainLiveBouncesPagination.page }} of {{ domainLiveBouncesPagination.total_pages }}</span>
+                    <div class="pz-row">
+                      <button class="pz-ghost" :disabled="!domainLiveBouncesPagination.has_prev" @click="goToDomainLiveBouncesPage(domainLiveBouncesPagination.page - 1)">← Previous</button>
+                      <button class="pz-ghost" :disabled="!domainLiveBouncesPagination.has_next" @click="goToDomainLiveBouncesPage(domainLiveBouncesPagination.page + 1)">Next →</button>
                     </div>
                   </div>
-                </div>
-              </div>
+                </template>
+              </template>
             </div>
           </div>
 
@@ -8961,16 +9185,21 @@
           pulsationLoading: false,
           pulsationData: null,
           pulsationTab: 'overall',
-          vd: { direction: 'drop', mode: 'weekly', level: 'account', consecutive: 2, minDrop: 10, minDaily: 5000, q: '' },
+          vd: { direction: 'drop', mode: 'weekly', level: 'account', consecutive: 2, minDrop: 10, minDaily: 5000, q: '', includeCurrent: true },
           vdData: null,
           vdLoading: false,
           vdError: '',
           vdOpen: null,
-          ot: { direction: 'drop', mode: 'weekly', level: 'account', consecutive: 2, minPts: 2, minDaily: 5000, q: '' },
+          ot: { direction: 'drop', mode: 'weekly', level: 'account', consecutive: 2, minPts: 2, minDaily: 5000, q: '', includeCurrent: true },
           otData: null,
           otLoading: false,
           otError: '',
           otOpen: null,
+          dt: { mode: 'weekly', level: 'account', consecutive: 2, minPts: 1, minDaily: 5000, q: '', includeCurrent: true },
+          dtData: null,
+          dtLoading: false,
+          dtError: '',
+          dtOpen: null,
           pulsationTrendAggregation: 'daily',
           pulsationViewType: 'yesterday',
           pulsationCustomCollectDate: '',
@@ -8981,12 +9210,6 @@
           jiraIssueType: 'Remediation',
           jiraCreating: false,
           pulsationSummaryOpen: false,
-          // Daily Summary
-          dailySummaryMode: 'daily',
-          dailySummaryRangeDays: 30,
-          dailySummaryExcludeClassdojo: true,
-          dailySummaryData: null,
-          dailySummaryLoading: false,
           homeDailySummaryMode: 'daily',
           homeDailySummaryRangeDays: 30,
           homeDailySummaryExcludeClassdojo: true,
@@ -9004,6 +9227,7 @@
           selectedDomain: '',
           chartDays: 30,
           chartData: null,
+          trendSpamhaus: null,
           activeCharts: {},
 
           // Animated counts for stat cards
@@ -9531,6 +9755,29 @@
           // Sandbox/dev domains are selectable individually but excluded from the combined view.
           return this.domainLiveBouncesSourceCandidates.filter(candidate => !candidate.is_sandbox).length;
         },
+        tlTarget() { return this.pulsationTrendMode === 'account' ? this.selectedAccount : this.selectedDomain; },
+        tlKpis() {
+          const d = this.chartData;
+          if (!d || !(d.dates || []).length) return null;
+          const sent = d.sent || [], del = d.delivered || [];
+          const S = sent.reduce((a, b) => a + (b || 0), 0), D = del.reduce((a, b) => a + (b || 0), 0);
+          // Rates are per period; weight them by volume so a tiny day can't swing the headline.
+          const wavg = (rates, w) => { let n = 0, t = 0; (rates || []).forEach((r, i) => { if (r != null && w[i]) { n += r * w[i]; t += w[i]; } }); return t ? n / t : null; };
+          let peak = 0, peakI = 0, minD = null, minDI = -1;
+          sent.forEach((v, i) => { if ((v || 0) > peak) { peak = v; peakI = i; } });
+          (d.delivery_rate || []).forEach((r, i) => { if (sent[i] && r != null && (minD == null || r < minD)) { minD = r; minDI = i; } });
+          const points = sent.filter(v => v > 0).length;
+          return { sent: S, delivered: D, points, avgSent: points ? S / points : 0,
+                   deliveryRate: S ? 100 * D / S : null, bounceRate: wavg(d.bounce_rate, sent), spamRate: wavg(d.spam_rate, del),
+                   peakSent: peak, peakDate: d.dates[peakI], minDelivery: minD, minDeliveryDate: minDI >= 0 ? d.dates[minDI] : null };
+        },
+        tlSpamhausListedDays() { return this.trendSpamhaus ? this.trendSpamhaus.values.filter(v => v > 0).length : 0; },
+        tlEdsColumns() {
+          return [{ label: 'Mailbox provider', key: 'email_domain' }, { label: 'Sent', key: 'sent_count', num: 1 }, { label: 'Delivered', key: 'delivered_count', num: 1 },
+                  { label: 'Delivery %', key: 'delivery_rate', num: 1 }, { label: 'Bounces', key: 'bounce_count', num: 1 }, { label: 'Soft bounces*', key: 'unique_soft_bounce_count', num: 1 },
+                  { label: 'Unique opens*', key: 'unique_open_count_user', num: 1 }, { label: 'Pre-fetch*', num: 1 }, { label: 'Proxy*', num: 1 },
+                  { label: 'Clicks', key: 'click_count', num: 1 }, { label: 'Spam', key: 'spam_report_count', num: 1 }, { label: 'Unsub', key: 'unsubscribe_count', num: 1 }];
+        },
         vdWinColor() { return this.vdData && this.vdData.direction === 'spike' ? '#1baf7a' : '#eb6834'; },
         vdSevTiles() {
           return this.vdData && this.vdData.direction === 'spike'
@@ -9541,6 +9788,14 @@
                { key: 'severe', icon: '▼▼', label: 'Severe', sub: 'down 50% or more' },
                { key: 'moderate', icon: '▼', label: 'Moderate', sub: 'down less than 50%' }];
         },
+        dtSevTiles() {
+          return [{ key: 'severe', icon: '▼▼▼', label: 'Severe', sub: 'down 5+ pts' },
+                  { key: 'high', icon: '▼▼', label: 'High', sub: 'down 2 – 5 pts' },
+                  { key: 'moderate', icon: '▼', label: 'Moderate', sub: 'down less than 2 pts' }];
+        },
+        vdRows() { return this.vdData ? [...this.vdData.flagged, ...(this.vdData.matches || [])] : []; },
+        otRows() { return this.otData ? [...this.otData.flagged, ...(this.otData.matches || [])] : []; },
+        dtRows() { return this.dtData ? [...this.dtData.flagged, ...(this.dtData.matches || [])] : []; },
         otWinColor() { return this.otData && this.otData.direction === 'spike' ? '#1baf7a' : '#eb6834'; },
         otSevTiles() {
           return this.otData && this.otData.direction === 'spike'
@@ -11243,12 +11498,8 @@
               this.chartData = result.data;
 
               // Wait for DOM update
-              this.$nextTick(() => {
-                this.renderChart('chartSent', result.data.dates, result.data.sent, 'Sent', '#3498db');
-                this.renderChart('chartDelivered', result.data.dates, result.data.delivered, 'Delivered', '#2ecc71');
-                this.renderChart('chartDeliveryRate', result.data.dates, result.data.delivery_rate, 'Delivery Rate (%)', '#f39c12');
-                this.renderChart('chartSpamRate', result.data.dates, result.data.spam_rate, 'Spam Rate (%)', '#e74c3c');
-              });
+              this.trendSpamhaus = null;
+              this.$nextTick(() => this.renderTrendCharts());
 
               const spamhausEndpoint = mode === 'account'
                 ? `/api/pulsation/spamhaus-trend/account/${encodeURIComponent(target)}`
@@ -11261,9 +11512,7 @@
                 const values = mode === 'account'
                   ? (spamhausResult.data.listed_count || [])
                   : (spamhausResult.data.status || []);
-                this.$nextTick(() => {
-                  this.renderChart('chartSpamhaus', labels, values, 'Spamhaus Listed', '#8b5cf6');
-                });
+                this.trendSpamhaus = { dates: labels, values: values.map(v => Number(v) || 0), mode };
               }
               if (mode === 'domain') {
                 // Drop stats belonging to the previous domain. Deliberately does not reload;
@@ -11361,7 +11610,7 @@
         async loadVolumeDrops() {
           const v = this.vd;
           const p = new URLSearchParams({ direction: v.direction, mode: v.mode, level: v.level, consecutive: v.consecutive,
-                                          min_drop_pct: v.minDrop, min_daily_avg: v.minDaily });
+                                          min_drop_pct: v.minDrop, min_daily_avg: v.minDaily, include_current: v.includeCurrent });
           if (v.q.trim()) p.set('q', v.q.trim());
           this.vdLoading = true; this.vdError = ''; this._destroyVdChart(); this.vdOpen = null;
           try {
@@ -11381,9 +11630,9 @@
           return String(Math.round(n));
         },
         _vdColors(f) {
-          const win = new Set(this.vdData.window || []);
-          const hot = this.vdWinColor;
-          return f.series.map(p => !p.complete ? '#cbd5e1' : win.has(p.label) ? hot : '#86b6ef');
+          const win = new Set(f.window || this.vdData.window || []);
+          const hot = f.flagged === false ? '#2a78d6' : this.vdWinColor;
+          return f.series.map(p => win.has(p.label) ? hot : !p.complete ? '#cbd5e1' : '#86b6ef');
         },
         vdSevIcon(sev) {
           return { stopped: '■', severe: '▼▼', surge: '▲▲▲', strong: '▲▲' }[sev]
@@ -11430,7 +11679,7 @@
         async loadOpenTrends() {
           const v = this.ot;
           const p = new URLSearchParams({ direction: v.direction, mode: v.mode, level: v.level, consecutive: v.consecutive,
-                                          min_change_pts: v.minPts, min_daily_delivered: v.minDaily });
+                                          min_change_pts: v.minPts, min_daily_delivered: v.minDaily, include_current: v.includeCurrent });
           if (v.q.trim()) p.set('q', v.q.trim());
           this.otLoading = true; this.otError = ''; this._destroyOtChart(); this.otOpen = null;
           try {
@@ -11454,8 +11703,9 @@
             || (this.otData && this.otData.direction === 'spike' ? '▲' : '▼');
         },
         _otColors(f) {
-          const win = new Set(this.otData.window || []);
-          return f.series.map(p => !p.trusted ? '#cbd5e1' : win.has(p.label) ? this.otWinColor : '#86b6ef');
+          const win = new Set(f.window || this.otData.window || []);
+          const hot = f.flagged === false ? '#2a78d6' : this.otWinColor;
+          return f.series.map(p => win.has(p.label) ? hot : !p.trusted ? '#cbd5e1' : '#86b6ef');
         },
         otSpark(f) {
           const vals = f.series.map(p => p.open_rate || 0), max = Math.max(1, ...vals);
@@ -11489,6 +11739,91 @@
                               `Click: ${p.click_rate != null ? p.click_rate + '%' : '—'}`]; } } } },
                 scales: { x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 } } },
                           y: { beginAtZero: true, grid: { color: '#eef2f7' }, border: { display: false },
+                               ticks: { color: '#94a3b8', font: { size: 10 }, callback: (v) => v + '%', maxTicksLimit: 5 } } }
+              }
+            });
+          });
+        },
+
+        // ---- Pulsation · Delivery Rate Trends -------------------------------
+        async loadDeliveryTrends() {
+          const v = this.dt;
+          const p = new URLSearchParams({ mode: v.mode, level: v.level, consecutive: v.consecutive,
+                                          min_change_pts: v.minPts, min_daily_sent: v.minDaily, include_current: v.includeCurrent });
+          if (v.q.trim()) p.set('q', v.q.trim());
+          this.dtLoading = true; this.dtError = ''; this._destroyDtChart(); this.dtOpen = null;
+          try {
+            const r = await fetch(`${this.API_BASE}/api/pulsation/delivery-rate-trends?${p}`);
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || r.statusText);
+            this.dtData = d;
+          } catch (e) {
+            this.dtError = 'Could not load delivery rate trends: ' + e.message;
+          } finally { this.dtLoading = false; }
+        },
+        dtUnit(n) {
+          const m = this.dtData ? this.dtData.mode : this.dt.mode;
+          const u = { daily: ['day', 'days'], weekly: ['week', 'weeks'], monthly: ['month', 'months'] }[m];
+          return n === 1 ? u[0] : u[1];
+        },
+        trendStatusLabel(f, data) {
+          if (f.status === 'ok') return data && data.direction === 'spike' ? 'No rise' : 'No drop';
+          return { low_volume: 'Low volume', no_data: 'No recent data' }[f.status] || f.status;
+        },
+        trendStatusTip(f, data) {
+          const unit = data && data.mode === 'monthly' ? 'months' : 'weeks';
+          if (f.status === 'low_volume') return 'Below the minimum volume, so it is not checked';
+          if (f.status === 'no_data') return 'No usable data in the compared ' + unit;
+          return 'Did not ' + (data && data.direction === 'spike' ? 'rise' : 'drop') + ' in every step of the window';
+        },
+        dtStatusLabel(f) { return { ok: 'No drop', low_volume: 'Low volume', no_data: 'No recent data' }[f.status] || f.status; },
+        dtStatusTip(f) {
+          if (f.status === 'low_volume') return 'Below the minimum sent volume, so it is not checked for drops';
+          if (f.status === 'no_data') return 'No usable delivery rate in the recent ' + this.dtUnit(2);
+          return 'Delivery rate did not drop in every step of the window';
+        },
+        _dtColors(f) {
+          const win = new Set(f.window || []), wc = f.flagged ? '#eb6834' : '#2a78d6';
+          return f.series.map(p => win.has(p.label) ? wc : !p.trusted ? '#cbd5e1' : '#86b6ef');
+        },
+        dtSpark(f) {
+          // Delivery rates live near 100%: scale from just under the lowest value so drops are visible.
+          const vals = f.series.map(p => p.delivery_rate), ok = vals.filter(v => v != null);
+          const lo = ok.length ? Math.max(0, Math.floor(Math.min(...ok) - 1)) : 0, span = Math.max(1, 100 - lo);
+          const n = vals.length, gap = n > 20 ? 1 : 2, bw = (150 - gap * (n - 1)) / n, colors = this._dtColors(f);
+          return vals.map((v, i) => { const h = v != null ? Math.max(2, (v - lo) / span * 28) : 1, x = i * (bw + gap);
+            return { k: i, d: `M${x},30V${30 - h}H${x + bw}V30Z`, fill: v != null ? colors[i] : '#e2e8f0' }; });
+        },
+        _destroyDtChart() { if (this._dtChart) { try { this._dtChart.destroy(); } catch (e) {} this._dtChart = null; } },
+        toggleDt(f, idx) {
+          this._destroyDtChart();
+          if (this.dtOpen === f.name) { this.dtOpen = null; return; }
+          this.dtOpen = f.name;
+          this.$nextTick(() => {
+            const el = document.getElementById('dt-chart-' + idx);
+            if (!el || !window.Chart) return;
+            const fmt = this.fmtVd, mode = this.dtData.mode;
+            const ok = f.series.map(p => p.delivery_rate).filter(v => v != null);
+            const lo = ok.length ? Math.max(0, Math.floor(Math.min(...ok) - 1)) : 0;
+            this._dtChart = new Chart(el.getContext('2d'), {
+              type: 'bar',
+              data: { labels: f.series.map(p => p.label + (p.complete ? '' : ' *')),
+                      datasets: [{ label: 'Delivery %', data: f.series.map(p => p.delivery_rate),
+                                   backgroundColor: this._dtColors(f), borderRadius: { topLeft: 4, topRight: 4 },
+                                   borderSkipped: 'bottom', maxBarThickness: 34 }] },
+              options: {
+                responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+                plugins: { legend: { display: false },
+                  tooltip: { callbacks: {
+                    title: (it) => { const p = f.series[it[0].dataIndex]; return (mode === 'weekly' ? 'Week of ' : '') + p.label + (p.complete ? (p.trusted ? '' : ' (partial)') : ' (so far)'); },
+                    label: (it) => { const p = f.series[it.dataIndex];
+                      const out = [`Delivery: ${p.delivery_rate != null ? p.delivery_rate + '%' : 'n/a'}`,
+                                   `Delivered ${fmt(p.delivered)} / sent ${fmt(p.sent)}`,
+                                   `Bounce: ${p.bounce_rate != null ? p.bounce_rate + '%' : '—'}`];
+                      if (p.excluded_rows) out.push(`${p.excluded_rows} row(s) >100% ignored`);
+                      return out; } } } },
+                scales: { x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 }, autoSkip: true, maxTicksLimit: 12, maxRotation: 0 } },
+                          y: { min: lo, max: 100, grid: { color: '#eef2f7' }, border: { display: false },
                                ticks: { color: '#94a3b8', font: { size: 10 }, callback: (v) => v + '%', maxTicksLimit: 5 } } }
               }
             });
@@ -12318,6 +12653,64 @@
             this.destroyChart(chartId);
           });
         },
+        tlRateClass(kind, v) {
+          if (v == null || isNaN(v)) return '';
+          if (kind === 'delivery') return v >= 98 ? 'good' : v >= 95 ? 'warn' : 'bad';
+          if (kind === 'bounce') return v < 2 ? 'good' : v < 5 ? 'warn' : 'bad';
+          return v < 0.1 ? 'good' : v < 0.3 ? 'warn' : 'bad';   // spam complaints
+        },
+        // Trend & Logs charts: one style for every panel (thin lines, no dots, index tooltips, compact axes).
+        _tlChart(ref, type, labels, datasets, opts = {}) {
+          this.destroyChart(ref);
+          const canvas = this.$refs[ref];
+          if (!canvas || !window.Chart) return;
+          const fmt = this.fmtVd, unit = opts.unit || '';
+          const tick = v => unit ? (+v).toFixed(opts.decimals ?? 1) + unit : fmt(v);
+          this.activeCharts[ref] = new Chart(canvas.getContext('2d'), {
+            type,
+            data: { labels, datasets },
+            options: {
+              responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+              interaction: { mode: 'index', intersect: false },
+              // monotone: smooth but never overshoots the real values (no fake dips/peaks)
+              elements: { point: { radius: 0, hoverRadius: 4 }, line: { cubicInterpolationMode: 'monotone', borderWidth: 2 } },
+              plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor: '#0f172a', padding: 10, cornerRadius: 8, titleFont: { weight: '700' }, boxPadding: 4,
+                           callbacks: { label: c => ' ' + c.dataset.label + ': ' + (c.raw == null ? '—' : unit ? (+c.raw).toFixed(opts.tipDecimals ?? 2) + unit : (+c.raw).toLocaleString()) } }
+              },
+              scales: {
+                x: { grid: { display: false }, border: { color: '#e2e8f0' },
+                     ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+                y: { beginAtZero: opts.beginAtZero !== false, suggestedMin: opts.min, suggestedMax: opts.max,
+                     grid: { color: '#eef2f7' }, border: { display: false },
+                     ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 5, callback: tick } }
+              }
+            }
+          });
+        },
+        renderTrendCharts() {
+          const d = this.chartData;
+          if (!d || this.pulsationTab !== 'charts' || this.pulsationTrendSubTab !== 'trend') return;
+          const L = (d.dates || []).map(x => String(x).replace(/^\d{4}-/, ''));   // drop the year on the axis
+          this._tlChart('chartSent', 'bar', L, [
+            { type: 'bar', label: 'Sent', data: d.sent, backgroundColor: '#2a78d6cc', borderRadius: 3, maxBarThickness: 22, order: 2 },
+            { type: 'line', label: 'Delivered', data: d.delivered, borderColor: '#1baf7a', backgroundColor: '#1baf7a', order: 1 }
+          ]);
+          const dr = (d.delivery_rate || []).filter(v => v != null);
+          const lo = dr.length ? Math.min(...dr) : 95;
+          this._tlChart('chartDeliveryRate', 'line', L,
+            [{ label: 'Delivery rate', data: d.delivery_rate, borderColor: '#2a78d6', backgroundColor: '#2a78d61a', fill: true }],
+            { unit: '%', beginAtZero: false, min: Math.max(0, Math.floor(lo - 1)), max: 100, decimals: 0 });
+          this._tlChart('chartBounceRate', 'line', L,
+            [{ label: 'Bounce rate', data: d.bounce_rate || [], borderColor: '#eda100', backgroundColor: '#eda1001f', fill: true }],
+            { unit: '%', decimals: 1 });
+          const sr = d.spam_rate || [];
+          this._tlChart('chartSpamRate', 'line', L, [
+            { label: 'Spam rate', data: sr, borderColor: '#eb6834', backgroundColor: '#eb68341a', fill: true },
+            { label: 'Target 0.1%', data: sr.map(() => 0.1), borderColor: '#94a3b8', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false }
+          ], { unit: '%', decimals: 2, tipDecimals: 4, max: 0.12 });
+        },
         renderChart(canvasId, labels, data, label, color) {
           this.destroyChart(canvasId);
 
@@ -12406,60 +12799,6 @@
 
           this.renderChart('homeDailySummarySentChart', labels, sentSeries, 'Total Sent', '#3b82f6');
           this.renderChart('homeDailySummaryDeliveryRateChart', labels, deliverySeries, 'Delivery Rate (%)', '#10b981');
-        },
-
-        // Daily Summary
-        async loadDailySummary() {
-          this.dailySummaryLoading = true;
-          try {
-            const response = await fetch(`${this.API_BASE}/api/pulsation/daily-summary?mode=${this.dailySummaryMode}&days=${this.dailySummaryRangeDays}`);
-            const result = await response.json();
-            if (result.status === 'success') {
-              this.dailySummaryData = result;
-              this.$nextTick(() => {
-                this.renderDailySummaryCharts();
-              });
-            } else {
-              this.showToast('error', 'Load Failed', result.detail || 'Failed to load daily summary');
-            }
-          } catch (err) {
-            this.showToast('error', 'Load Error', 'Error loading daily summary: ' + err.message);
-          } finally {
-            this.dailySummaryLoading = false;
-          }
-        },
-
-        switchDailySummaryMode(mode) {
-          this.dailySummaryMode = mode;
-          this.loadDailySummary();
-        },
-
-        setDailySummaryRange(days) {
-          this.dailySummaryRangeDays = days;
-          this.loadDailySummary();
-        },
-
-        toggleDailySummaryExclude() {
-          this.renderDailySummaryCharts();
-        },
-
-        getDailySummaryRows() {
-          if (!this.dailySummaryData) return [];
-          return this.dailySummaryExcludeClassdojo
-            ? (this.dailySummaryData.excluding_classdojo || [])
-            : (this.dailySummaryData.all || []);
-        },
-
-        renderDailySummaryCharts() {
-          if (!this.dailySummaryData) return;
-          const allData = this.dailySummaryData.all || [];
-          const exclData = this.dailySummaryData.excluding_classdojo || [];
-          const labels = allData.map(d => d.period);
-          const sentSeries = allData.map(d => d.total_sent || 0);
-          const deliverySeries = (this.dailySummaryExcludeClassdojo ? exclData : allData).map(d => d.delivery_rate || 0);
-
-          this.renderChart('dailySummarySentChart', labels, sentSeries, 'Total Sent', '#3b82f6');
-          this.renderChart('dailySummaryDeliveryRateChart', labels, deliverySeries, 'Delivery Rate (%)', '#10b981');
         },
 
         formatNumber(num) {
